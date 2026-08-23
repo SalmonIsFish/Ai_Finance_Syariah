@@ -809,6 +809,76 @@
       display: block;
     }
 
+    /* Crosshair readout for the portfolio chart. The overlay is HTML rather
+       than more SVG on purpose: the chart sets preserveAspectRatio="none", so
+       anything drawn inside the viewBox is stretched horizontally -- a circle
+       would render as an ellipse and a text label would come out squashed.
+       Positioning these in CSS pixels on top of the SVG keeps the dot round
+       and the label legible at any panel width. */
+    #portfolioHistoryChartWrap {
+      position: relative;
+    }
+
+    .chart-crosshair {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .chart-guide {
+      position: absolute;
+      width: 0;
+      border-left: 1px dashed var(--border-strong);
+    }
+
+    .chart-marker {
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      background: var(--panel);
+      transform: translate(-50%, -50%);
+    }
+
+    .chart-tooltip {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      padding: 5px 8px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      background: var(--panel-2);
+      box-shadow: var(--shadow);
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .chart-tooltip strong {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .chart-tooltip span {
+      display: block;
+      color: var(--subtle);
+      font-size: 10px;
+    }
+
+    /* A figure that is deliberately not live. Muted against the Live Equity
+       number in the panel below it, with the reason stated inline, so the two
+       read as different measurements rather than one of them being stale. */
+    .field-static strong {
+      color: var(--muted);
+    }
+
+    .field-note {
+      color: var(--subtle);
+      font-size: 10px;
+      line-height: 1.35;
+    }
+
     .chart-empty {
       margin: 0;
       color: var(--muted);
@@ -1499,7 +1569,7 @@
             <span id="riskPolicyBadge" class="badge warn">Not checked</span>
           </div>
           <div class="portfolio-summary">
-            <div class="paper-order-field"><span>Risk Baseline Equity</span><strong id="riskAccountEquity">-</strong></div>
+            <div class="paper-order-field field-static"><span>Risk Baseline Equity</span><strong id="riskAccountEquity">-</strong><small class="field-note">Fixed at provisioning. Sizes the position and exposure limits below -- it does not track the market. Live equity is in Account Balances.</small></div>
             <div class="paper-order-field"><span>Position Limit</span><strong id="riskMaxPosition">-</strong></div>
             <div class="paper-order-field"><span>Total Limit</span><strong id="riskMaxTotal">-</strong></div>
             <div class="paper-order-field"><span>Total Exposure</span><strong id="riskCurrentTotalExposure">-</strong></div>
@@ -3463,11 +3533,13 @@
       const width = 600;
       const height = 160;
       const padding = 8;
-      const points = values.map((value, index) => {
-        const x = padding + (index / (values.length - 1)) * (width - padding * 2);
-        const y = height - padding - ((value - minValue) / range) * (height - padding * 2);
-        return `${x.toFixed(2)},${y.toFixed(2)}`;
-      });
+      // Kept as numbers, not only as the polyline's string, because the
+      // crosshair below has to map a pointer position back onto a data point.
+      const coords = values.map((value, index) => ({
+        x: padding + (index / (values.length - 1)) * (width - padding * 2),
+        y: height - padding - ((value - minValue) / range) * (height - padding * 2),
+      }));
+      const points = coords.map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`);
 
       const first = values[0];
       const last = values[values.length - 1];
@@ -3479,6 +3551,17 @@
       svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
       svg.setAttribute("preserveAspectRatio", "none");
       svg.classList.add("portfolio-chart");
+      // Transparent hit area, drawn under the line, so the crosshair tracks
+      // anywhere in the plot rather than only where the pointer happens to
+      // cross the 2px stroke. fill="transparent" is hit-tested; fill="none"
+      // would not be.
+      const hitArea = document.createElementNS(svgNs, "rect");
+      hitArea.setAttribute("x", "0");
+      hitArea.setAttribute("y", "0");
+      hitArea.setAttribute("width", String(width));
+      hitArea.setAttribute("height", String(height));
+      hitArea.setAttribute("fill", "transparent");
+      svg.appendChild(hitArea);
       const polyline = document.createElementNS(svgNs, "polyline");
       polyline.setAttribute("points", points.join(" "));
       polyline.setAttribute("fill", "none");
@@ -3488,6 +3571,15 @@
       polyline.setAttribute("stroke-linecap", "round");
       svg.appendChild(polyline);
       portfolioHistoryChartWrap.appendChild(svg);
+      attachPortfolioHistoryCrosshair({
+        svg,
+        snapshots,
+        values,
+        coords,
+        width,
+        height,
+        lineColor,
+      });
 
       const startLabel = document.createElement("span");
       startLabel.textContent = `${formatLocalTime(snapshots[0].captured_at)} | ${formatMoney(first)}`;
@@ -3496,6 +3588,90 @@
       endLabel.innerHTML = `${formatLocalTime(snapshots[snapshots.length - 1].captured_at)} | ${formatMoney(last)} <span class="${changePct >= 0 ? "ok" : "bad"}">${arrow} ${Math.abs(changePct).toFixed(2)}%</span>`;
       portfolioHistorySummary.appendChild(startLabel);
       portfolioHistorySummary.appendChild(endLabel);
+    }
+
+    // Crosshair readout: a dashed guide at the hovered point, a dot on the
+    // nearest snapshot, and its date and dollar value in a small label. The
+    // chart is read side by side with Alpaca's own portfolio widget, which
+    // shows the same three things. Pointer events and DOM nodes only -- the
+    // zero-external-script-dependency rule above still holds.
+    function attachPortfolioHistoryCrosshair(chart) {
+      const { svg, snapshots, values, coords, width, height, lineColor } = chart;
+      const wrap = portfolioHistoryChartWrap;
+
+      const overlay = document.createElement("div");
+      overlay.className = "chart-crosshair";
+      overlay.hidden = true;
+      const guide = document.createElement("div");
+      guide.className = "chart-guide";
+      const marker = document.createElement("div");
+      marker.className = "chart-marker";
+      marker.style.borderColor = lineColor;
+      const tooltip = document.createElement("div");
+      tooltip.className = "chart-tooltip";
+      const tooltipValue = document.createElement("strong");
+      const tooltipWhen = document.createElement("span");
+      tooltip.append(tooltipValue, tooltipWhen);
+      overlay.append(guide, marker, tooltip);
+      wrap.appendChild(overlay);
+
+      function nearestIndex(viewBoxX) {
+        // Linear scan rather than arithmetic on the step: at most a few
+        // hundred points, and it stays correct if the spacing ever stops
+        // being uniform.
+        let index = 0;
+        let closest = Infinity;
+        coords.forEach((point, candidate) => {
+          const distance = Math.abs(point.x - viewBoxX);
+          if (distance < closest) {
+            closest = distance;
+            index = candidate;
+          }
+        });
+        return index;
+      }
+
+      function place(clientX) {
+        const svgRect = svg.getBoundingClientRect();
+        const wrapRect = wrap.getBoundingClientRect();
+        if (!svgRect.width || !svgRect.height) {
+          return;
+        }
+        // viewBox x maps linearly onto the rendered width -- the chart sets
+        // preserveAspectRatio="none", so there is no letterboxing to undo.
+        const viewBoxX = ((clientX - svgRect.left) / svgRect.width) * width;
+        const index = nearestIndex(viewBoxX);
+        const point = coords[index];
+        // The SVG is not always the wrap's first child (the local-fallback
+        // caption sits above it), so measure its offset rather than assuming 0.
+        const offsetLeft = svgRect.left - wrapRect.left;
+        const offsetTop = svgRect.top - wrapRect.top;
+        const pointX = offsetLeft + (point.x / width) * svgRect.width;
+        const pointY = offsetTop + (point.y / height) * svgRect.height;
+
+        overlay.hidden = false;
+        guide.style.left = `${pointX}px`;
+        guide.style.top = `${offsetTop}px`;
+        guide.style.height = `${svgRect.height}px`;
+        marker.style.left = `${pointX}px`;
+        marker.style.top = `${pointY}px`;
+        tooltipValue.textContent = formatMoney(values[index]);
+        tooltipWhen.textContent = formatLocalTime(snapshots[index].captured_at);
+
+        // Measured after the text is in, so the label stays inside the panel
+        // at both ends of the series and flips below the point when the top
+        // of the plot leaves no room for it.
+        const half = tooltip.offsetWidth / 2;
+        const above = pointY - tooltip.offsetHeight - 12 >= offsetTop;
+        tooltip.style.left = `${Math.min(Math.max(pointX, half + 2), wrapRect.width - half - 2)}px`;
+        tooltip.style.top = `${above ? pointY - 12 : pointY + 12}px`;
+        tooltip.style.transform = above ? "translate(-50%, -100%)" : "translate(-50%, 0)";
+      }
+
+      svg.addEventListener("pointermove", (event) => place(event.clientX));
+      svg.addEventListener("pointerleave", () => {
+        overlay.hidden = true;
+      });
     }
 
     portfolioHistoryRangeControls.addEventListener("click", (event) => {
