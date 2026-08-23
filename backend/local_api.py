@@ -9,9 +9,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+import portfolio_metrics
 from agent_coordinator import evaluate_candidate
 from agents.shariah_agent import detect_market, evaluate_shariah
-from alpaca_paper_adapter import ALPACA_ADAPTERS, check_alpaca_status
+from alpaca_paper_adapter import (
+    ALPACA_ADAPTERS,
+    alpaca_credentials,
+    check_alpaca_status,
+    fetch_broker_positions,
+)
 from approval_queue import ensure_approval_queue, get_approval, list_approvals, record_approval
 from approval_workflow import approve_candidate
 from config import allowed_origins, load_settings
@@ -26,8 +32,10 @@ from paper_execution import (
 )
 from portfolio_store import (
     ensure_portfolio_tables,
+    list_portfolio_snapshots,
     open_position_quantity,
     portfolio_snapshot,
+    record_portfolio_snapshot,
     sync_filled_order,
 )
 from shariah_candidate import build_shariah_candidate
@@ -1097,6 +1105,10 @@ def home() -> dict:
             "/execution-audit",
             "/positions",
             "/portfolio",
+            "/portfolio/history",
+            "/portfolio/history/live",
+            "/paper/account",
+            "/paper/positions/live",
             "/approvals",
             "/audit",
         ],
@@ -1133,6 +1145,88 @@ def paper_status() -> dict:
         "live_trading": False,
         "broker_submission": broker_submission_configured(settings),
     }
+
+
+@app.get("/paper/account")
+def paper_account() -> dict:
+    """Live broker account facts -- equity, cash, buying power, daily change.
+
+    Display only. account_shariah_gate and the risk overlay still size off the
+    static PAPER_ACCOUNT_EQUITY baseline (provision_cash_account.py), not this.
+    """
+    return check_alpaca_status()
+
+
+@app.get("/paper/positions/live")
+def paper_positions_live() -> dict:
+    """Live broker positions, including options -- read-only, never booked.
+
+    Separate from GET /positions, which is the local equity-only ledger (see
+    CLAUDE.md Known limitation 2: option fills are audited, not tracked as
+    positions there). This is a direct read of what Alpaca itself reports.
+    """
+    return fetch_broker_positions()
+
+
+@app.get("/portfolio/history/live")
+def portfolio_history_live(period: str = "1M", timeframe: str | None = None) -> dict:
+    """The account's real equity curve, straight from the broker.
+
+    Backs the dashboard's Portfolio Value History chart with actual mark-to-
+    market history instead of locally-accumulated snapshots. fetch_portfolio_history
+    raises SystemExit on a broker failure (by design, for its CLI use) -- caught
+    here and reported as a status field instead, matching every other endpoint's
+    fail-closed shape.
+    """
+    credentials = alpaca_credentials()
+    if credentials is None:
+        return {"status": "credentials_missing", "timestamps": [], "equity": []}
+
+    resolved_timeframe = timeframe or ("5Min" if period == "1D" else "1D")
+    try:
+        history = portfolio_metrics.fetch_portfolio_history(
+            credentials=credentials, period=period, timeframe=resolved_timeframe
+        )
+    except SystemExit as exc:
+        return {"status": "unreachable", "reason": str(exc), "timestamps": [], "equity": []}
+
+    effective_timeframe = history.get("timeframe") or resolved_timeframe
+    return {
+        "status": "ok",
+        "period": period,
+        "timeframe": effective_timeframe,
+        "timestamps": history.get("timestamp") or [],
+        "equity": history.get("equity") or [],
+        "profit_loss": history.get("profit_loss") or [],
+        "profit_loss_pct": history.get("profit_loss_pct") or [],
+        "base_value": history.get("base_value"),
+        "metrics": daily_bar_metrics(history, timeframe=effective_timeframe),
+    }
+
+
+def daily_bar_metrics(history: dict, *, timeframe: str) -> dict:
+    """compute_metrics, but only where its own definitions hold.
+
+    portfolio_metrics annualizes by a hardcoded 252 trading days and names its
+    outputs mean_daily_return / daily_volatility / best_day / worst_day. That is
+    correct for timeframe=1D, which is the only granularity its CLI ever passed.
+    This endpoint is the first caller that can hand it 5Min bars (period=1D
+    resolves to them above), and on those the ratios are off by a factor of
+    sqrt(bars per day) while still being labelled "daily" -- a wrong number that
+    reads as a right one. Refusing to compute is the honest answer; widening
+    compute_metrics to take an annualization factor is a portfolio_metrics
+    change, not a reporting-endpoint change.
+    """
+    if timeframe != "1D":
+        return {
+            "status": "NOT_APPLICABLE",
+            "timeframe": timeframe,
+            "reason": (
+                f"risk metrics are defined on daily bars; this window is {timeframe}, "
+                "and annualizing it as daily would misreport every ratio"
+            ),
+        }
+    return portfolio_metrics.compute_metrics(history)
 
 
 @app.get("/system/mode")
@@ -1586,6 +1680,30 @@ def reconcile_paper(queue_id: int) -> dict:
 def portfolio() -> dict:
     connection = db()
     try:
-        return portfolio_snapshot_with_exposure(connection)
+        snapshot = portfolio_snapshot_with_exposure(connection)
+        # Throttled to one row per 15 minutes inside record_portfolio_snapshot;
+        # a fallback history source for when the live broker curve
+        # (/portfolio/history/live) is unreachable, not the primary one.
+        #
+        # Best-effort, for the same reason sec_edgar_screen.check_us_symbol
+        # swallows its own audit-log write: this is bookkeeping hanging off a
+        # read, and a locked SQLite file must not turn a working portfolio
+        # read into a 500. The dashboard hits this on every refresh, and
+        # FastAPI runs sync handlers in a threadpool, so concurrent refreshes
+        # really can collide on the write lock.
+        try:
+            record_portfolio_snapshot(connection, snapshot)
+        except Exception:
+            pass
+        return snapshot
+    finally:
+        connection.close()
+
+
+@app.get("/portfolio/history")
+def portfolio_history() -> dict:
+    connection = db()
+    try:
+        return {"snapshots": list_portfolio_snapshots(connection)}
     finally:
         connection.close()

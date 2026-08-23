@@ -65,6 +65,10 @@ def main() -> None:
     assert "/paper/execute/{queue_id}" in home_payload["routes"]
     assert "/paper/reconcile/{queue_id}" in home_payload["routes"]
     assert "/portfolio" in home_payload["routes"]
+    assert "/portfolio/history" in home_payload["routes"]
+    assert "/portfolio/history/live" in home_payload["routes"]
+    assert "/paper/account" in home_payload["routes"]
+    assert "/paper/positions/live" in home_payload["routes"]
     assert "/approvals" in home_payload["routes"]
 
     health = client.get("/health")
@@ -159,27 +163,31 @@ def main() -> None:
     assert watchlist_payload["alert_threshold_pct"] == 2.0
     assert "latest_results" in watchlist_payload
 
-    original_scan_evaluate_candidate = local_api.scan_opportunities.__globals__["evaluate_candidate"]
+    original_scan_evaluate_candidate = local_api.scan_opportunities.__globals__[
+        "evaluate_candidate"
+    ]
     original_scan_evaluate_quant = local_api.scan_opportunities.__globals__["evaluate_quant"]
-    local_api.scan_opportunities.__globals__["evaluate_quant"] = lambda symbol, allow_fallback=False, allow_stale_cache=False: {
-        "agent": "quant",
-        "status": "PASS" if symbol == "AAPL" else "NO_SIGNAL",
-        "symbol": symbol,
-        "signal": "BUY" if symbol == "AAPL" else "NO_SIGNAL",
-        "reason": "test",
-        "price": 100.0,
-        "bars": 200,
-        "price_source": "test",
-        "strategy": {
+    local_api.scan_opportunities.__globals__["evaluate_quant"] = (
+        lambda symbol, allow_fallback=False, allow_stale_cache=False: {
+            "agent": "quant",
+            "status": "PASS" if symbol == "AAPL" else "NO_SIGNAL",
+            "symbol": symbol,
             "signal": "BUY" if symbol == "AAPL" else "NO_SIGNAL",
-            "sma50": 120.0,
-            "sma200": 100.0,
-            "trend_ok": True,
-            "breakout_ok": symbol == "AAPL",
-            "breakout_level": 99.0,
-            "breakout_gap_pct": 1.0,
-        },
-    }
+            "reason": "test",
+            "price": 100.0,
+            "bars": 200,
+            "price_source": "test",
+            "strategy": {
+                "signal": "BUY" if symbol == "AAPL" else "NO_SIGNAL",
+                "sma50": 120.0,
+                "sma200": 100.0,
+                "trend_ok": True,
+                "breakout_ok": symbol == "AAPL",
+                "breakout_level": 99.0,
+                "breakout_gap_pct": 1.0,
+            },
+        }
+    )
     local_api.scan_opportunities.__globals__["evaluate_candidate"] = lambda **kwargs: {
         "symbol": kwargs["symbol"],
         "side": "BUY",
@@ -210,9 +218,13 @@ def main() -> None:
     }
     try:
         opportunities = client.get("/opportunities?symbols=MSFT,AAPL&alert_threshold_pct=2.0")
-        forced_opportunities = client.get("/opportunities?force=true&symbols=MSFT,AAPL&alert_threshold_pct=2.0")
+        forced_opportunities = client.get(
+            "/opportunities?force=true&symbols=MSFT,AAPL&alert_threshold_pct=2.0"
+        )
     finally:
-        local_api.scan_opportunities.__globals__["evaluate_candidate"] = original_scan_evaluate_candidate
+        local_api.scan_opportunities.__globals__["evaluate_candidate"] = (
+            original_scan_evaluate_candidate
+        )
         local_api.scan_opportunities.__globals__["evaluate_quant"] = original_scan_evaluate_quant
     assert opportunities.status_code == 200, opportunities.text
     opportunities_payload = opportunities.json()
@@ -331,8 +343,14 @@ def main() -> None:
     fixture_preview_payload = fixture_preview.json()
     assert fixture_preview_payload["preview"]["status"] == "READY_FOR_APPROVAL"
     assert fixture_preview_payload["preview"]["broker_submission"] is False
-    assert fixture_preview_payload["preview"]["agent_summary"]["shariah"]["provider"] == "PAPER_TEST_FIXTURE"
-    assert fixture_preview_payload["preview"]["agent_summary"]["quant"]["price_source"] == "paper_test_fixture"
+    assert (
+        fixture_preview_payload["preview"]["agent_summary"]["shariah"]["provider"]
+        == "PAPER_TEST_FIXTURE"
+    )
+    assert (
+        fixture_preview_payload["preview"]["agent_summary"]["quant"]["price_source"]
+        == "paper_test_fixture"
+    )
 
     original_evaluate_candidate = local_api.evaluate_candidate
     local_api.evaluate_candidate = lambda **kwargs: {
@@ -434,7 +452,9 @@ def main() -> None:
     assert latest_payload["preview"]["quote_snapshot"]["source"] == "tiingo"
     assert latest_payload["preview"]["quote_snapshot"]["latest_date"] == "2026-07-21"
 
-    missing_confirmation = client.post(f"/paper/execute/{ready_approval_payload['queue_id']}", json={})
+    missing_confirmation = client.post(
+        f"/paper/execute/{ready_approval_payload['queue_id']}", json={}
+    )
     assert missing_confirmation.status_code == 200, missing_confirmation.text
     missing_confirmation_payload = missing_confirmation.json()
     assert missing_confirmation_payload["status"] == "CONFIRMATION_REQUIRED"

@@ -1499,7 +1499,7 @@
             <span id="riskPolicyBadge" class="badge warn">Not checked</span>
           </div>
           <div class="portfolio-summary">
-            <div class="paper-order-field"><span>Account Equity</span><strong id="riskAccountEquity">-</strong></div>
+            <div class="paper-order-field"><span>Risk Baseline Equity</span><strong id="riskAccountEquity">-</strong></div>
             <div class="paper-order-field"><span>Position Limit</span><strong id="riskMaxPosition">-</strong></div>
             <div class="paper-order-field"><span>Total Limit</span><strong id="riskMaxTotal">-</strong></div>
             <div class="paper-order-field"><span>Total Exposure</span><strong id="riskCurrentTotalExposure">-</strong></div>
@@ -1510,17 +1510,31 @@
 
         <section class="panel" data-view="portfolio">
           <div class="panel-head">
+            <h2>Account Balances</h2>
+            <span id="liveAccountBadge" class="badge warn">Not checked</span>
+          </div>
+          <div class="portfolio-summary">
+            <div class="paper-order-field"><span>Live Equity</span><strong id="liveEquityValue">-</strong></div>
+            <div class="paper-order-field"><span>Daily Change</span><strong id="liveDailyChange">-</strong></div>
+            <div class="paper-order-field"><span>Buying Power</span><strong id="liveBuyingPower">-</strong></div>
+            <div class="paper-order-field"><span>Cash</span><strong id="liveCash">-</strong></div>
+            <div class="paper-order-field"><span>Account</span><strong id="liveAccountMeta">-</strong></div>
+          </div>
+        </section>
+
+        <section class="panel" data-view="portfolio">
+          <div class="panel-head">
             <h2>Portfolio Value History</h2>
             <span id="portfolioHistoryBadge" class="badge warn">Not checked</span>
           </div>
           <div class="chart-controls" id="portfolioHistoryRangeControls">
             <button class="chart-range-button" type="button" data-range="1D">1D</button>
-            <button class="chart-range-button" type="button" data-range="1W">1W</button>
             <button class="chart-range-button" type="button" data-range="1M">1M</button>
-            <button class="chart-range-button active" type="button" data-range="ALL">ALL</button>
+            <button class="chart-range-button active" type="button" data-range="1Y">1Y</button>
+            <button class="chart-range-button" type="button" data-range="All">All</button>
           </div>
           <div id="portfolioHistoryChartWrap">
-            <p class="chart-empty">No portfolio value history yet -- snapshots accumulate as the dashboard refreshes.</p>
+            <p class="chart-empty">No portfolio value history yet -- the broker equity curve loads on the next refresh.</p>
           </div>
           <div id="portfolioHistorySummary" class="chart-summary"></div>
 
@@ -1542,6 +1556,15 @@
             <div class="paper-order-field"><span>Realized P&L</span><strong id="portfolioRealizedPnl">-</strong></div>
           </div>
           <div id="portfolioList" class="portfolio-list"></div>
+        </section>
+
+        <section class="panel" data-view="portfolio">
+          <div class="panel-head">
+            <h2>Live Broker Positions</h2>
+            <span id="liveBrokerPositionsBadge" class="badge warn">Not checked</span>
+          </div>
+          <p class="chart-empty" style="margin: 0 0 8px;">Straight from the broker, including options -- CLAUDE.md Known limitation 2: option fills are audited but never booked as local positions, so this is the only place options show up as positions rather than fills.</p>
+          <div id="liveBrokerPositionsList" class="portfolio-list"></div>
         </section>
 
         <section class="panel" data-view="news">
@@ -1643,6 +1666,14 @@
     const paperOrdersList = document.querySelector("#paperOrdersList");
     const paperOrdersCount = document.querySelector("#paperOrdersCount");
     const riskPolicyBadge = document.querySelector("#riskPolicyBadge");
+    const liveAccountBadge = document.querySelector("#liveAccountBadge");
+    const liveEquityValue = document.querySelector("#liveEquityValue");
+    const liveDailyChange = document.querySelector("#liveDailyChange");
+    const liveBuyingPower = document.querySelector("#liveBuyingPower");
+    const liveCash = document.querySelector("#liveCash");
+    const liveAccountMeta = document.querySelector("#liveAccountMeta");
+    const liveBrokerPositionsBadge = document.querySelector("#liveBrokerPositionsBadge");
+    const liveBrokerPositionsList = document.querySelector("#liveBrokerPositionsList");
     const riskAccountEquity = document.querySelector("#riskAccountEquity");
     const riskMaxPosition = document.querySelector("#riskMaxPosition");
     const riskMaxTotal = document.querySelector("#riskMaxTotal");
@@ -2613,6 +2644,8 @@
         renderPaperOrders(approvals);
         renderPortfolio(portfolio);
         refreshPortfolioHistory();
+        refreshLiveAccount();
+        refreshLiveBrokerPositions();
         renderAudit(audit);
         renderMarketOverview(marketOverview);
         renderExecutionAudit(executionAudit);
@@ -3109,7 +3142,13 @@
     }
 
     function formatMoney(value) {
-      return value == null ? "-" : `$${Number(value).toFixed(2)}`;
+      if (value == null) {
+        return "-";
+      }
+      // Sign outside the symbol: -$25.00, not $-25.00. Negative money shows up
+      // in daily change, unrealized P&L and short option market values.
+      const amount = Number(value);
+      return `${amount < 0 ? "-" : ""}$${Math.abs(amount).toFixed(2)}`;
     }
 
     function formatNumber(value) {
@@ -3219,6 +3258,95 @@
     }
 
     // ---------------------------------------------------------------------
+    // Live account + live broker positions -- GET /paper/account and
+    // GET /paper/positions/live read straight from Alpaca on every refresh,
+    // separate from the static PAPER_ACCOUNT_EQUITY risk baseline shown in
+    // the Risk Policy panel above. Both fail closed to an empty/"Not
+    // available" state rather than throwing, same pattern as News.
+    // ---------------------------------------------------------------------
+
+    async function refreshLiveAccount() {
+      try {
+        const account = await getJson("/paper/account");
+        if (account.status !== "paper_account_ready") {
+          setBadge(liveAccountBadge, account.status === "credentials_missing" ? "No Credentials" : "Not available", "warn");
+          liveEquityValue.textContent = "-";
+          liveDailyChange.textContent = "-";
+          liveDailyChange.className = "";
+          liveBuyingPower.textContent = "-";
+          liveCash.textContent = "-";
+          liveAccountMeta.textContent = "-";
+          return;
+        }
+        setBadge(liveAccountBadge, "Live", "ok");
+        liveEquityValue.textContent = formatMoney(account.equity);
+        const changeOk = Number(account.daily_change || 0) >= 0;
+        const changePctText = account.daily_change_pct == null ? "" : ` (${changeOk ? "+" : ""}${Number(account.daily_change_pct).toFixed(2)}%)`;
+        liveDailyChange.textContent = `${formatMoney(account.daily_change)}${changePctText}`;
+        liveDailyChange.className = changeOk ? "ok" : "bad";
+        liveBuyingPower.textContent = formatMoney(account.buying_power);
+        liveCash.textContent = formatMoney(account.cash);
+        liveAccountMeta.textContent = `${account.account_type || "-"} ${account.account_suffix || "-"}`;
+      } catch (error) {
+        setBadge(liveAccountBadge, "Not available", "warn");
+      }
+    }
+
+    async function refreshLiveBrokerPositions() {
+      liveBrokerPositionsList.replaceChildren();
+      try {
+        const payload = await getJson("/paper/positions/live");
+        const positions = payload.positions || [];
+        if (payload.status !== "ok" || !positions.length) {
+          // "The broker says you hold nothing" and "we could not ask the
+          // broker" are different facts. Reporting the second as the first
+          // would show an empty book that isn't known to be empty.
+          const reachable = payload.status === "ok";
+          setBadge(liveBrokerPositionsBadge, reachable ? "0 Positions" : "Not available", "warn");
+          const empty = document.createElement("div");
+          empty.className = "portfolio-item";
+          const label = document.createElement("span");
+          label.className = "badge warn";
+          label.textContent = reachable ? "Empty" : "Unavailable";
+          const detail = document.createElement("div");
+          detail.className = "queue-meta";
+          detail.textContent = reachable
+            ? "No open broker positions."
+            : `Could not read positions from the broker (${payload.status || "unreachable"}).`;
+          empty.append(label, detail);
+          liveBrokerPositionsList.append(empty);
+          return;
+        }
+        setBadge(liveBrokerPositionsBadge, `${positions.length} ${positions.length === 1 ? "Position" : "Positions"}`, "ok");
+        // Largest exposure first. Absolute value, so a short option position --
+        // whose market_value is negative -- ranks by its size, not below every
+        // long. Alpaca returns positions alphabetically, which buries the
+        // biggest holding behind whatever happens to start with an A.
+        const ranked = positions.slice().sort(
+          (a, b) => Math.abs(Number(b.market_value || 0)) - Math.abs(Number(a.market_value || 0))
+        );
+        ranked.forEach((position) => {
+          const row = document.createElement("div");
+          row.className = "portfolio-item";
+          const pnlOk = Number(position.unrealized_pnl || 0) >= 0;
+          row.innerHTML = `
+            <div class="portfolio-row">
+              <span class="badge ${position.asset_class === "us_option" ? "warn" : "ok"}">${position.symbol}</span>
+              <div class="queue-meta">
+                <strong>${formatNumber(position.quantity)} @ ${formatMoney(position.current_price)} | Value ${formatMoney(position.market_value)}</strong>
+                <span>Side ${position.side || "-"} | Avg Entry ${formatMoney(position.average_entry_price)} | Asset ${position.asset_class || "-"}</span>
+                <span class="${pnlOk ? "ok" : "bad"}">Total P&L ${formatMoney(position.unrealized_pnl)} (${position.unrealized_pnl_pct == null ? "-" : `${Number(position.unrealized_pnl_pct).toFixed(2)}%`})</span>
+              </div>
+            </div>
+          `;
+          liveBrokerPositionsList.append(row);
+        });
+      } catch (error) {
+        setBadge(liveBrokerPositionsBadge, "Not available", "warn");
+      }
+    }
+
+    // ---------------------------------------------------------------------
     // Portfolio value history -- hand-rolled inline SVG line chart, no
     // charting library (the dashboard has zero external script dependencies
     // by design). Tries GET /portfolio/history; renders an empty state on
@@ -3228,26 +3356,58 @@
     // ---------------------------------------------------------------------
 
     let currentPortfolioHistory = [];
-    let portfolioHistoryRange = "ALL";
+    let currentPortfolioHistorySource = "none";
+    let portfolioHistoryRange = "1Y";
 
-    const PORTFOLIO_HISTORY_RANGE_MS = {
-      "1D": 24 * 60 * 60 * 1000,
-      "1W": 7 * 24 * 60 * 60 * 1000,
-      "1M": 30 * 24 * 60 * 60 * 1000,
-      ALL: null,
+    // Alpaca's own period/timeframe vocabulary -- GET /portfolio/history/live
+    // passes these straight through to GET /v2/account/portfolio/history.
+    const PORTFOLIO_HISTORY_RANGE_PARAMS = {
+      "1D": { period: "1D", timeframe: "5Min" },
+      "1M": { period: "1M", timeframe: "1D" },
+      "1Y": { period: "1A", timeframe: "1D" },
+      All: { period: "all", timeframe: "1D" },
     };
 
+    // Real broker equity curve first (mark-to-market, matches what Alpaca's
+    // own dashboard shows); locally-accumulated snapshots are a fallback for
+    // when the broker is unreachable or credentials aren't set, not the
+    // primary source -- see /portfolio/history/live's docstring.
     async function fetchPortfolioHistory() {
+      const params = PORTFOLIO_HISTORY_RANGE_PARAMS[portfolioHistoryRange] || PORTFOLIO_HISTORY_RANGE_PARAMS["1Y"];
+      try {
+        const live = await getJson(`/portfolio/history/live?period=${params.period}&timeframe=${params.timeframe}`);
+        const timestamps = live.timestamps || [];
+        const equity = live.equity || [];
+        // Alpaca pads the series with zero-equity bars before the account was
+        // funded (see portfolio_metrics.daily_returns) -- drop that leading
+        // padding so a wide range (1Y/All) doesn't render as a long flat
+        // stretch at $0 followed by a vertical jump.
+        const firstFunded = equity.findIndex((value) => Number(value) > 0);
+        const startIndex = firstFunded === -1 ? 0 : firstFunded;
+        const equitySeries = equity.slice(startIndex);
+        if (live.status === "ok" && equitySeries.length >= 2) {
+          return {
+            source: "live",
+            snapshots: timestamps.slice(startIndex).map((seconds, index) => ({
+              captured_at: new Date(seconds * 1000).toISOString(),
+              account_equity: equitySeries[index],
+            })),
+          };
+        }
+      } catch (error) {
+        // fall through to the local snapshot fallback below
+      }
       try {
         const payload = await getJson("/portfolio/history");
-        return Array.isArray(payload.snapshots) ? payload.snapshots : [];
+        return { source: "local", snapshots: Array.isArray(payload.snapshots) ? payload.snapshots : [] };
       } catch (error) {
-        return null;
+        return { source: "none", snapshots: null };
       }
     }
 
     async function refreshPortfolioHistory() {
-      const snapshots = await fetchPortfolioHistory();
+      const { source, snapshots } = await fetchPortfolioHistory();
+      currentPortfolioHistorySource = source;
       if (snapshots === null) {
         setBadge(portfolioHistoryBadge, "Not available", "warn");
         currentPortfolioHistory = [];
@@ -3255,17 +3415,18 @@
         return;
       }
       currentPortfolioHistory = snapshots;
-      setBadge(portfolioHistoryBadge, `${snapshots.length} ${snapshots.length === 1 ? "Snapshot" : "Snapshots"}`, snapshots.length ? "ok" : "warn");
+      const label = source === "live"
+        ? `Live (${snapshots.length})`
+        : `Fallback (${snapshots.length})`;
+      setBadge(portfolioHistoryBadge, label, source === "live" && snapshots.length ? "ok" : "warn");
       renderPortfolioHistoryChart();
     }
 
     function windowedPortfolioHistory() {
-      const windowMs = PORTFOLIO_HISTORY_RANGE_MS[portfolioHistoryRange];
-      if (!windowMs) {
-        return currentPortfolioHistory;
-      }
-      const cutoff = Date.now() - windowMs;
-      return currentPortfolioHistory.filter((snapshot) => new Date(snapshot.captured_at).getTime() >= cutoff);
+      // The server already scoped the series to portfolioHistoryRange (or, on
+      // the local-snapshot fallback, there is no server-side window to apply
+      // in the first place) -- no further client-side filtering needed.
+      return currentPortfolioHistory;
     }
 
     function renderPortfolioHistoryChart() {
@@ -3276,10 +3437,23 @@
         const empty = document.createElement("p");
         empty.className = "chart-empty";
         empty.textContent = currentPortfolioHistory.length
-          ? "Not enough snapshots in this range yet -- try a wider range."
-          : "No portfolio value history yet -- snapshots accumulate as the dashboard refreshes.";
+          ? "Not enough history in this range yet -- try a wider range."
+          : "No portfolio value history yet -- the broker equity curve loads on the next refresh.";
         portfolioHistoryChartWrap.appendChild(empty);
         return;
+      }
+
+      // The local fallback plots portfolio_value_snapshots.account_equity, which
+      // is the static PAPER_ACCOUNT_EQUITY risk baseline -- not a mark-to-market
+      // value. It is a flat line by construction, so say so rather than letting
+      // it pass for a very calm equity curve.
+      if (currentPortfolioHistorySource === "local") {
+        const caption = document.createElement("p");
+        caption.className = "chart-empty";
+        caption.style.margin = "0 0 8px";
+        caption.textContent =
+          "Broker equity curve unavailable -- showing local snapshots of the static risk baseline, which does not move with the market.";
+        portfolioHistoryChartWrap.appendChild(caption);
       }
 
       const values = snapshots.map((snapshot) => Number(snapshot.account_equity ?? snapshot.market_value ?? 0));
@@ -3333,7 +3507,10 @@
       Array.from(portfolioHistoryRangeControls.querySelectorAll("[data-range]")).forEach((candidate) => {
         candidate.classList.toggle("active", candidate === button);
       });
-      renderPortfolioHistoryChart();
+      // A range change needs a new server request now -- period is resolved
+      // broker-side (PORTFOLIO_HISTORY_RANGE_PARAMS), not filtered client-side.
+      setBadge(portfolioHistoryBadge, "Checking", "warn");
+      refreshPortfolioHistory();
     });
 
     // ---------------------------------------------------------------------

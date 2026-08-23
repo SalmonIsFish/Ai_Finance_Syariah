@@ -969,6 +969,14 @@ def paper_account_from_payload(payload) -> dict | None:
         # Settled cash only. buying_power is inflated by margin, so it can never
         # stand as collateral evidence for a cash-secured put.
         "cash": _float_or_zero(payload.get("cash")),
+        # Mark-to-market fields, for display only -- never used as gate/collateral
+        # evidence. equity/portfolio_value move with live prices; last_equity is
+        # the prior trading day's close, which is what a daily-change figure is
+        # measured against.
+        "equity": _float_or_zero(payload.get("equity")),
+        "last_equity": _float_or_zero(payload.get("last_equity")),
+        "buying_power": _float_or_zero(payload.get("buying_power")),
+        "portfolio_value": _float_or_zero(payload.get("portfolio_value")),
         "raw_account": payload,
     }
 
@@ -1277,6 +1285,10 @@ def check_alpaca_status() -> dict:
             "account_status": account["account_status"],
         }
 
+    daily_change = round(account["equity"] - account["last_equity"], 2)
+    daily_change_pct = (
+        round(daily_change / account["last_equity"] * 100, 4) if account["last_equity"] else None
+    )
     return {
         **base,
         "status": "paper_account_ready",
@@ -1287,4 +1299,55 @@ def check_alpaca_status() -> dict:
         "account_suffix": account["account_suffix"],
         "options_trading_level": account["options_trading_level"],
         "cash": account["cash"],
+        # Live mark-to-market, for dashboard display only -- account_shariah_gate
+        # and the risk overlay still size off the static PAPER_ACCOUNT_EQUITY
+        # baseline (see provision_cash_account.py), not these fields.
+        "equity": account["equity"],
+        "last_equity": account["last_equity"],
+        "buying_power": account["buying_power"],
+        "portfolio_value": account["portfolio_value"],
+        "daily_change": daily_change,
+        "daily_change_pct": daily_change_pct,
     }
+
+
+def fetch_broker_positions() -> dict:
+    """Live broker positions, straight from Alpaca -- read-only reporting only.
+
+    Deliberately separate from portfolio_store's local position ledger: this
+    never writes anything, and it includes options, which portfolio_store does
+    not track as positions (see CLAUDE.md Known limitation 2 -- booking these
+    into paper_positions at the equity share model would be exactly the bug
+    that limitation warns against). This function only reads what the broker
+    already knows and reports it.
+    """
+    credentials = alpaca_credentials()
+    if credentials is None:
+        return {"status": "credentials_missing", "positions": []}
+
+    response = alpaca_request("GET", "/v2/positions", credentials=credentials)
+    if not response.get("ok"):
+        return {"status": "unreachable", "reason": error_message(response), "positions": []}
+
+    raw = response.get("data")
+    if not isinstance(raw, list):
+        return {"status": "unreachable", "reason": "positions_payload_unparsed", "positions": []}
+
+    positions = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        positions.append(
+            {
+                "symbol": entry.get("symbol"),
+                "asset_class": entry.get("asset_class"),
+                "side": entry.get("side"),
+                "quantity": _float_or_zero(entry.get("qty")),
+                "average_entry_price": _float_or_zero(entry.get("avg_entry_price")),
+                "current_price": _float_or_zero(entry.get("current_price")),
+                "market_value": _float_or_zero(entry.get("market_value")),
+                "unrealized_pnl": _float_or_zero(entry.get("unrealized_pl")),
+                "unrealized_pnl_pct": _float_or_zero(entry.get("unrealized_plpc")) * 100,
+            }
+        )
+    return {"status": "ok", "positions": positions}

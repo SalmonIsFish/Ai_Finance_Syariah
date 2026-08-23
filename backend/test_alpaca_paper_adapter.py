@@ -12,8 +12,10 @@ PAPER_ACCOUNT = {
     "status": "ACTIVE",
     "currency": "USD",
     "cash": "10000",
-    "equity": "10000",
+    "equity": "10250.5",
+    "last_equity": "10000",
     "buying_power": "20000",
+    "portfolio_value": "10250.5",
     "multiplier": "2",
     "options_approved_level": 1,
     "options_trading_level": 1,
@@ -25,9 +27,10 @@ PAPER_ACCOUNT = {
 class FakeRest:
     """Records every request and replays canned Alpaca REST responses."""
 
-    def __init__(self, *, account=None, order=None, order_lookup=None):
+    def __init__(self, *, account=None, order=None, order_lookup=None, positions=None):
         self.calls = []
         self.account = PAPER_ACCOUNT if account is None else account
+        self.positions = positions
         self.order = order or {
             "id": "ALPACA-ORDER-1",
             "client_order_id": "amanah-queue-42",
@@ -51,6 +54,8 @@ class FakeRest:
         )
         if path == "/v2/account":
             return {"ok": True, "status_code": 200, "data": self.account}
+        if method == "GET" and path == "/v2/positions" and self.positions is not None:
+            return {"ok": True, "status_code": 200, "data": self.positions}
         if method == "POST" and path == "/v2/orders":
             return {"ok": True, "status_code": 200, "data": self.order}
         if method == "GET" and path.startswith("/v2/orders/"):
@@ -745,6 +750,18 @@ def check_status_probe() -> None:
     assert status["mode"] == "paper"
     assert status["base_url"] == alpaca_paper_adapter.ALPACA_PAPER_BASE_URL
     assert status["broker_submission"] is False
+    assert status["equity"] == 10250.5, status
+    assert status["last_equity"] == 10000.0, status
+    assert status["buying_power"] == 20000.0, status
+    assert status["portfolio_value"] == 10250.5, status
+    assert status["daily_change"] == 250.5, status
+    assert status["daily_change_pct"] == 2.505, status
+
+    # last_equity == 0 (e.g. a never-funded account) must not raise a
+    # division error -- daily_change_pct reports undefined instead of crashing.
+    alpaca_paper_adapter.alpaca_request = FakeRest(account={**PAPER_ACCOUNT, "last_equity": "0"})
+    zero_baseline = alpaca_paper_adapter.check_alpaca_status()
+    assert zero_baseline["daily_change_pct"] is None, zero_baseline
 
     alpaca_paper_adapter.alpaca_request = FakeRest(
         account={**PAPER_ACCOUNT, "account_blocked": True}
@@ -758,6 +775,65 @@ def check_status_probe() -> None:
         status = alpaca_paper_adapter.check_alpaca_status()
         assert status["status"] == "credentials_missing", status
         assert status["paper_account_ready"] is False
+    finally:
+        os.environ["ALPACA_SECRET_KEY"] = "TEST-SECRET"
+
+
+def check_broker_positions_probe() -> None:
+    raw_positions = [
+        {
+            "symbol": "CVX",
+            "asset_class": "us_equity",
+            "side": "long",
+            "qty": "2",
+            "avg_entry_price": "206.89",
+            "current_price": "205.27",
+            "market_value": "410.54",
+            "unrealized_pl": "-3.47",
+            "unrealized_plpc": "-0.0083",
+        },
+        {
+            "symbol": "AAPL260828P00305000",
+            "asset_class": "us_option",
+            "side": "short",
+            "qty": "-1",
+            "avg_entry_price": "1.02",
+            "current_price": "2.21",
+            "market_value": "-221.00",
+            "unrealized_pl": "-119.00",
+            "unrealized_plpc": "-1.1667",
+        },
+    ]
+    fake = FakeRest(positions=raw_positions)
+    alpaca_paper_adapter.alpaca_request = fake
+    result = alpaca_paper_adapter.fetch_broker_positions()
+    assert result["status"] == "ok", result
+    assert fake.calls[-1]["method"] == "GET", fake.calls
+    assert fake.calls[-1]["path"] == "/v2/positions", fake.calls
+    assert len(result["positions"]) == 2, result
+    equity_position = result["positions"][0]
+    assert equity_position["symbol"] == "CVX", equity_position
+    assert equity_position["quantity"] == 2.0, equity_position
+    assert equity_position["market_value"] == 410.54, equity_position
+    assert equity_position["unrealized_pnl"] == -3.47, equity_position
+    option_position = result["positions"][1]
+    assert option_position["asset_class"] == "us_option", option_position
+    assert option_position["quantity"] == -1.0, option_position
+
+    def failing_positions(method, path, *, credentials, body=None):
+        assert path == "/v2/positions", path
+        return {"ok": False, "status_code": 500, "data": {}, "reason": "http_500"}
+
+    alpaca_paper_adapter.alpaca_request = failing_positions
+    unreachable = alpaca_paper_adapter.fetch_broker_positions()
+    assert unreachable["status"] == "unreachable", unreachable
+    assert unreachable["positions"] == [], unreachable
+
+    os.environ.pop("ALPACA_SECRET_KEY", None)
+    try:
+        missing = alpaca_paper_adapter.fetch_broker_positions()
+        assert missing["status"] == "credentials_missing", missing
+        assert missing["positions"] == [], missing
     finally:
         os.environ["ALPACA_SECRET_KEY"] = "TEST-SECRET"
 
@@ -848,6 +924,7 @@ def main() -> None:
         check_fake_adapter()
         check_mcp_adapter()
         check_status_probe()
+        check_broker_positions_probe()
         check_market_clock()
     finally:
         alpaca_paper_adapter.alpaca_request = original_request
