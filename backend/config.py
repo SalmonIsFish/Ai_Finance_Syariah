@@ -56,6 +56,11 @@ class Settings:
     max_loss_per_trade_pct: float
     max_daily_loss_pct: float
     max_orders_per_day: int
+    openrouter_api_key: str | None
+    openrouter_model: str
+    news_ai_summary_enabled: bool
+    news_ai_summary_max_articles: int
+    news_ai_summary_cache_ttl_minutes: float
 
 
 # Origins the API answers cross-origin requests from. The deployed instance serves
@@ -129,13 +134,20 @@ def load_settings() -> Settings:
         port = int(os.getenv("MOOMOO_PORT", "11111"))
     except ValueError as exc:
         raise ValueError("MOOMOO_PORT must be an integer") from exc
-    paper_execution_enabled = os.getenv("PAPER_EXECUTION_ENABLED", "false").strip().lower() == "true"
+    paper_execution_enabled = (
+        os.getenv("PAPER_EXECUTION_ENABLED", "false").strip().lower() == "true"
+    )
     paper_account_equity = _float_env("PAPER_ACCOUNT_EQUITY", "10000", minimum=0.01)
     max_position_pct = _float_env("MAX_POSITION_PCT", "5.0", minimum=0)
     max_total_exposure_pct = _float_env("MAX_TOTAL_EXPOSURE_PCT", "25.0", minimum=0)
     max_loss_per_trade_pct = _float_env("MAX_LOSS_PER_TRADE_PCT", "0.5", minimum=0)
     max_daily_loss_pct = _float_env("MAX_DAILY_LOSS_PCT", "1.0", minimum=0)
     max_orders_per_day = _int_env("MAX_ORDERS_PER_DAY", "5", minimum=1)
+    news_ai_summary_enabled = os.getenv("NEWS_AI_SUMMARY_ENABLED", "true").strip().lower() == "true"
+    news_ai_summary_max_articles = _int_env("NEWS_AI_SUMMARY_MAX_ARTICLES", "5", minimum=0)
+    news_ai_summary_cache_ttl_minutes = _float_env(
+        "NEWS_AI_SUMMARY_CACHE_TTL_MINUTES", "60", minimum=0
+    )
 
     return Settings(
         tiingo_api_token=os.getenv("TIINGO_API_TOKEN") or None,
@@ -160,4 +172,9 @@ def load_settings() -> Settings:
         max_loss_per_trade_pct=max_loss_per_trade_pct,
         max_daily_loss_pct=max_daily_loss_pct,
         max_orders_per_day=max_orders_per_day,
+        openrouter_api_key=os.getenv("OPENROUTER_API_KEY") or None,
+        openrouter_model=os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat").strip(),
+        news_ai_summary_enabled=news_ai_summary_enabled,
+        news_ai_summary_max_articles=news_ai_summary_max_articles,
+        news_ai_summary_cache_ttl_minutes=news_ai_summary_cache_ttl_minutes,
     )

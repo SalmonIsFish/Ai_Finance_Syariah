@@ -13,6 +13,9 @@ def main() -> None:
     print(f"Alpaca key id configured: {bool(settings.alpaca_api_key_id)}")
     print(f"Alpaca secret configured: {bool(settings.alpaca_secret_key)}")
     print(f"Paper execution adapter: {settings.paper_execution_adapter}")
+    print(f"OpenRouter key configured: {bool(settings.openrouter_api_key)}")
+    print(f"OpenRouter model: {settings.openrouter_model}")
+    print(f"News AI summaries enabled: {settings.news_ai_summary_enabled}")
 
 
 if __name__ == "__main__":

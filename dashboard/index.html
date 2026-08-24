@@ -947,6 +947,42 @@
       line-height: 1.5;
     }
 
+    /* The AI block is visually subordinate to the publisher's own summary above
+       it: an inset panel behind a brass rule, not a headline. It explains an
+       article and repeats a verdict this app already computed -- it is never the
+       source of a decision, and it should not look like one. */
+    .news-ai-summary {
+      display: grid;
+      gap: 6px;
+      margin-top: 2px;
+      padding: 8px 10px;
+      border-left: 2px solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      background: var(--bg-soft);
+    }
+
+    .news-ai-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .news-ai-label {
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .news-ai-text {
+      margin: 0;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
     .opportunity-controls {
       display: grid;
       gap: 10px;
@@ -3760,6 +3796,38 @@
           summary.className = "news-summary";
           summary.textContent = article.summary;
           item.appendChild(summary);
+        }
+
+        // Additive by construction: the backend omits ai_summary entirely when
+        // it has no key, the model failed, or the output was filtered for
+        // advisory language -- so this block simply does not render, exactly
+        // like the missing-summary case above. The badge repeats the verdict
+        // the gate chain already recorded; it is a readout, not a judgement.
+        if (article.ai_summary && article.ai_summary.text) {
+          const ai = document.createElement("div");
+          ai.className = "news-ai-summary";
+
+          const head = document.createElement("div");
+          head.className = "news-ai-head";
+          const label = document.createElement("span");
+          label.className = "news-ai-label";
+          label.textContent = "AI Summary";
+          head.appendChild(label);
+
+          if (article.ai_summary.shariah_status) {
+            const badge = document.createElement("span");
+            badge.className = `badge ${article.ai_summary.shariah_tradeable ? "ok" : "bad"}`;
+            badge.textContent = article.ai_summary.shariah_status;
+            head.appendChild(badge);
+          }
+          ai.appendChild(head);
+
+          const text = document.createElement("p");
+          text.className = "news-ai-text";
+          text.textContent = article.ai_summary.text;
+          ai.appendChild(text);
+
+          item.appendChild(ai);
         }
 
         newsList.appendChild(item);

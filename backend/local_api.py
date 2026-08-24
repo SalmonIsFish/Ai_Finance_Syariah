@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 import portfolio_metrics
 from agent_coordinator import evaluate_candidate
 from agents.shariah_agent import detect_market, evaluate_shariah
+from alpaca_market_data import fetch_news
 from alpaca_paper_adapter import (
     ALPACA_ADAPTERS,
     alpaca_credentials,
@@ -23,6 +24,7 @@ from approval_workflow import approve_candidate
 from config import allowed_origins, load_settings
 from market_data import summarize_history
 from moomoo_status import check_moomoo_status
+from news_summarizer import attach_ai_summaries
 from opportunity_scanner import scan_opportunities
 from option_strategy_api import propose_option_strategy
 from paper_execution import (
@@ -1090,6 +1092,7 @@ def home() -> dict:
             "/moomoo/status",
             "/market-data/{symbol}",
             "/market-overview",
+            "/news",
             "/stock/{symbol}/profile",
             "/investment-committee",
             "/watchlist",
@@ -1246,6 +1249,45 @@ def market_overview(stale_cache_hours: float = 24.0) -> dict:
         return market_overview_snapshot(
             connection, stale_cache_hours=max(0.0, min(168.0, stale_cache_hours))
         )
+    finally:
+        connection.close()
+
+
+@app.get("/news")
+def news(symbols: str | None = None, limit: int = 20) -> dict:
+    """Recent articles for the requested symbols, with optional AI summaries.
+
+    The response is fetch_news's raw Alpaca pass-through, plus an `ai_summary`
+    key on the first few articles when OpenRouter is configured. That summary
+    explains the article and restates the Shariah verdict this app has already
+    computed -- it never screens and never advises; see news_summarizer.py.
+    """
+    connection = db()
+    try:
+        if symbols:
+            selected = [s.strip() for s in symbols.split(",") if s.strip()]
+        else:
+            watchlist = get_watchlist_settings(connection)["symbols"]
+            positions = [
+                p["symbol"] for p in portfolio_snapshot_with_exposure(connection)["positions"]
+            ]
+            selected = sorted(set(watchlist) | set(positions))
+
+        result = fetch_news(selected, limit=limit)
+        # Summarized inside the connection's lifetime, unlike the contract sketch
+        # in PORTFOLIO_HISTORY_AND_NEWS_CONTRACT.md which closes it first: the
+        # summarizer reads each symbol's already-recorded verdict from this same
+        # database, so closing early would cost it every Shariah badge.
+        try:
+            result["news"] = attach_ai_summaries(
+                result["news"], connection=connection, requested_symbols=selected
+            )
+        except Exception:
+            # attach_ai_summaries documents that it never raises. The endpoint
+            # does not rely on that promise -- a cosmetic summary layer must
+            # never turn a working articles response into a 500.
+            pass
+        return result
     finally:
         connection.close()
 
