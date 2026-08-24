@@ -38,3 +38,8 @@ backend/staged_preview_*.json
 
 # Reference-only design material, not part of the shipped dashboard
 TradingDesignIdea/
+
+# Internal planning notes -- not meant for a public/judge-facing repo.
+# Kept locally, untracked; see git history before this commit if ever needed.
+NEXT_STEPS.md
+PROJECT_VISION.md
