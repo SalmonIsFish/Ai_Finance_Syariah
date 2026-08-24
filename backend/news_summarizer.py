@@ -38,9 +38,11 @@ from shariah_screen_store import latest_shariah_screen
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Well under the dashboard's own patience. A slow model must not hold the News
-# panel open; the article is already renderable without it.
-REQUEST_TIMEOUT_SECONDS = 20
+# Well under the dashboard's own patience, and small enough that one slow call
+# starting just inside the pass deadline still lands the whole request inside a
+# reverse proxy's default timeout. A slow model must not hold the News panel
+# open; the article is already renderable without it.
+REQUEST_TIMEOUT_SECONDS = 12
 
 SYSTEM_PROMPT = (
     "You summarize financial news articles for a Shariah-compliant paper-trading "
@@ -165,7 +167,25 @@ def _verdict_restatement_is_faithful(text: str, verdict: dict | None) -> bool:
 # panel is waiting on this; five sequential model calls measured ~25s on a live
 # run, and a slow provider has no upper bound at all. Articles past the deadline
 # keep the publisher's summary, exactly like any other skipped article.
-_SUMMARY_DEADLINE_SECONDS = 25
+#
+# These three numbers exist to keep the endpoint inside a reverse proxy's
+# patience. On 2026-08-24 a production request for a never-before-screened
+# symbol took 86s and the client got a dead connection -- the app itself logged
+# 200, but nginx had long since stopped waiting. The cause was that the deadline
+# only gated whether a new *model* call could start, while the live SEC screen
+# behind an unseen symbol (sec_edgar_screen.REQUEST_TIMEOUT_SECONDS = 25, and it
+# can make more than one request) ran outside it entirely.
+_SUMMARY_DEADLINE_SECONDS = 20
+
+# Only pay for a live SEC screen when there is room left for it plus the model
+# call that follows. Below this, the article still gets a summary -- just without
+# a Shariah badge, since no verdict is on record yet.
+_LIVE_SCREEN_MIN_REMAINING_SECONDS = 12
+
+# At most one live SEC screen per /news request. A fresh watchlist therefore
+# fills in its verdicts over several requests instead of paying for all of them
+# in one, which is what turns a cold cache into a request nobody waits for.
+_MAX_LIVE_SCREENS_PER_REQUEST = 1
 
 # Bound on the in-memory cache, so a long-running server cannot grow it forever.
 _SUMMARY_CACHE_MAX_ENTRIES = 512
@@ -222,7 +242,7 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _lookup_verdict(connection, symbol: str) -> dict | None:
+def _lookup_verdict(connection, symbol: str, *, allow_live_screen: bool = True) -> dict | None:
     """The verdict this app has ALREADY recorded for `symbol`, or None.
 
     Reads the append-only `shariah_screens` log first. Only a symbol that has
@@ -260,6 +280,12 @@ def _lookup_verdict(connection, symbol: str) -> dict | None:
             }
         except Exception:
             return None
+
+    if not allow_live_screen:
+        # No screen on record and no time to run one. The summary still gets
+        # written; it just carries no badge until something else screens this
+        # symbol -- /paper/preview, /stock/{symbol}/profile or /explain all do.
+        return None
 
     try:
         verdict = explain_symbol(normalized).get("verdict") or {}
@@ -470,6 +496,8 @@ def attach_ai_summaries(articles, *, connection, requested_symbols=None, setting
         # the same outcome as any other skipped article.
         deadline = datetime.now(timezone.utc).timestamp() + _SUMMARY_DEADLINE_SECONDS
 
+        live_screens = 0
+
         for article in articles[:budget]:
             if not isinstance(article, dict):
                 continue
@@ -478,10 +506,23 @@ def attach_ai_summaries(articles, *, connection, requested_symbols=None, setting
                 key = _cache_key(article, symbol)
                 summary = _cached(key, ttl_minutes)
                 if summary is None:
-                    if datetime.now(timezone.utc).timestamp() >= deadline:
+                    remaining = deadline - datetime.now(timezone.utc).timestamp()
+                    if remaining <= 0:
                         break
                     if symbol and symbol not in verdict_cache:
-                        verdict_cache[symbol] = _lookup_verdict(connection, symbol)
+                        # The live-screen fallback is the expensive half, and it
+                        # is what has to stay inside the deadline -- not just the
+                        # model call after it.
+                        verdict_cache[symbol] = _lookup_verdict(
+                            connection,
+                            symbol,
+                            allow_live_screen=(
+                                remaining >= _LIVE_SCREEN_MIN_REMAINING_SECONDS
+                                and live_screens < _MAX_LIVE_SCREENS_PER_REQUEST
+                            ),
+                        )
+                        if (verdict_cache[symbol] or {}).get("source") == "shariah_explain":
+                            live_screens += 1
                     verdict = verdict_cache.get(symbol) if symbol else None
                     summary = summarize_article(article, verdict=verdict, settings=settings)
                     if summary is not None:

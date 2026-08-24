@@ -76,6 +76,29 @@ class FakeOpenRouter:
         }
 
 
+# Captured before any test stubs it, so a test that genuinely exercises verdict
+# lookup can put the real one back rather than inheriting a previous stub.
+_REAL_LOOKUP_VERDICT = news_summarizer._lookup_verdict
+
+STUB_CVX_VERDICT = {
+    "symbol": "CVX",
+    "status": "COMPLIANT",
+    "tradeable": True,
+    "reason": "under limits",
+    "source": "shariah_screens",
+}
+
+
+def stub_verdict_lookup():
+    """Pin _lookup_verdict for tests that are not about verdict lookup.
+
+    Without this they depend on a live SEC screen resolving CVX -- which both
+    reaches the network and, once the pass deadline stops allowing live screens,
+    silently changes what those tests are measuring.
+    """
+    news_summarizer._lookup_verdict = lambda connection, symbol, **kwargs: STUB_CVX_VERDICT
+
+
 def memory_connection() -> sqlite3.Connection:
     connection = sqlite3.connect(":memory:")
     connection.row_factory = sqlite3.Row
@@ -289,6 +312,7 @@ def check_every_failure_mode_returns_none() -> None:
 
 
 def check_cache_prevents_a_second_call() -> None:
+    stub_verdict_lookup()
     fake = FakeOpenRouter()
     news_summarizer.openrouter_request = fake
     news_summarizer._SUMMARY_CACHE.clear()
@@ -349,6 +373,9 @@ def check_cache_does_not_leak_a_verdict_across_symbols() -> None:
         }
 
     original_latest = news_summarizer.latest_shariah_screen
+    # This test is about the real lookup keyed by symbol, so undo any stub an
+    # earlier check installed.
+    news_summarizer._lookup_verdict = _REAL_LOOKUP_VERDICT
     try:
         news_summarizer.openrouter_request = by_symbol
         news_summarizer.latest_shariah_screen = lambda connection, symbol: {
@@ -393,6 +420,7 @@ def check_cache_does_not_leak_a_verdict_across_symbols() -> None:
 
 def check_cache_is_bounded() -> None:
     """A long-running server must not grow the cache without limit."""
+    stub_verdict_lookup()
     news_summarizer._SUMMARY_CACHE.clear()
     news_summarizer.openrouter_request = FakeOpenRouter()
     settings = settings_with(openrouter_api_key="test-key", news_ai_summary_max_articles=1)
@@ -415,6 +443,7 @@ def check_cache_is_bounded() -> None:
 
 def check_deadline_stops_a_slow_pass() -> None:
     """Latency is bounded even when the provider is slow."""
+    stub_verdict_lookup()
     news_summarizer._SUMMARY_CACHE.clear()
     calls = []
     original_deadline = news_summarizer._SUMMARY_DEADLINE_SECONDS
@@ -450,7 +479,60 @@ def check_deadline_stops_a_slow_pass() -> None:
         news_summarizer._SUMMARY_CACHE.clear()
 
 
+def check_live_screen_is_bounded() -> None:
+    """A live SEC screen must not run outside the pass deadline, or more than once.
+
+    Production, 2026-08-24: /news for a never-before-screened symbol took 86s and
+    the client got a dead connection while the app itself logged 200 -- the
+    deadline only gated the model call, and the SEC screen behind an unseen
+    symbol (25s per request, sometimes several) ran outside it entirely.
+    """
+    news_summarizer._lookup_verdict = _REAL_LOOKUP_VERDICT
+    original_latest = news_summarizer.latest_shariah_screen
+    original_explain = news_summarizer.explain_symbol
+    original_deadline = news_summarizer._SUMMARY_DEADLINE_SECONDS
+    screened = []
+    try:
+        news_summarizer.openrouter_request = FakeOpenRouter(
+            content="Nothing on record for this one, so no status is claimed."
+        )
+        news_summarizer.latest_shariah_screen = lambda connection, symbol: None
+        news_summarizer.explain_symbol = lambda symbol: (
+            screened.append(symbol)
+            or {"verdict": {"status": "COMPLIANT", "tradeable": True, "statement": "ok"}}
+        )
+        settings = settings_with(openrouter_api_key="test-key", news_ai_summary_max_articles=5)
+        articles = [dict(ARTICLE, id=index, symbols=[f"SYM{index}"]) for index in range(5)]
+        connection = memory_connection()
+        try:
+            # Five unseen symbols, but only one live screen is paid for.
+            news_summarizer._SUMMARY_CACHE.clear()
+            news_summarizer.attach_ai_summaries(articles, connection=connection, settings=settings)
+            assert len(screened) <= news_summarizer._MAX_LIVE_SCREENS_PER_REQUEST, (
+                f"paid for {len(screened)} live SEC screens in one request: {screened}"
+            )
+
+            # And with no time left in the pass, none at all.
+            screened.clear()
+            news_summarizer._SUMMARY_CACHE.clear()
+            news_summarizer._SUMMARY_DEADLINE_SECONDS = 1  # below the live-screen floor
+            news_summarizer.attach_ai_summaries(
+                [dict(ARTICLE, id=99, symbols=["NEWSYM"])],
+                connection=connection,
+                settings=settings,
+            )
+            assert screened == [], f"ran a live SEC screen with no time budget: {screened}"
+        finally:
+            connection.close()
+    finally:
+        news_summarizer.latest_shariah_screen = original_latest
+        news_summarizer.explain_symbol = original_explain
+        news_summarizer._SUMMARY_DEADLINE_SECONDS = original_deadline
+        news_summarizer._SUMMARY_CACHE.clear()
+
+
 def check_cache_expires() -> None:
+    stub_verdict_lookup()
     fake = FakeOpenRouter()
     news_summarizer.openrouter_request = fake
     news_summarizer._SUMMARY_CACHE.clear()
@@ -469,6 +551,7 @@ def check_cache_expires() -> None:
 
 
 def check_max_articles_cap() -> None:
+    stub_verdict_lookup()
     fake = FakeOpenRouter()
     news_summarizer.openrouter_request = fake
     news_summarizer._SUMMARY_CACHE.clear()
@@ -546,6 +629,8 @@ def check_verdict_lookup_never_raises() -> None:
     """A closed database and a never-screened symbol both resolve to None, not an error."""
     original_latest = news_summarizer.latest_shariah_screen
     original_explain = news_summarizer.explain_symbol
+    # Exercises the real function, not whichever stub an earlier check left behind.
+    news_summarizer._lookup_verdict = _REAL_LOOKUP_VERDICT
     try:
         closed = memory_connection()
         closed.close()
@@ -633,6 +718,7 @@ def check_mutation_guards() -> None:
 
 def main() -> None:
     original_request = news_summarizer.openrouter_request
+    original_lookup = news_summarizer._lookup_verdict
     saved_key = os.environ.get("OPENROUTER_API_KEY")
     try:
         check_request_shape()
@@ -644,6 +730,7 @@ def main() -> None:
         check_cache_does_not_leak_a_verdict_across_symbols()
         check_cache_is_bounded()
         check_deadline_stops_a_slow_pass()
+        check_live_screen_is_bounded()
         check_cache_expires()
         check_max_articles_cap()
         check_disabled_and_keyless_paths_are_untouched()
@@ -652,6 +739,7 @@ def main() -> None:
         check_mutation_guards()
     finally:
         news_summarizer.openrouter_request = original_request
+        news_summarizer._lookup_verdict = original_lookup
         news_summarizer._SUMMARY_CACHE.clear()
         if saved_key is None:
             os.environ.pop("OPENROUTER_API_KEY", None)
