@@ -16,6 +16,15 @@ def main() -> None:
     print(f"OpenRouter key configured: {bool(settings.openrouter_api_key)}")
     print(f"OpenRouter model: {settings.openrouter_model}")
     print(f"News AI summaries enabled: {settings.news_ai_summary_enabled}")
+    print(f"Quant strategies: {', '.join(settings.quant_strategies)}")
+    print(
+        "Sector exposure limit: "
+        + (
+            f"{settings.max_sector_exposure_pct}%"
+            if settings.max_sector_exposure_pct
+            else "disabled"
+        )
+    )
 
 
 if __name__ == "__main__":

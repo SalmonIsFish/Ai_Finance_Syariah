@@ -1608,6 +1608,7 @@
             <div class="paper-order-field field-static"><span>Risk Baseline Equity</span><strong id="riskAccountEquity">-</strong><small class="field-note">Fixed at provisioning. Sizes the position and exposure limits below -- it does not track the market. Live equity is in Account Balances.</small></div>
             <div class="paper-order-field"><span>Position Limit</span><strong id="riskMaxPosition">-</strong></div>
             <div class="paper-order-field"><span>Total Limit</span><strong id="riskMaxTotal">-</strong></div>
+            <div class="paper-order-field"><span>Sector Limit</span><strong id="riskMaxSector">-</strong></div>
             <div class="paper-order-field"><span>Total Exposure</span><strong id="riskCurrentTotalExposure">-</strong></div>
             <div class="paper-order-field"><span>Add-On Policy</span><strong id="riskSameSymbolPolicy">-</strong></div>
             <div class="paper-order-field"><span>Current Ticket</span><strong id="riskTicketStatus">-</strong></div>
@@ -1783,6 +1784,7 @@
     const riskAccountEquity = document.querySelector("#riskAccountEquity");
     const riskMaxPosition = document.querySelector("#riskMaxPosition");
     const riskMaxTotal = document.querySelector("#riskMaxTotal");
+    const riskMaxSector = document.querySelector("#riskMaxSector");
     const riskCurrentTotalExposure = document.querySelector("#riskCurrentTotalExposure");
     const riskSameSymbolPolicy = document.querySelector("#riskSameSymbolPolicy");
     const riskTicketStatus = document.querySelector("#riskTicketStatus");
@@ -2402,6 +2404,11 @@
       riskAccountEquity.textContent = formatMoney(currentPortfolio.paper_account_equity);
       riskMaxPosition.textContent = formatPct(limits.max_position_pct);
       riskMaxTotal.textContent = formatPct(limits.max_total_exposure_pct);
+      // 0 disables the sector cap entirely, which should read as OFF rather
+      // than as a 0% limit that blocks everything.
+      riskMaxSector.textContent = limits.max_sector_exposure_pct
+        ? formatPct(limits.max_sector_exposure_pct)
+        : (limits.max_sector_exposure_pct === 0 ? "Disabled" : "-");
       riskCurrentTotalExposure.textContent = formatPct(currentPortfolio.total_exposure_pct);
       riskSameSymbolPolicy.textContent = "BUY add-ons blocked";
       const portfolioRisk = preview?.agent_summary?.risk?.details?.portfolio;
@@ -2595,7 +2602,13 @@
         quant: {
           verdictText: quantSignal || "PENDING",
           ok: quantSignal === "BUY" ? true : null,
-          detail: agents.quant?.price_source ? `${agents.quant.bars ?? "-"} bars via ${agents.quant.price_source}` : null,
+          // The strategy narrates itself now (agents/quant_agent.py), so show
+          // WHY it said no -- "trend confirmed, 2.30% below the 55-day high"
+          // reads as a working filter, where a bare NO_SIGNAL reads as a
+          // broken agent. Falls back to the old provenance line when an older
+          // payload has no narrative.
+          detail: agents.quant?.strategy?.narrative
+            || (agents.quant?.price_source ? `${agents.quant.bars ?? "-"} bars via ${agents.quant.price_source}` : null),
         },
         shariah: {
           verdictText: shariahStatus || "PENDING",

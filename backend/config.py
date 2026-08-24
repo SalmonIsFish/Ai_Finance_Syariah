@@ -61,6 +61,8 @@ class Settings:
     news_ai_summary_enabled: bool
     news_ai_summary_max_articles: int
     news_ai_summary_cache_ttl_minutes: float
+    quant_strategies: list[str]
+    max_sector_exposure_pct: float
 
 
 # Origins the API answers cross-origin requests from. The deployed instance serves
@@ -143,11 +145,17 @@ def load_settings() -> Settings:
     max_loss_per_trade_pct = _float_env("MAX_LOSS_PER_TRADE_PCT", "0.5", minimum=0)
     max_daily_loss_pct = _float_env("MAX_DAILY_LOSS_PCT", "1.0", minimum=0)
     max_orders_per_day = _int_env("MAX_ORDERS_PER_DAY", "5", minimum=1)
+    max_sector_exposure_pct = _float_env("MAX_SECTOR_EXPOSURE_PCT", "15.0", minimum=0)
     news_ai_summary_enabled = os.getenv("NEWS_AI_SUMMARY_ENABLED", "true").strip().lower() == "true"
     news_ai_summary_max_articles = _int_env("NEWS_AI_SUMMARY_MAX_ARTICLES", "5", minimum=0)
     news_ai_summary_cache_ttl_minutes = _float_env(
         "NEWS_AI_SUMMARY_CACHE_TTL_MINUTES", "60", minimum=0
     )
+    quant_strategies = [
+        item.strip().upper()
+        for item in os.getenv("QUANT_STRATEGIES", "").split(",")
+        if item.strip()
+    ] or ["S001", "S002"]
 
     return Settings(
         tiingo_api_token=os.getenv("TIINGO_API_TOKEN") or None,
@@ -177,4 +185,6 @@ def load_settings() -> Settings:
         news_ai_summary_enabled=news_ai_summary_enabled,
         news_ai_summary_max_articles=news_ai_summary_max_articles,
         news_ai_summary_cache_ttl_minutes=news_ai_summary_cache_ttl_minutes,
+        quant_strategies=quant_strategies,
+        max_sector_exposure_pct=max_sector_exposure_pct,
     )

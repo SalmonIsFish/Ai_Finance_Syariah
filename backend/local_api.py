@@ -32,6 +32,7 @@ from paper_execution import (
     reconcile_submitted_paper_order,
     validate_approval_payload_for_execution,
 )
+from sector_concentration import check_sector_concentration, sectors_for_symbols
 from portfolio_store import (
     ensure_portfolio_tables,
     list_portfolio_snapshots,
@@ -799,6 +800,7 @@ def risk_limits_from_settings(settings) -> dict:
         "max_loss_per_trade_pct": settings.max_loss_per_trade_pct,
         "max_daily_loss_pct": settings.max_daily_loss_pct,
         "max_orders_per_day": settings.max_orders_per_day,
+        "max_sector_exposure_pct": settings.max_sector_exposure_pct,
     }
 
 
@@ -866,6 +868,26 @@ def portfolio_risk_overlay(
         messages["portfolio_sell_without_position"] = (
             f"{symbol} cannot be sold because no local paper position is recorded."
         )
+    # Sector concentration. Only a BUY can increase it, and a SELL reducing an
+    # over-concentrated sector must never be blocked for being in that sector.
+    # This sits inside the equity-only overlay by design: an option order returns
+    # before apply_portfolio_risk_overlay is ever reached, because contracts and
+    # premium are not shares and share-price (CLAUDE.md known limitation 4).
+    positions = snapshot.get("positions", [])
+    sectors = sectors_for_symbols(
+        connection, [position.get("symbol") for position in positions] + [symbol]
+    )
+    sector_result = check_sector_concentration(
+        symbol=symbol,
+        added_exposure=notional if side == "BUY" else 0.0,
+        positions=positions,
+        sectors=sectors,
+        account_equity=settings.paper_account_equity,
+        max_sector_pct=limits["max_sector_exposure_pct"],
+    )
+    if side == "BUY" and sector_result["status"] == "REJECT":
+        blockers.append("portfolio_sector_concentration_limit")
+        messages["portfolio_sector_concentration_limit"] = sector_result["message"]
     if (
         side == "SELL"
         and current_position_quantity > 0
@@ -907,6 +929,7 @@ def portfolio_risk_overlay(
         "effective_position_pct": round(effective_position_pct, 4),
         "effective_total_exposure_pct": round(effective_total_pct, 4),
         "limits": limits,
+        "sector_concentration": sector_result,
         "valuation_status": snapshot.get("valuation_status"),
         "valuation_errors": snapshot.get("valuation_errors", []),
     }

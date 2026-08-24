@@ -230,6 +230,13 @@ def _screen_us_symbol(symbol: str) -> dict:
         "provider": "SEC_EDGAR",
         "methodology": "SC_MY_SAC",
         "company": profile.get("name"),
+        # Carried on every verdict, and therefore persisted into shariah_screens,
+        # purely so the risk overlay can group held positions by industry without
+        # a second data source or a second SEC fetch. The screen itself already
+        # reads this to decide business-activity exclusion; it was simply being
+        # thrown away afterwards. Reporting only -- nothing here changes a verdict.
+        "sic": profile.get("sic"),
+        "sic_description": profile.get("sic_description"),
     }
 
     # Tier 1: business activity. An excluded activity disqualifies outright, and no
