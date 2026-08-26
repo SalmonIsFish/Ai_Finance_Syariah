@@ -13,11 +13,62 @@ import tempfile
 from pathlib import Path
 
 import audit_export
+from approval_queue import ensure_approval_queue, record_approval, update_execution_status
 
 
 def seed_db(path: Path) -> None:
     connection = sqlite3.connect(path)
     try:
+        ensure_approval_queue(connection)
+        # A pending approval: cleared every gate, never executed -- must show up
+        # in the pending-approvals section.
+        record_approval(
+            connection,
+            preview={
+                "symbol": "TSLA",
+                "side": "BUY",
+                "quantity": 2,
+                "price": 250.0,
+                "notional": 500.0,
+                "agent_summary": {
+                    "shariah": {"status": "COMPLIANT"},
+                    "quant": {"signal": "BUY"},
+                    "risk": {"status": "PASS"},
+                },
+            },
+            approval={
+                "status": "APPROVED_PAPER_READY",
+                "broker_submission": False,
+                "execution_environment": "SIMULATE",
+            },
+            approved_by_user=False,
+        )
+        # An already-executed approval: must be excluded from the pending list.
+        executed = record_approval(
+            connection,
+            preview={
+                "symbol": "MSFT",
+                "side": "BUY",
+                "quantity": 1,
+                "price": 300.0,
+                "notional": 300.0,
+                "agent_summary": {
+                    "shariah": {"status": "COMPLIANT"},
+                    "quant": {"signal": "BUY"},
+                    "risk": {"status": "PASS"},
+                },
+            },
+            approval={
+                "status": "APPROVED_PAPER_READY",
+                "broker_submission": False,
+                "execution_environment": "SIMULATE",
+            },
+            approved_by_user=True,
+        )
+        update_execution_status(
+            connection, executed["id"], status="BROKER_SUBMITTED", message="filled"
+        )
+
         connection.execute(
             "CREATE TABLE paper_positions (id INTEGER PRIMARY KEY, symbol TEXT, "
             "account_suffix TEXT, quantity REAL, average_cost REAL, cost_basis REAL, "
@@ -81,6 +132,25 @@ def seed_db(path: Path) -> None:
         connection.close()
 
 
+def test_gather_pending_approvals_excludes_executed_orders() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        db_path = Path(tmp) / "paper_trading.db"
+        seed_db(db_path)
+        connection = sqlite3.connect(db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            pending = audit_export.gather_pending_approvals(connection)
+        finally:
+            connection.close()
+
+        symbols = [row["symbol"] for row in pending]
+        assert "TSLA" in symbols, pending
+        assert "MSFT" not in symbols, pending
+        tsla_row = next(row for row in pending if row["symbol"] == "TSLA")
+        assert tsla_row["shariah_status"] == "COMPLIANT", tsla_row
+        assert tsla_row["quant_signal"] == "BUY", tsla_row
+
+
 def test_gather_ledger_and_distinct_symbols() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         db_path = Path(tmp) / "paper_trading.db"
@@ -125,6 +195,7 @@ def test_render_markdown_contains_the_actual_evidence() -> None:
         connection = sqlite3.connect(db_path)
         connection.row_factory = sqlite3.Row
         try:
+            pending_approvals = audit_export.gather_pending_approvals(connection)
             ledger = audit_export.gather_ledger(connection)
             symbols = audit_export.distinct_symbols(ledger)
             evidence = audit_export.gather_shariah_evidence(connection, symbols)
@@ -134,6 +205,7 @@ def test_render_markdown_contains_the_actual_evidence() -> None:
         markdown = audit_export.render_markdown(
             generated_at="2026-08-26T12:00:00+00:00",
             db_path=str(db_path),
+            pending_approvals=pending_approvals,
             ledger=ledger,
             evidence=evidence,
         )
@@ -150,6 +222,10 @@ def test_render_markdown_contains_the_actual_evidence() -> None:
         # the known-limitations caveat must travel with the evidence, not be left implicit
         assert "SIC code" in markdown
         assert "XBRL" in markdown
+        # the pending approval must read as "working as designed", not be silent about it
+        assert "TSLA" in markdown
+        assert "EXECUTE PAPER" in markdown
+        assert "MSFT" not in markdown  # already executed -- must not appear as pending
 
 
 def test_export_audit_writes_a_timestamped_file() -> None:
@@ -169,6 +245,7 @@ def test_export_audit_writes_a_timestamped_file() -> None:
 
 
 def main() -> None:
+    test_gather_pending_approvals_excludes_executed_orders()
     test_gather_ledger_and_distinct_symbols()
     test_gather_shariah_evidence_includes_edgar_ratios()
     test_render_markdown_contains_the_actual_evidence()
