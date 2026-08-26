@@ -132,7 +132,7 @@ contains long verbatim extracts from copyrighted books (`Usmani-Intro-to-Finance
 This is the demo's system of record and it exists **only on this box**. `backend/*.db` is
 gitignored by design, so a trade run from a local checkout writes to a local file the deployed
 instance never sees. Run the demo trade *through the deployed instance* so its own database
-captures the position. There is currently **no backup of this file** — see Known gaps.
+captures the position. It is backed up hourly — see `## Backups` below.
 
 ## Backups
 
@@ -168,9 +168,31 @@ rather than discarding it. The restore drill in `backend/test_backup_restore.py`
 path — backup, corrupt, restore, verify row counts and checksums match — against scratch files; it
 never touches the real database.
 
-**Off-box replication is still a known gap.** This backup lives on the same droplet as the live
-file, on a separate directory rather than a separate disk or host. A droplet-level failure (not just
-a bad file) would lose both. Out of scope for this pre-kickoff window; worth revisiting post-submission.
+**Off-box replication is a known, accepted gap, not an oversight.** This backup lives on the same
+droplet as the live file, on a separate directory rather than a separate disk or host, so a
+droplet-level failure (not just a bad file or a bad deploy) would lose both. Deliberately not
+built: it protects against a low-probability tail risk (total droplet loss) for a roughly one-week
+hackathon window, at the cost of a new paid external service and credentials to manage under time
+pressure — disproportionate to the risk. The two live trades that already ran (CVX, the AAPL
+option) are independently safe regardless: their evidence is committed to git under
+`docs/live-trade-evidence/`, which is genuinely off-box already.
+
+## Watchlist scan freshness
+
+`GET /opportunities` scans the watchlist and persists the result itself (throttled to once per
+`min_scan_interval_minutes`, default 10) — it was never stale by design, only in practice, because
+nothing was calling it except a human loading the dashboard. Cron now pings it every 30 minutes so
+the quant engine (S001/S002) always has a result no older than that, whether or not anyone is
+looking at the dashboard:
+
+```cron
+*/30 * * * * curl -s -o /dev/null http://127.0.0.1:8000/opportunities
+```
+
+Hits loopback directly, bypassing nginx — `/opportunities` is an open read with no operator key
+needed, same as the dashboard's own requests. A cold scan takes ~5s; most runs land inside the
+10-minute throttle window and return instantly with the existing snapshot re-served, so this is
+cheap regardless of cadence.
 
 ## Audit results, 2026-08-22
 
