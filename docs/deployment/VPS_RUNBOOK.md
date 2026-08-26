@@ -134,6 +134,44 @@ gitignored by design, so a trade run from a local checkout writes to a local fil
 instance never sees. Run the demo trade *through the deployed instance* so its own database
 captures the position. There is currently **no backup of this file** — see Known gaps.
 
+## Backups
+
+`backend/backup_database.py` takes a timestamped, checksummed backup of `paper_trading.db` using
+SQLite's own online backup API (safe to run while the app is serving traffic) into
+`PAPER_DB_BACKUP_DIR` (default: a `backups/paper_trading_db/` directory one level above the app
+checkout — deliberately outside `/home/amanah/amanah-trader` so a lost checkout does not also lose
+the backups). Each backup gets a `.manifest.json` sidecar recording its SHA-256 and a row count per
+table.
+
+Scheduled via cron on the VPS (`crontab -e` as `amanah`):
+
+```cron
+0 * * * * cd /home/amanah/amanah-trader/backend && /home/amanah/amanah-trader/.venv/bin/python backup_database.py >> /home/amanah/backups/paper_trading_db/backup.log 2>&1
+```
+
+`PAPER_DB_BACKUP_DIR=/home/amanah/backups/paper_trading_db` should be set in the VPS `backend/.env`
+so the cron line and any manual run agree on where backups land. Retention defaults to the newest 90
+backups (`PAPER_DB_BACKUP_RETENTION`); at hourly cadence that is a little under 4 days — raise it if
+more history is wanted, mindful of the droplet's 48 GB disk (7% used as of the 2026-08-22 audit).
+
+**Restoring:** stop the service first (`sudo systemctl stop amanah-trader`), then:
+
+```bash
+cd /home/amanah/amanah-trader/backend
+/home/amanah/amanah-trader/.venv/bin/python restore_database.py --backup /home/amanah/backups/paper_trading_db/paper_trading-<timestamp>.db
+sudo systemctl start amanah-trader
+```
+
+`restore_database.py` verifies the backup's checksum against its manifest before writing anything,
+and copies whatever was previously at the target aside as `paper_trading.db.pre-restore-<timestamp>.bak`
+rather than discarding it. The restore drill in `backend/test_backup_restore.py` proves this whole
+path — backup, corrupt, restore, verify row counts and checksums match — against scratch files; it
+never touches the real database.
+
+**Off-box replication is still a known gap.** This backup lives on the same droplet as the live
+file, on a separate directory rather than a separate disk or host. A droplet-level failure (not just
+a bad file) would lose both. Out of scope for this pre-kickoff window; worth revisiting post-submission.
+
 ## Audit results, 2026-08-22
 
 ### Sound
@@ -304,7 +342,8 @@ when you need to drive a demo trade.
 
 ## Known gaps, not yet closed
 
-- No backup of `paper_trading.db`. Losing the droplet loses the demo trade history.
+- Backups exist (see `## Backups`) but are not off-box — a droplet-level failure still loses both
+  the live file and its backups, since they sit on the same disk.
 - No infrastructure as code. This document is the recovery path; a rebuild is manual.
 - No monitoring or alerting. A crashed unit is discovered by loading the site.
 
