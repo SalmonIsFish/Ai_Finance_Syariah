@@ -215,10 +215,36 @@ sections below as **unverified**, not done, until they actually report back.
   acting on any of it:** Terminal 1's Reserved VM decision (SQLite persistence across Replit
   restarts — may be moot now that hosting moved to the VPS per Phase 3 of the disclosure
   timeline, but confirm rather than assume); the `dashboard-redesign` branch's merge status
-  (`3b220e9`, committed but not merged as of Aug 22); the watchlist opportunity scan, which was
-  already 25.5 hours stale on Aug 24 and has not been refreshed since; and Terminal 3's two
-  follow-up items (demo-video-script/submission-copy update with real fill data, optional
-  citation-upgrade pass).
+  (`3b220e9`, committed but not merged as of Aug 22); and Terminal 3's two follow-up items
+  (demo-video-script/submission-copy update with real fill data, optional citation-upgrade pass).
+
+### 2026-08-26 (later same day) — resilience roadmap done and deployed
+
+The three-item resilience roadmap above is **built, tested, merged (`master` at `01e9090`), pushed
+to origin, and live on the VPS** — not a plan anymore. `backend/backup_database.py` /
+`restore_database.py` (hourly cron, checksummed manifests, proven restore drill),
+`cutover_preflight.py` (read-only go/no-go, smoke-tested against the real `0TCX` account), and
+`audit_export.py` (ledger + Shariah verdicts + EDGAR ratio evidence, plus a Pending Approvals
+section per the human-in-the-loop-deadlock risk below). Full detail and reasoning in
+`council_output_backend_next_priorities.md`. Two follow-on items also shipped: the watchlist scan
+is now cron-refreshed every 30 minutes (was the 25.5h-stale item flagged above — resolved, not
+just noted), and `audit_export.py` surfaces any order stuck awaiting `EXECUTE PAPER` so an
+unattended judging window doesn't read as the system being broken.
+
+**Deliberately not built, and not an oversight:** off-box backup replication. Reasoned through
+explicitly (see the council doc) — it protects a low-probability tail risk (total droplet loss)
+for a roughly one-week window, at the cost of a new paid external service under time pressure, and
+the one thing that would actually matter if the droplet were lost (the two live trade fills) is
+already independently safe in `docs/live-trade-evidence/` via git. Also not touched: GET-endpoint
+authentication — checking the actual nginx vhost showed this was already a deliberate design
+decision (`# Writes... need the operator key; reads never do` — judges need public reads for the
+live demo), not a gap either the council or this session's first pass correctly weighed.
+
+**Still blocked, not skipped:** the cutover rehearsal needs the dedicated hackathon Alpaca account
+to exist first (not created as of this writing); a real covered-call fill needs the project owner's
+explicit go-ahead and, ideally, to happen after cutover so the demo-worthy fill lives in the
+account judges actually see. Both are queued, neither is something a backend session should do
+unprompted.
 
 ## Why this split, and why this sequencing
 
