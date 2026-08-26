@@ -8,6 +8,11 @@ backend/sec_edgar_cache/
 tmp/
 .ruff_cache/
 
+# Local SQLite backups from backend/backup_database.py's default location.
+# On the VPS this is redirected via PAPER_DB_BACKUP_DIR to a path outside the
+# checkout entirely -- see docs/deployment/VPS_RUNBOOK.md's Backups section.
+/backups/
+
 # LLM council consult tooling (contains real API keys in its own .env)
 llm-council-skill/
 
