@@ -183,6 +183,43 @@ written).
   showed `superpowers:brainstorming` and long unscoped sessions as the two biggest cost drivers
   across terminals — read it if a session's usage is running high.
 
+### 2026-08-26 update — supersedes prior snapshots above where they conflict
+
+Written 2026-08-26, with kickoff (Aug 27–28) 1–2 days out. Terminal 1 and Terminal 3 have been
+paused since roughly 2026-08-22 with no confirmed reports since; treat everything under their
+sections below as **unverified**, not done, until they actually report back.
+
+- **Quant engine work landed and is verified stable in production**, not by any terminal in this
+  split but by the coordinating session directly: S001 narration diagnostics, the S002
+  pullback-in-uptrend strategy, and a sector-concentration risk cap (fourth risk dimension,
+  15% limit), merged at `3e62183` on 2026-08-24 and confirmed working live on `amanahtrader.uk`
+  on 2026-08-25 (AAPL test order cleared quant → Shariah → risk gates; sector exposure read
+  0.31% vs. the 15% cap). The `/news` timeout/bounding fix (`d39ba21`) is also confirmed stable
+  in prod. Full detail in memory `production_verification_2026-08-25` — don't re-run that sweep
+  absent new commits or a fresh bug report.
+- **The council's Aug 23 resilience roadmap is still unbuilt.** `council_output_round3_synthesis.md`
+  recommended, for the pre-kickoff window: automated SQLite backup + restore drill, a
+  provision_cash_account.py pre-flight/cutover script for the kickoff account switch, and an
+  audit-export CLI bundling ledger + Shariah verdicts + EDGAR evidence for judges/scholars. As of
+  this writing none of the three exist in `backend/` — this is now Terminal 2's assignment,
+  handed off 2026-08-26 in a fresh worktree (`.worktrees/prod-resilience`, branch
+  `feature/prod-resilience`; the old `live-trade-backend` worktree is left alone — its `.db` is
+  the only copy of the live-trade ledger). Explicit don'ts carried over from the council consult:
+  no time-varying re-screening, no changes to `check_us_symbol` or `sec_edgar_cache.py`, no
+  gate-chain or execution-path changes — this is defensive tooling around the proven system.
+- **Pre-event disclosure timeline added and committed.** `PRE_EVENT_TIMELINE.md` (commit
+  `7a45d36`), drafted proactively per Discord guidance from lablab.ai on pre-event repo work.
+  Whether disclosure is actually required by the organizers is still an **open question** as of
+  2026-08-25 — see the file's own "Open question" section.
+- **Still open, unresolved, carried forward from the 2026-08-20/22 snapshots — re-verify before
+  acting on any of it:** Terminal 1's Reserved VM decision (SQLite persistence across Replit
+  restarts — may be moot now that hosting moved to the VPS per Phase 3 of the disclosure
+  timeline, but confirm rather than assume); the `dashboard-redesign` branch's merge status
+  (`3b220e9`, committed but not merged as of Aug 22); the watchlist opportunity scan, which was
+  already 25.5 hours stale on Aug 24 and has not been refreshed since; and Terminal 3's two
+  follow-up items (demo-video-script/submission-copy update with real fill data, optional
+  citation-upgrade pass).
+
 ## Why this split, and why this sequencing
 
 The key fact driving the current sequencing: judging requires a **brand-new dedicated Alpaca
