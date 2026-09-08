@@ -37,6 +37,7 @@
     <div id="state"></div>
     <div id="content" hidden>
       <div class="identity" id="identity"></div>
+      <div id="portfolio-section"></div>
       <div id="trading-status"></div>
       <div id="shariah-section"></div>
       <div id="quant-section"></div>
@@ -94,7 +95,84 @@
       }
     }
 
-    function renderShariah(screen, publicationDetail) {
+    
+      async function renderPortfolio(ticker) {
+        const body = document.createElement("div");
+        
+        try {
+          // fetch first portfolio
+          const res = await fetch("http://localhost:8000/api/p3/portfolios");
+          const data = await res.json();
+          let portfolio_id = 1;
+          if (!data.portfolios || data.portfolios.length === 0) {
+             const cr = await fetch("http://localhost:8000/api/p3/portfolios", {
+               method: "POST",
+               headers: {"Content-Type": "application/json"},
+               body: JSON.stringify({name: "Default Paper", initial_cash: 100000})
+             });
+             const cdata = await cr.json();
+             portfolio_id = cdata.id;
+          } else {
+             portfolio_id = data.portfolios[0].id;
+          }
+          
+          const p = document.createElement("p");
+          p.textContent = "Portfolio Action:";
+          
+          const form = document.createElement("form");
+          const buyBtn = document.createElement("button");
+          buyBtn.textContent = "Propose BUY";
+          buyBtn.type = "submit";
+          form.onsubmit = async (e) => {
+             e.preventDefault();
+             await fetch(`http://localhost:8000/api/p3/portfolios/${portfolio_id}/proposals`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ticker, side: "BUY", actor: "USER"})
+             });
+             renderPortfolio(ticker);
+          };
+          form.append(buyBtn);
+          
+          const orderList = document.createElement("div");
+          const ordersRes = await fetch(`http://localhost:8000/api/p3/portfolios/${portfolio_id}/orders`);
+          const ordersData = await ordersRes.json();
+          const activeOrders = ordersData.orders.filter(o => o.ticker === ticker);
+          
+          for (const o of activeOrders) {
+             const row = document.createElement("div");
+             row.textContent = `Order ${o.id}: ${o.side} ${o.quantity} @ ${o.status}`;
+             
+             if (o.status === "PROPOSED") {
+                const appBtn = document.createElement("button");
+                appBtn.textContent = "Approve";
+                appBtn.onclick = async () => {
+                   await fetch(`http://localhost:8000/api/p3/portfolios/${portfolio_id}/orders/${o.id}/approve`, {method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({})});
+                   renderPortfolio(ticker);
+                };
+                row.append(appBtn);
+             } else if (o.status === "APPROVED") {
+                const execBtn = document.createElement("button");
+                execBtn.textContent = "Execute";
+                execBtn.onclick = async () => {
+                   await fetch(`http://localhost:8000/api/p3/portfolios/${portfolio_id}/orders/${o.id}/execute`, {method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({})});
+                   renderPortfolio(ticker);
+                };
+                row.append(execBtn);
+             }
+             orderList.append(row);
+          }
+          
+          body.append(p, form, orderList);
+          
+        } catch (error) {
+          body.replaceChildren(createStateMessage("error", `Portfolio error: ${error.message}`));
+        }
+        
+        document.getElementById("portfolio-section").replaceChildren(createSection("Phase 3 Paper Portfolio", body));
+      }
+
+      function renderShariah(screen, publicationDetail) {
       const body = document.createElement("div");
       const badgeRow = document.createElement("p");
       badgeRow.appendChild(createBadge(statusBadge(screen.shariah.status)));
@@ -340,6 +418,7 @@
       try {
         const evidence = await fetchEvidence(ticker);
         renderEvidence(evidence);
+        renderPortfolio(ticker);
       } catch (error) {
         document.getElementById("evidence-section").replaceChildren(createStateMessage("error", `Could not load evidence: ${error.message}`));
       }

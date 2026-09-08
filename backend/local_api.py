@@ -2181,3 +2181,93 @@ def api_knowledge_note(note_path: str) -> dict:
     if note is None:
         raise HTTPException(status_code=404, detail="note_not_found")
     return note
+
+# --- Phase 3 Paper Portfolio Routes ---
+import p3_portfolio_engine
+
+class P3ProposalRequest(BaseModel):
+    ticker: str
+    side: str
+    actor: str = "SYSTEM"
+
+class P3ApprovalRequest(BaseModel):
+    actor: str = "SYSTEM"
+
+class P3PortfolioCreateRequest(BaseModel):
+    name: str
+    initial_cash: float
+
+@app.get("/api/p3/portfolios")
+def api_p3_list_portfolios():
+    connection = db()
+    try:
+        p3_portfolio_engine.ensure_p3_tables(connection)
+        rows = connection.execute("SELECT * FROM p3_portfolios").fetchall()
+        return {"portfolios": [dict(r) for r in rows]}
+    finally:
+        connection.close()
+
+@app.post("/api/p3/portfolios")
+def api_p3_create_portfolio(req: P3PortfolioCreateRequest):
+    connection = db()
+    try:
+        return p3_portfolio_engine.create_portfolio(connection, req.name, req.initial_cash)
+    finally:
+        connection.close()
+
+@app.get("/api/p3/portfolios/{portfolio_id}")
+def api_p3_get_portfolio(portfolio_id: int):
+    connection = db()
+    try:
+        return p3_portfolio_engine.get_portfolio(connection, portfolio_id)
+    finally:
+        connection.close()
+
+@app.get("/api/p3/portfolios/{portfolio_id}/positions")
+def api_p3_get_portfolio_positions(portfolio_id: int):
+    connection = db()
+    try:
+        return {"positions": p3_portfolio_engine.get_portfolio_positions(connection, portfolio_id)}
+    finally:
+        connection.close()
+
+@app.get("/api/p3/portfolios/{portfolio_id}/orders")
+def api_p3_get_portfolio_orders(portfolio_id: int):
+    connection = db()
+    try:
+        return {"orders": p3_portfolio_engine.get_portfolio_orders(connection, portfolio_id)}
+    finally:
+        connection.close()
+
+@app.post("/api/p3/portfolios/{portfolio_id}/proposals")
+def api_p3_propose_order(portfolio_id: int, req: P3ProposalRequest):
+    connection = db()
+    try:
+        import p3_decision_engine
+        return p3_decision_engine.propose_order(connection, portfolio_id, req.ticker.strip().upper(), req.side.strip().upper(), req.actor)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        connection.close()
+
+@app.post("/api/p3/portfolios/{portfolio_id}/orders/{order_id}/approve")
+def api_p3_approve_order(portfolio_id: int, order_id: int, req: P3ApprovalRequest):
+    connection = db()
+    try:
+        import p3_decision_engine
+        return p3_decision_engine.approve_order(connection, order_id, req.actor)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        connection.close()
+
+@app.post("/api/p3/portfolios/{portfolio_id}/orders/{order_id}/execute")
+def api_p3_execute_order(portfolio_id: int, order_id: int, req: P3ApprovalRequest):
+    connection = db()
+    try:
+        import p3_decision_engine
+        return p3_decision_engine.execute_order(connection, order_id, req.actor)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        connection.close()
