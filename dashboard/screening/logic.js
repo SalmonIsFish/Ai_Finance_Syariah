@@ -65,6 +65,10 @@ export function formatPct(value) {
   return typeof value === "number" && Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : "—";
 }
 
+export function formatPctValue(value) {
+  return typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(1)}%` : "—";
+}
+
 export function formatScore(value) {
   return typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : "—";
 }

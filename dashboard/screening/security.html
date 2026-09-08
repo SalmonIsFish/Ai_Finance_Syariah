@@ -45,7 +45,7 @@
 
   <script type="module">
     import { fetchScreen, fetchPublicationDetail, fetchRiskLimits, fetchEvidence } from "./api.js";
-    import { statusBadge, tradingStatusFromShariah, formatDate, formatPct, formatScore } from "./logic.js";
+    import { statusBadge, tradingStatusFromShariah, formatDate, formatPct, formatScore, formatPctValue } from "./logic.js";
     import {
       initTheme, wireThemeToggle, createBadge, createStateMessage, createSection,
       createKeyValueList, createTradingStatusBanner, createDecisionCard,
@@ -124,12 +124,12 @@
     function renderRisk(riskLimits) {
       const limits = riskLimits.limits;
       const body = createKeyValueList([
-        ["Max position %", formatPct(limits.max_position_pct)],
-        ["Max total exposure %", formatPct(limits.max_total_exposure_pct)],
-        ["Max sector exposure %", formatPct(limits.max_sector_exposure_pct)],
-        ["Max loss per trade %", formatPct(limits.max_loss_per_trade_pct)],
-        ["Max daily loss %", formatPct(limits.max_daily_loss_pct)],
-        ["Max weekly loss %", formatPct(limits.max_weekly_loss_pct)],
+        ["Max position %", formatPctValue(limits.max_position_pct)],
+        ["Max total exposure %", formatPctValue(limits.max_total_exposure_pct)],
+        ["Max sector exposure %", formatPctValue(limits.max_sector_exposure_pct)],
+        ["Max loss per trade %", formatPctValue(limits.max_loss_per_trade_pct)],
+        ["Max daily loss %", formatPctValue(limits.max_daily_loss_pct)],
+        ["Max weekly loss %", formatPctValue(limits.max_weekly_loss_pct)],
         ["Max orders per day", limits.max_orders_per_day],
       ]);
       const note = document.createElement("p");

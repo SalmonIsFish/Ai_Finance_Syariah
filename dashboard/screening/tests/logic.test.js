@@ -13,6 +13,7 @@ import {
   distinctValues,
   formatPct,
   formatScore,
+  formatPctValue,
 } from "../logic.js";
 
 test("buildUniverseQuery defaults to the backward-compatible PASS filter", () => {
@@ -145,4 +146,12 @@ test("formatPct and formatScore render missing values as an em dash, never 0 or 
   assert.equal(formatPct(null), "—");
   assert.equal(formatPct(undefined), "—");
   assert.equal(formatScore(NaN), "—");
+});
+
+test("formatPctValue formats an already-percent-scaled number without multiplying, and falls back to an em dash", () => {
+  assert.equal(formatPctValue(5), "5.0%");
+  assert.equal(formatPctValue(2.5), "2.5%");
+  assert.equal(formatPctValue(null), "—");
+  assert.equal(formatPctValue(undefined), "—");
+  assert.equal(formatPctValue(NaN), "—");
 });
