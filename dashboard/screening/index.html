@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shariah Screening — Amanah Trader</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <style>
+    .page { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+    header.app-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap; }
+    header.app-header h1 { font-size: 20px; margin: 0; }
+    .publication-banner { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
+    .publication-banner h2 { margin: 0 0 0.5rem; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .publication-banner p { margin: 0.15rem 0; }
+    .publication-banner--none .publication-banner__status { color: var(--warn); font-weight: 700; }
+    .publication-banner--active .publication-banner__status { color: var(--ok); font-weight: 700; }
+    .controls { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin-bottom: 1rem; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+    .controls label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 12px; color: var(--muted); }
+    .controls input, .controls select { font: inherit; padding: 0.4em 0.6em; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--bg-soft); color: var(--text); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+    table.universe-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    table.universe-table th, table.universe-table td { padding: 0.5em 0.75em; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    table.universe-table thead th { background: var(--panel-2); position: sticky; top: 0; }
+    table.universe-table tbody tr:hover { background: var(--panel-2); }
+    td.is-stale { color: var(--warn); }
+    .result-note { margin: 0.75rem 0; color: var(--muted); font-size: 12px; }
+    .quant-filter-hint { font-size: 11px; color: var(--subtle); max-width: 220px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="app-header">
+      <h1>Malaysian Shariah Screening</h1>
+      <button type="button" data-theme-toggle aria-pressed="true">Light Mode</button>
+    </header>
+
+    <div id="publication-banner"></div>
+
+    <form class="controls" id="controls" aria-label="Search and filters">
+      <label>
+        Search
+        <input type="search" id="search" placeholder="Ticker or issuer name" aria-label="Search by ticker or issuer name">
+      </label>
+      <label>
+        Shariah status
+        <select id="shariah-status">
+          <option value="PASS" selected>PASS (authoritative universe)</option>
+          <option value="REJECT">REJECT</option>
+          <option value="ALL">ALL (PASS + REJECT)</option>
+        </select>
+      </label>
+      <label>
+        Sector
+        <select id="sector"><option value="ALL">All sectors</option></select>
+      </label>
+      <label>
+        Market
+        <select id="market"><option value="ALL">All markets</option></select>
+      </label>
+      <label>
+        Quant signal
+        <select id="signal">
+          <option value="ALL">Any</option>
+          <option value="BUY">BUY</option>
+          <option value="NO_SIGNAL">NO_SIGNAL</option>
+        </select>
+      </label>
+      <label>
+        Min attractiveness
+        <input type="number" id="min-attractiveness" min="0" max="1" step="0.05" placeholder="0.00">
+      </label>
+      <p class="quant-filter-hint">Quant/attractiveness filters apply only to rows currently shown on this page, since quant signals load per row, not in bulk.</p>
+    </form>
+
+    <div id="state"></div>
+    <p class="result-note" id="result-note" hidden></p>
+    <div class="table-wrap" id="table-wrap"></div>
+  </div>
+
+  <script type="module">
+    import { fetchUniverse, fetchQuant } from "./api.js";
+    import {
+      publicationBannerState, matchesSearch, filterBySelects, filterByQuant,
+      distinctValues, safeQuantState, freshnessFromAsOfDate,
+    } from "./logic.js";
+    import {
+      initTheme, wireThemeToggle, createPublicationBanner, createStateMessage,
+      createUniverseTable, updateRowQuant,
+    } from "./render.js";
+
+    const MAX_VISIBLE_ROWS = 50;
+
+    const stateEl = document.getElementById("state");
+    const tableWrap = document.getElementById("table-wrap");
+    const resultNote = document.getElementById("result-note");
+    const bannerEl = document.getElementById("publication-banner");
+    const controls = document.getElementById("controls");
+    const searchInput = document.getElementById("search");
+    const shariahSelect = document.getElementById("shariah-status");
+    const sectorSelect = document.getElementById("sector");
+    const marketSelect = document.getElementById("market");
+    const signalSelect = document.getElementById("signal");
+    const minAttractivenessInput = document.getElementById("min-attractiveness");
+
+    let allSecurities = [];
+    const quantCache = new Map();
+
+    initTheme();
+    wireThemeToggle();
+
+    function setState(node) {
+      stateEl.replaceChildren();
+      if (node) stateEl.appendChild(node);
+    }
+
+    function populateFilterOptions() {
+      for (const value of distinctValues(allSecurities, "sector")) {
+        sectorSelect.appendChild(new Option(value, value));
+      }
+      for (const value of distinctValues(allSecurities, "board")) {
+        marketSelect.appendChild(new Option(value, value));
+      }
+    }
+
+    function currentFilters() {
+      const min = minAttractivenessInput.value === "" ? undefined : Number(minAttractivenessInput.value);
+      return {
+        sector: sectorSelect.value,
+        market: marketSelect.value,
+        signal: signalSelect.value,
+        minAttractiveness: min,
+      };
+    }
+
+    async function loadQuantFor(row, ticker) {
+      let quantState = quantCache.get(ticker);
+      if (!quantState) {
+        try {
+          const raw = await fetchQuant(ticker);
+          quantState = safeQuantState(raw, null);
+        } catch (error) {
+          quantState = safeQuantState(null, error);
+        }
+        quantCache.set(ticker, quantState);
+      }
+      const freshness = quantState.status === "ok"
+        ? freshnessFromAsOfDate(quantState.asOfDate, new Date().toISOString().slice(0, 10))
+        : { label: "—", isStale: false };
+      updateRowQuant(row, quantState, freshness);
+      return quantState;
+    }
+
+    function renderTable() {
+      const filters = currentFilters();
+      const query = searchInput.value;
+
+      const matched = allSecurities.filter((s) => matchesSearch(s, query) && filterBySelects(s, filters));
+      const visible = matched.slice(0, MAX_VISIBLE_ROWS);
+
+      resultNote.hidden = matched.length <= MAX_VISIBLE_ROWS;
+      resultNote.textContent = `Showing ${visible.length} of ${matched.length} matches — refine your search or filters to narrow further.`;
+
+      if (visible.length === 0) {
+        tableWrap.replaceChildren();
+        setState(createStateMessage("empty", "No securities match the current search and filters."));
+        return;
+      }
+      setState(null);
+
+      const { table, rowsByTicker } = createUniverseTable(visible);
+      tableWrap.replaceChildren(table);
+
+      const quantActive = filters.signal !== "ALL" || typeof filters.minAttractiveness === "number";
+
+      for (const security of visible) {
+        const row = rowsByTicker.get(security.ticker);
+        loadQuantFor(row, security.ticker).then((quantState) => {
+          if (quantActive && !filterByQuant(quantState, filters)) {
+            row.remove();
+          }
+        });
+      }
+    }
+
+    async function loadUniverse() {
+      setState(createStateMessage("loading", "Loading the Shariah universe…"));
+      tableWrap.replaceChildren();
+      resultNote.hidden = true;
+
+      let response;
+      try {
+        response = await fetchUniverse({ shariahStatus: shariahSelect.value, limit: 1000, offset: 0 });
+      } catch (error) {
+        setState(createStateMessage("error", `Could not load the universe: ${error.message}`));
+        return;
+      }
+
+      bannerEl.replaceChildren(createPublicationBanner(publicationBannerState(response.active_publication)));
+
+      if (!response.active_publication) {
+        setState(createStateMessage("none", "No securities can be shown: there is no approved and activated SC Malaysia publication right now."));
+        return;
+      }
+
+      allSecurities = response.securities.map((s) => ({
+        ...s,
+        publicationDate: response.active_publication.publication_date,
+      }));
+      quantCache.clear();
+      sectorSelect.replaceChildren(new Option("All sectors", "ALL"));
+      marketSelect.replaceChildren(new Option("All markets", "ALL"));
+      populateFilterOptions();
+
+      if (allSecurities.length === 0) {
+        setState(createStateMessage("empty", "The active publication contains no securities matching this filter."));
+        return;
+      }
+
+      renderTable();
+    }
+
+    let searchDebounce;
+    searchInput.addEventListener("input", () => {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(renderTable, 150);
+    });
+    for (const el of [sectorSelect, marketSelect, signalSelect, minAttractivenessInput]) {
+      el.addEventListener("change", renderTable);
+    }
+    shariahSelect.addEventListener("change", loadUniverse);
+    controls.addEventListener("submit", (e) => e.preventDefault());
+
+    loadUniverse();
+  </script>
+</body>
+</html>

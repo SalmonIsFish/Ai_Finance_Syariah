@@ -1,0 +1,140 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b0f1a;
+  --bg-soft: #0f1526;
+  --panel: #131a2c;
+  --panel-2: #182036;
+  --text: #eef1f8;
+  --muted: #99a3bd;
+  --subtle: #6b7794;
+  --border: #263153;
+  --border-strong: #35447a;
+  --accent: #b8925a;
+  --accent-2: #d1ab7c;
+  --button-text: #1b1206;
+  --ok: #5fae86;
+  --ok-bg: rgba(95, 174, 134, 0.14);
+  --warn: #e3b341;
+  --warn-bg: rgba(227, 179, 65, 0.14);
+  --bad: #e0685c;
+  --bad-bg: rgba(224, 104, 92, 0.14);
+  --radius: 8px;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, "Roboto Mono", monospace;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f6f9;
+  --bg-soft: #eef1f6;
+  --panel: #ffffff;
+  --panel-2: #f6f8fb;
+  --text: #16202f;
+  --muted: #5b6779;
+  --subtle: #808da0;
+  --border: #d8dee8;
+  --border-strong: #b9c3d3;
+  --accent: #7c5b2e;
+  --accent-2: #61451f;
+  --button-text: #ffffff;
+  --ok: #2f8f63;
+  --ok-bg: rgba(47, 143, 99, 0.1);
+  --warn: #c07f1f;
+  --warn-bg: rgba(192, 127, 31, 0.12);
+  --bad: #c2483c;
+  --bad-bg: rgba(194, 72, 60, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a {
+  color: var(--accent-2);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.15em 0.6em;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+.badge--ok {
+  color: var(--ok);
+  background: var(--ok-bg);
+  border-color: var(--ok);
+}
+
+.badge--warn {
+  color: var(--warn);
+  background: var(--warn-bg);
+  border-color: var(--warn);
+}
+
+.badge--bad {
+  color: var(--bad);
+  background: var(--bad-bg);
+  border-color: var(--bad);
+}
+
+.badge--ok::before {
+  content: "✓ ";
+}
+
+.badge--warn::before {
+  content: "? ";
+}
+
+.badge--bad::before {
+  content: "✕ ";
+}
+
+.state-message {
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.state-message--error {
+  color: var(--bad);
+  background: var(--bad-bg);
+  border-color: var(--bad);
+}
+
+.state-message--none {
+  color: var(--warn);
+  background: var(--warn-bg);
+  border-color: var(--warn);
+}
+
+button[data-theme-toggle] {
+  font: inherit;
+  padding: 0.4em 0.9em;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+}
