@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security Detail — Amanah Trader</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <style>
+    .page { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+    header.app-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap; }
+    header.app-header h1 { font-size: 20px; margin: 0; }
+    a.back-link { display: inline-block; margin-bottom: 1rem; }
+    .identity { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+    .identity h2 { margin: 0 0 0.25rem; font-size: 22px; }
+    .identity p { margin: 0.15rem 0; color: var(--muted); }
+    .trading-status-banner { border: 1px solid var(--bad); background: var(--bad-bg); color: var(--bad); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1rem; font-weight: 600; }
+    .trading-status-banner p { margin: 0.15rem 0; }
+    .detail-section { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+    .detail-section h2 { margin: 0 0 0.75rem; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    dl.kv-list { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; margin: 0; }
+    dl.kv-list dt { color: var(--muted); }
+    dl.kv-list dd { margin: 0; font-family: var(--font-mono); }
+    .decision-card { border-top: 1px solid var(--border); padding-top: 0.75rem; margin-top: 0.75rem; }
+    .decision-card:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="app-header">
+      <h1>Security Detail</h1>
+      <button type="button" data-theme-toggle aria-pressed="true">Light Mode</button>
+    </header>
+    <a class="back-link" href="./index.html">&larr; Back to universe</a>
+
+    <div id="state"></div>
+    <div id="content" hidden>
+      <div class="identity" id="identity"></div>
+      <div id="trading-status"></div>
+      <div id="shariah-section"></div>
+      <div id="quant-section"></div>
+      <div id="risk-section"></div>
+      <div id="evidence-section"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { fetchScreen, fetchPublicationDetail, fetchRiskLimits, fetchEvidence } from "./api.js";
+    import { statusBadge, tradingStatusFromShariah, formatDate, formatPct, formatScore } from "./logic.js";
+    import {
+      initTheme, wireThemeToggle, createBadge, createStateMessage, createSection,
+      createKeyValueList, createTradingStatusBanner, createDecisionCard,
+    } from "./render.js";
+
+    initTheme();
+    wireThemeToggle();
+
+    const stateEl = document.getElementById("state");
+    const contentEl = document.getElementById("content");
+
+    function setState(node) {
+      stateEl.replaceChildren();
+      if (node) {
+        stateEl.appendChild(node);
+        contentEl.hidden = true;
+      } else {
+        contentEl.hidden = false;
+      }
+    }
+
+    function renderIdentity(screen) {
+      const el = document.getElementById("identity");
+      el.replaceChildren();
+      const heading = document.createElement("h2");
+      heading.textContent = `${screen.shariah.issuer_name || screen.ticker} (${screen.ticker})`;
+      const market = document.createElement("p");
+      market.textContent = `Market: ${screen.shariah.board || "—"}  ·  Sector: ${screen.shariah.sector || "—"}`;
+      el.append(heading, market);
+    }
+
+    function renderShariah(screen, publicationDetail) {
+      const body = document.createElement("div");
+      const badgeRow = document.createElement("p");
+      badgeRow.appendChild(createBadge(statusBadge(screen.shariah.status)));
+      body.appendChild(badgeRow);
+      const pairs = [
+        ["Reason code", screen.shariah.reason_code],
+        ["Publication ID", screen.shariah.publication_id],
+        ["Publication date", formatDate(screen.shariah.publication_date)],
+        ["Source document hash", screen.shariah.source_document_hash],
+      ];
+      if (publicationDetail) {
+        pairs.push(
+          ["Publication review status", publicationDetail.publication?.human_review_status],
+          ["Securities in publication", publicationDetail.security_count],
+          ["Compliant in publication", publicationDetail.compliant_count],
+          ["Non-compliant in publication", publicationDetail.non_compliant_count],
+        );
+      }
+      body.appendChild(createKeyValueList(pairs));
+      if (screen.shariah.status === "UNKNOWN") {
+        const note = document.createElement("p");
+        note.textContent = "The security is not currently established as eligible by an approved and activated authoritative publication. This is not the same as non-compliant.";
+        body.appendChild(note);
+      }
+      document.getElementById("shariah-section").replaceChildren(createSection("Shariah", body));
+    }
+
+    function renderQuant(screen) {
+      const body = createKeyValueList([
+        ["Signal", screen.quant.signal],
+        ["Reason code", screen.quant.reason_code],
+        ["Strategy ID", screen.quant.strategy_id],
+        ["As-of date", formatDate(screen.quant.as_of_date)],
+        ["Price", screen.quant.price],
+        ["Price source", screen.quant.price_source],
+        ["Attractiveness", formatScore(screen.attractiveness.attractiveness)],
+        ["Technical component", formatScore(screen.attractiveness.components.technical)],
+        ["Volume component", formatScore(screen.attractiveness.components.volume)],
+        ["Risk-headroom component", formatScore(screen.attractiveness.components.risk_headroom)],
+      ]);
+      document.getElementById("quant-section").replaceChildren(createSection("Quant", body));
+    }
+
+    function renderRisk(riskLimits) {
+      const limits = riskLimits.limits;
+      const body = createKeyValueList([
+        ["Max position %", formatPct(limits.max_position_pct)],
+        ["Max total exposure %", formatPct(limits.max_total_exposure_pct)],
+        ["Max sector exposure %", formatPct(limits.max_sector_exposure_pct)],
+        ["Max loss per trade %", formatPct(limits.max_loss_per_trade_pct)],
+        ["Max daily loss %", formatPct(limits.max_daily_loss_pct)],
+        ["Max weekly loss %", formatPct(limits.max_weekly_loss_pct)],
+        ["Max orders per day", limits.max_orders_per_day],
+      ]);
+      const note = document.createElement("p");
+      note.textContent = "These are the currently configured policy limits, not a per-trade verdict for this security. A risk PASS/REJECT requires order-specific inputs (position size, existing exposure) only available when previewing an order.";
+      const wrapper = document.createElement("div");
+      wrapper.append(body, note);
+      document.getElementById("risk-section").replaceChildren(createSection("Risk", wrapper));
+    }
+
+    function renderEvidence(evidence) {
+      const wrapper = document.createElement("div");
+      if (evidence.decisions.length === 0) {
+        wrapper.appendChild(createStateMessage("empty", "No recorded decisions for this ticker yet."));
+      } else {
+        for (const decision of evidence.decisions) {
+          wrapper.appendChild(createDecisionCard(decision));
+        }
+      }
+      document.getElementById("evidence-section").replaceChildren(createSection("Evidence", wrapper));
+    }
+
+    async function load() {
+      const params = new URLSearchParams(window.location.search);
+      const ticker = params.get("ticker");
+      if (!ticker) {
+        setState(createStateMessage("error", "No ticker specified. Use security.html?ticker=1155."));
+        return;
+      }
+
+      setState(createStateMessage("loading", `Loading ${ticker}…`));
+
+      let screen;
+      try {
+        screen = await fetchScreen(ticker);
+      } catch (error) {
+        setState(createStateMessage("error", `Could not load ${ticker}: ${error.message}`));
+        return;
+      }
+
+      setState(null);
+      renderIdentity(screen);
+
+      const tradingStatus = tradingStatusFromShariah(screen.shariah.status);
+      document.getElementById("trading-status").replaceChildren(
+        ...(tradingStatus ? [createTradingStatusBanner(tradingStatus)] : []),
+      );
+
+      let publicationDetail = null;
+      if (screen.shariah.publication_id) {
+        try {
+          publicationDetail = await fetchPublicationDetail(screen.shariah.publication_id);
+        } catch {
+          publicationDetail = null; // best-effort supplementary provenance, not required to render the page
+        }
+      }
+      renderShariah(screen, publicationDetail);
+      renderQuant(screen);
+
+      try {
+        const riskLimits = await fetchRiskLimits();
+        renderRisk(riskLimits);
+      } catch (error) {
+        document.getElementById("risk-section").replaceChildren(createStateMessage("error", `Could not load risk limits: ${error.message}`));
+      }
+
+      try {
+        const evidence = await fetchEvidence(ticker);
+        renderEvidence(evidence);
+      } catch (error) {
+        document.getElementById("evidence-section").replaceChildren(createStateMessage("error", `Could not load evidence: ${error.message}`));
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
