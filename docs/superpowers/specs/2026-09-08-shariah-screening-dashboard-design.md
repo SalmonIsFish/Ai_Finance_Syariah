@@ -74,19 +74,26 @@ mutation path.
   repo's existing no-build model and the CORS defaults above.
 - **Location**: `dashboard/screening/`, fully separate from
   `dashboard/index.html`.
-- **Files**:
+- **Files** (matches the user-approved structure exactly — no extra files
+  for their own sake):
   ```
   dashboard/screening/
-  ├── index.html       # universe screen (search, filters, table)
-  ├── security.html     # detail page, ?ticker=1155
-  ├── api.js             # fetch client — one function per /api/* endpoint, no retries/fallback-to-optimistic-state
+  ├── index.html       # universe screen: publication banner, search, filters,
+  │                     # table, and its own inline <script type="module"> /
+  │                     # <style> for page-specific wiring/layout
+  ├── security.html     # detail page, ?ticker=1155, same inline pattern
+  ├── api.js             # fetch client — one function per /api/* endpoint used, no retries/fallback-to-optimistic-state
   ├── logic.js            # pure functions: status/badge derivation, filtering, search matching, formatting — unit tested
-  ├── render.js            # DOM painting, reads logic.js output, no business logic of its own
-  ├── tokens.css            # design tokens adapted from dashboard/index.html's palette
-  ├── screening.css          # layout/component styles built on tokens.css
+  ├── render.js            # shared DOM-painting helpers (badge elements, banners, tables) used by both pages' inline scripts
+  ├── tokens.css            # shared design tokens (custom properties + badge/status primitives) adapted from dashboard/index.html's palette
   └── tests/
       └── logic.test.js       # node:test, run via `node --test`
   ```
+  Page-specific layout CSS lives in a `<style>` block inside each HTML file
+  (they differ enough — a dense table vs. a stacked detail page — that a
+  shared stylesheet would just be indirection); `tokens.css` holds only
+  what's genuinely shared: custom properties, theme toggle behavior, and
+  the badge/status primitives both pages use identically.
 - **Testing philosophy**: no JS framework exists in this repo, and the
   backend's own convention is plain `test_*.py` scripts with `main()`
   printing `PASS: ...` rather than pytest. Mirrored here: business/display
@@ -119,6 +126,26 @@ mutation path.
   manufactures a bulk "UNKNOWN list."
 
 No other endpoint changes. No mutation routes are added anywhere.
+
+## Universe table: quant/attractiveness/risk columns
+
+`/api/universe` returns only Shariah/publication fields per security
+(ticker, issuer_name, shariah_status, board, sector) — it does not carry
+quant signal, attractiveness, or a per-ticker risk verdict, and no bulk
+endpoint for those exists (adding one is out of scope for this phase's
+single approved API change). Resolution:
+
+- **Quant signal / attractiveness columns**: populate lazily per row for
+  only the current page (`limit`/`offset` already supported, default page
+  size 50), firing one `/api/quant/{ticker}` request per visible row in
+  parallel once the page renders. Cells show "loading…" then the real
+  value, or "—" on a per-ticker fetch failure — one slow/broken ticker
+  never blocks the rest of the page or is masked as a value.
+- **Risk column**: no per-ticker verdict is computable without order
+  context (see Inspection findings above), so every row shows a fixed,
+  honest label — "No per-trade risk context" — rather than a fetched or
+  fabricated eligibility state. The global policy limits from `/api/risk`
+  are shown once, in the publication/authority banner area, not per row.
 
 ## UX rules
 
