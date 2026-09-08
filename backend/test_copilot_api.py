@@ -144,13 +144,43 @@ def test_3_fail_on_missing_fields_or_malformed(mock_openrouter):
     except ValueError as e:
         assert "missing" in str(e) or "SAFETY VIOLATION" in str(e)
         
+        
     print("PASS: 3 - Copilot fails on malformed LLM response")
+
+
+@mock.patch("copilot_api.openrouter_request")
+def test_4_research_copilot_success(mock_openrouter):
+    conn = _reset_db()
+    _seed_publication(conn)
+    conn.close()
+
+    mock_openrouter.return_value = {
+        "ok": True,
+        "data": {
+            "choices": [
+                {
+                    "message": {
+                        "content": '{"explanation": "Research found...", "status_check": "PASS", "limitations": ["Not investment advice"]}'
+                    }
+                }
+            ]
+        }
+    }
+
+    import copilot_api
+    res = copilot_api.research_copilot_ticker("1155", "What is the research context?")
+    assert res["authoritative_status"] == "PASS"
+    assert res["explanation"] == "Research found..."
+    assert res["limitations"] == ["Not investment advice"]
+    
+    print("PASS: 4 - Research Copilot succeeds and parses limitations")
 
 
 def main():
     test_1_fail_closed_on_mismatch()
     test_2_success_on_match()
     test_3_fail_on_missing_fields_or_malformed()
+    test_4_research_copilot_success()
 
 if __name__ == "__main__":
     main()

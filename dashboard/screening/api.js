@@ -54,21 +54,34 @@ export function fetchEvidence(ticker, limit = 20) {
 }
 
 export async function fetchCopilotExplanation(ticker, question) {
-  const response = await fetch(`${apiBase()}/api/explain`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json"
-    },
+  const response = await fetch(${apiBase()}/api/explain, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify({ ticker, question })
   });
   if (!response.ok) {
-    let errorDetail = "";
-    try {
-      const errBody = await response.json();
-      errorDetail = errBody.detail || "";
-    } catch { }
-    throw new Error(errorDetail || `${response.status} Failed to load explanation`);
+    let errorDetail = '';
+    try { const errBody = await response.json(); errorDetail = errBody.detail || ''; } catch { }
+    throw new Error(errorDetail || response.status + ' Failed to load explanation');
   }
   return response.json();
 }
+
+export function fetchResearch(ticker) {
+  return getJson('/api/research/' + encodeURIComponent(ticker));
+}
+
+export async function fetchResearchCopilot(ticker, question) {
+  const response = await fetch(${apiBase()}/api/research/copilot, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ ticker, question })
+  });
+  if (!response.ok) {
+    let errorDetail = '';
+    try { const errBody = await response.json(); errorDetail = errBody.detail || ''; } catch { }
+    throw new Error(errorDetail || response.status + ' Failed to load explanation');
+  }
+  return response.json();
+}
+

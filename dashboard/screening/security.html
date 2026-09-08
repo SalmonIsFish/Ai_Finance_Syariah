@@ -40,6 +40,7 @@
       <div id="trading-status"></div>
       <div id="shariah-section"></div>
       <div id="quant-section"></div>
+      <div id="research-section"></div>
       <div id="copilot-section"></div>
       <div id="risk-section"></div>
       <div id="evidence-section"></div>
@@ -47,7 +48,7 @@
   </div>
 
   <script type="module">
-    import { fetchScreen, fetchPublicationDetail, fetchRiskLimits, fetchEvidence, fetchUniverse, fetchCopilotExplanation } from "./api.js";
+    import { fetchScreen, fetchPublicationDetail, fetchRiskLimits, fetchEvidence, fetchUniverse, fetchResearch, fetchResearchCopilot } from "./api.js";
     import { statusBadge, tradingStatusFromShariah, formatDate, formatScore, formatPctValue, publicationBannerState } from "./logic.js";
     import {
       initTheme, wireThemeToggle, createBadge, createStateMessage, createSection,
@@ -137,12 +138,51 @@
       document.getElementById("quant-section").replaceChildren(createSection("Quant", body));
     }
 
-    function renderCopilot(ticker) {
+    function renderResearch(researchData) {
+      const body = document.createElement("div");
+      
+      const knowledgeHeader = document.createElement("h3");
+      knowledgeHeader.textContent = "Knowledge & Methodology";
+      body.appendChild(knowledgeHeader);
+      
+      if (!researchData.knowledge || researchData.knowledge.length === 0) {
+        body.appendChild(createStateMessage("empty", "No methodology or knowledge notes found."));
+      } else {
+        const kList = document.createElement("ul");
+        kList.style.marginBottom = "1rem";
+        for (const k of researchData.knowledge) {
+          const li = document.createElement("li");
+          li.innerHTML = `<strong>${k.title}</strong>: ${k.relevance || ""} <em>(${k.path})</em>`;
+          kList.appendChild(li);
+        }
+        body.appendChild(kList);
+      }
+      
+      const evidenceHeader = document.createElement("h3");
+      evidenceHeader.textContent = "Aggregated Timeline";
+      body.appendChild(evidenceHeader);
+      
+      if (!researchData.evidence || researchData.evidence.length === 0) {
+        body.appendChild(createStateMessage("empty", "No evidence timeline found."));
+      } else {
+        const eList = document.createElement("ul");
+        for (const e of researchData.evidence) {
+          const li = document.createElement("li");
+          li.innerHTML = `<strong>[${formatDate(e.timestamp) || "Unknown Date"}]</strong> ${e.source_type.toUpperCase()}: ${e.detail}`;
+          eList.appendChild(li);
+        }
+        body.appendChild(eList);
+      }
+      
+      document.getElementById("research-section").replaceChildren(createSection("Research Intelligence", body));
+    }
+
+    function renderResearchCopilot(ticker) {
       const body = document.createElement("div");
       body.className = "copilot-container";
       
       const disclaimer = document.createElement("p");
-      disclaimer.innerHTML = "<strong>AI Copilot is an explanatory aid only.</strong> It does not compute Shariah status, and any explanations contradicting the authoritative badge above must be ignored.";
+      disclaimer.innerHTML = "<strong>AI Research Copilot is an explanatory aid only.</strong> It does not compute Shariah status or give trade recommendations. Explanations contradicting the authoritative badge must be ignored.";
       disclaimer.style.fontSize = "0.85em";
       disclaimer.style.color = "var(--color-text-muted)";
       disclaimer.style.marginBottom = "1rem";
@@ -154,14 +194,14 @@
       
       const input = document.createElement("input");
       input.type = "text";
-      input.placeholder = `Ask a question about ${ticker}'s Shariah or Quant status...`;
+      input.placeholder = `Ask a question about ${ticker}'s research, evidence, or methodologies...`;
       input.style.flex = "1";
       input.style.padding = "0.5rem";
       input.required = true;
       
       const button = document.createElement("button");
       button.type = "submit";
-      button.textContent = "Explain";
+      button.textContent = "Research";
       button.style.padding = "0.5rem 1rem";
       
       form.append(input, button);
@@ -175,14 +215,24 @@
         
         button.disabled = true;
         input.disabled = true;
-        resultDiv.replaceChildren(createStateMessage("loading", "Copilot is analyzing..."));
+        resultDiv.replaceChildren(createStateMessage("loading", "Copilot is analyzing research context..."));
         
         try {
-          const result = await fetchCopilotExplanation(ticker, question);
+          const result = await fetchResearchCopilot(ticker, question);
           const expP = document.createElement("p");
           expP.textContent = result.explanation;
           expP.style.lineHeight = "1.5";
           expP.style.marginBottom = "1rem";
+          
+          let limitationsHtml = "";
+          if (result.limitations && result.limitations.length > 0) {
+            limitationsHtml = "<strong>Limitations:</strong><ul>" + result.limitations.map(l => `<li>${l}</li>`).join('') + "</ul>";
+          }
+          const limitDiv = document.createElement("div");
+          limitDiv.innerHTML = limitationsHtml;
+          limitDiv.style.marginBottom = "1rem";
+          limitDiv.style.fontSize = "0.9em";
+          limitDiv.style.color = "var(--color-text-muted)";
           
           const metaList = createKeyValueList([
             ["Model", result.model],
@@ -190,7 +240,7 @@
             ["Sources (Evidence/Vault)", `${result.sources_used.evidence_count} / ${result.sources_used.vault_count}`]
           ]);
           
-          resultDiv.replaceChildren(expP, metaList);
+          resultDiv.replaceChildren(expP, limitDiv, metaList);
         } catch (error) {
           resultDiv.replaceChildren(createStateMessage("error", `Copilot failed: ${error.message}`));
         } finally {
@@ -271,7 +321,14 @@
       }
       renderShariah(screen, publicationDetail);
       renderQuant(screen);
-      renderCopilot(ticker);
+      renderResearchCopilot(ticker);
+      
+      try {
+        const research = await fetchResearch(ticker);
+        renderResearch(research);
+      } catch (error) {
+        document.getElementById("research-section").replaceChildren(createStateMessage("error", `Could not load research intelligence: ${error.message}`));
+      }
 
       try {
         const riskLimits = await fetchRiskLimits();

@@ -239,3 +239,69 @@ def knowledge_note(vault_path: str, relative_path: str) -> dict | None:
         return None
     note = index.get_note(relative_path)
     return note
+
+
+def research_intelligence_for_ticker(ticker: str, vault_path: str | None) -> dict:
+    """Aggregates all read-only deterministic and knowledge context for a security."""
+    normalized = ticker.strip().upper()
+    screen_data = screen_ticker(normalized)
+    
+    knowledge_context = []
+    if vault_path:
+        search_res = knowledge_search(vault_path, normalized, limit=5)
+        for res in search_res.get("results", []):
+            knowledge_context.append({
+                "source_type": "vault",
+                "path": res.get("filename"),
+                "title": res.get("frontmatter", {}).get("title") or res.get("filename"),
+                "relevance": res.get("excerpt"),
+                "retrieved_at": screen_data["as_of"],
+                "content": res.get("body", "")  # vault_indexer doesn't return full body in search by default, but it's available via get_note
+            })
+            
+            # Optionally fetch full body if needed, but let's stick to search results to save tokens,
+            # or fetch full note if required. The vault index search result might have `content`?
+            note_full = knowledge_note(vault_path, res.get("filename", ""))
+            if note_full:
+                knowledge_context[-1]["content"] = note_full.get("body", "")
+
+    evidence_data = evidence_for_ticker(normalized, limit=10)
+    
+    unified_evidence = []
+    # Add publication timeline event
+    unified_evidence.append({
+        "source_type": "sc_publication",
+        "timestamp": screen_data["shariah"].get("publication_date", ""),
+        "detail": f"SC Publication {screen_data['shariah'].get('publication_id', 'UNKNOWN')} established status as {screen_data['shariah']['status']}"
+    })
+    
+    # Add quant timeline event
+    unified_evidence.append({
+        "source_type": "quant_signal",
+        "timestamp": screen_data["quant"].get("as_of_date", ""),
+        "detail": f"Signal {screen_data['quant'].get('signal', 'UNKNOWN')} generated via {screen_data['quant'].get('strategy_id', 'UNKNOWN')}"
+    })
+    
+    # Add recent trading decisions
+    for dec in evidence_data.get("decisions", []):
+        unified_evidence.append({
+            "source_type": "trade_decision",
+            "timestamp": dec.get("timestamp", ""),
+            "detail": f"Decision: {dec.get('decision', dec.get('final_decision'))}, Reason: {dec.get('decision_reason', '')}"
+        })
+        
+    return {
+        "ticker": normalized,
+        "identity": {
+            "issuer": screen_data["shariah"].get("issuer_name"),
+            "board": screen_data["shariah"].get("board"),
+            "sector": screen_data["shariah"].get("sector")
+        },
+        "shariah": screen_data["shariah"],
+        "quant": screen_data["quant"],
+        "attractiveness": screen_data["attractiveness"],
+        "risk_context": risk_limits()["limits"],
+        "knowledge": knowledge_context,
+        "evidence": sorted(unified_evidence, key=lambda x: x["timestamp"], reverse=True)
+    }
+

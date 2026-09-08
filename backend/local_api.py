@@ -2159,6 +2159,19 @@ def api_explain(req: ExplainRequest) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+@app.get("/api/research/{ticker}")
+def api_research_ticker(ticker: str) -> dict:
+    settings = load_settings()
+    vault_path = settings.shariah_wiki_path
+    return screening_api.research_intelligence_for_ticker(ticker, vault_path)
+
+@app.post("/api/research/copilot")
+def api_research_copilot(req: ExplainRequest) -> dict:
+    try:
+        return copilot_api.research_copilot_ticker(req.ticker, req.question)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
 @app.get("/api/knowledge/note/{note_path:path}")
 def api_knowledge_note(note_path: str) -> dict:
     settings = load_settings()
