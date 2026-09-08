@@ -2,15 +2,16 @@
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 import portfolio_metrics
 from agent_coordinator import evaluate_candidate
+from agents.risk_engine import evaluate_risk
 from agents.shariah_agent import detect_market, evaluate_shariah
 from alpaca_market_data import fetch_news
 from alpaca_paper_adapter import (
@@ -27,6 +28,7 @@ from moomoo_status import check_moomoo_status
 from news_summarizer import attach_ai_summaries
 from opportunity_scanner import scan_opportunities
 from option_strategy_api import propose_option_strategy
+import screening_api
 from paper_execution import (
     execute_paper_order,
     reconcile_submitted_paper_order,
@@ -37,6 +39,7 @@ from portfolio_store import (
     ensure_portfolio_tables,
     list_portfolio_snapshots,
     open_position_quantity,
+    period_realized_pnl,
     portfolio_snapshot,
     record_portfolio_snapshot,
     sync_filled_order,
@@ -142,31 +145,288 @@ def add_audit_event(event_type: str, payload: dict) -> dict:
         connection.close()
 
 
+def _test_fixture_gate_open(symbol: str, settings) -> bool:
+    """Whether the AAPL paper-execution demo fixture is currently unlockable.
+
+    Server-controlled only -- symbol string plus config, never a caller's
+    claim that a fixture applies -- so the identical check can gate both the
+    preview-time override and the approval-time re-derivation below without
+    either one trusting the other.
+    """
+    return (
+        symbol in PAPER_TEST_SYMBOLS
+        and settings.moomoo_mode == "paper"
+        and settings.trading_mode == "approval"
+        and settings.paper_execution_enabled
+    )
+
+
+def _test_fixture_shariah_verdict(symbol: str) -> dict:
+    return {
+        "agent": "shariah",
+        "market": "US",
+        "provider": "PAPER_TEST_FIXTURE",
+        "status": "PASS",
+        "symbol": symbol,
+        "reason": "paper_execution_test_fixture",
+        "details": {"status": "COMPLIANT", "symbol": symbol, "fixture": True},
+    }
+
+
+def authoritative_shariah_verdict(symbol: str) -> dict:
+    """The server-derived Shariah verdict for a symbol -- never a caller-supplied one.
+
+    /paper/approval must call this instead of trusting the `shariah` field on
+    the client-echoed preview body: a client can hand-edit that JSON before
+    resubmitting it, and nothing about the approval endpoint's own request
+    schema ties it back to a specific server-computed /paper/preview response.
+    Without this, a caller could submit a fabricated PASS for a Malaysian
+    ticker that is actually REJECT or UNKNOWN in the approved SC publication
+    (or any US ticker SEC EDGAR would reject) directly to /paper/approval,
+    bypassing the SC Malaysia gate entirely. This re-runs the same
+    authoritative check /paper/preview performs -- the one recognized
+    override remains the AAPL demo fixture, itself re-verified here from
+    symbol + settings alone, never from anything the client claims.
+    """
+    normalized = str(symbol or "").strip().upper()
+    settings = load_settings()
+    if _test_fixture_gate_open(normalized, settings):
+        return _test_fixture_shariah_verdict(normalized)
+    return evaluate_shariah(normalized)
+
+
+def _start_of_today_utc(now: datetime | None = None) -> datetime:
+    now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _start_of_iso_week_utc(now: datetime | None = None) -> datetime:
+    """Monday 00:00 UTC of the current ISO week.
+
+    The Obsidian vault's risk-policy.md specifies "maximum weekly realised
+    loss (% of portfolio)" without stating calendar-week vs. rolling 7-day.
+    Calendar week is used here -- not guessed -- for three reasons found by
+    inspecting the same document and this codebase: (1) the sibling limits
+    "daily loss" and "orders per day" are both unambiguously calendar-day
+    scoped (MAX_ORDERS_PER_DAY resets at midnight, never a rolling 24h
+    window), so weekly should follow the same convention as its neighbors
+    rather than introduce a different one; (2) the same policy document's SC
+    reclassification review cadence is anchored to calendar dates (last
+    Friday of May/November), reinforcing calendar-boundary semantics
+    throughout; (3) a rolling window never cleanly resets, which makes "did
+    we breach this week's limit" unanswerable for a human reviewing the
+    audit trail -- a hard trading limit needs a clean boundary.
+    """
+    today = _start_of_today_utc(now)
+    return today - timedelta(days=today.weekday())
+
+
+def _orders_today_count(connection: sqlite3.Connection) -> int:
+    """Real count of orders actually approved today (UTC calendar day) --
+    never the client's claimed `orders_today`. Counts APPROVED_PAPER_READY
+    rows specifically: a rejected attempt never placed an order, so it must
+    not count against the daily order-count circuit breaker.
+    """
+    since = _start_of_today_utc().isoformat()
+    row = connection.execute(
+        "SELECT COUNT(*) AS n FROM approval_queue "
+        "WHERE approval_status = 'APPROVED_PAPER_READY' AND created_at >= ?",
+        (since,),
+    ).fetchone()
+    return int(row["n"] or 0)
+
+
+def _period_loss_pct(
+    connection: sqlite3.Connection, *, since: datetime, account_equity: float
+) -> float:
+    """Realized loss over [since, now) as a percentage of account equity.
+
+    Returns float('inf') -- never a guessed number -- when account_equity is
+    unusable or period_realized_pnl reports insufficient data, so the
+    ceiling check in risk_checks.check_order() fails closed (inf can never
+    be <= a finite limit) instead of silently passing on missing data.
+    """
+    if not account_equity or account_equity <= 0:
+        return float("inf")
+    period = period_realized_pnl(connection, since=since)
+    if period["status"] != "OK":
+        return float("inf")
+    pnl = period["period_realized_pnl"]
+    return round(max(0.0, -pnl) / account_equity * 100, 4)
+
+
+def authoritative_risk_verdict(
+    connection: sqlite3.Connection,
+    *,
+    symbol: str,
+    side: str,
+    quantity,
+    price,
+    asset_class: str,
+) -> dict:
+    """The server-derived risk verdict for the candidate being approved --
+    never a caller-supplied one.
+
+    Mirrors authoritative_shariah_verdict: /paper/approval must call this
+    instead of trusting the `risk` field on the client-echoed preview body,
+    for exactly the same reason -- nothing ties that field back to a
+    specific server-computed /paper/preview response, so a client can claim
+    any verdict it likes. Every dimension below is recomputed from
+    server-controlled state:
+
+      - position / total-exposure / sector-concentration / same-symbol /
+        sell-sizing limits: portfolio_risk_overlay(), reused as-is. It
+        already reads live portfolio state via portfolio_snapshot and
+        already ignores the client's claimed percentages for gating them
+        (they are informational-only fields there too) -- nothing new is
+        introduced here, this just calls it again at approval time instead
+        of trusting the copy computed once at preview time.
+      - orders_today: a real count from approval_queue (_orders_today_count),
+        not the client's claim.
+      - daily_loss_pct / weekly_loss_pct: realized P&L computed from
+        portfolio_store.period_realized_pnl, not the client's claim. Missing
+        history fails closed (see _period_loss_pct) rather than assuming a
+        clean day/week.
+
+    loss_per_trade_pct (Phase 2A): the vault's risk-policy.md specifies
+    "Maximum loss per trade (% of portfolio): 0.5", so this is not a
+    no-op -- see MAX_LOSS_PER_TRADE_PCT in risk_checks.py / config.py, which
+    already existed but was never fed a real value from this function. No
+    stop-loss/exit-distance model exists anywhere in this codebase (S001's
+    exit rule in the vault is a next-session technical exit -- SMA cross or
+    a percentage pullback from the peak since entry -- not a fixed
+    stop-distance from the entry price, and there is no automated
+    position-management engine that would execute a stop-loss order; only
+    entry signals are implemented in agents/quant_agent.py). Absent a real
+    stop-distance, the only bound on a single trade's downside that is
+    actually true given this policy's own constraints (long-only, no
+    margin, no leverage, no short selling -- risk-policy.md's "Required
+    checks") is: the position cannot lose more than what was paid for it.
+    So for a BUY, loss_per_trade_pct is the candidate order's own notional
+    (portfolio_detail["order_notional"], from the same overlay computed
+    above -- no new data source) as a percentage of server-side account
+    equity -- a conservative worst-case bound, not a precise estimate, and
+    documented as such. A SELL only reduces exposure and cannot create new
+    downside, so it is exempt (0.0), matching how sector-concentration and
+    other BUY-only overlay checks already treat SELL. Equity unavailable or
+    the candidate fields invalid both fail closed to float('inf') rather
+    than silently pass.
+
+    Options are not sized against the equity overlay here, matching
+    preview-time behavior (CLAUDE.md known limitation: contracts and premium
+    are not shares and share-price) -- their collateral sufficiency is
+    independently verified via option_structure_gate / account_shariah_gate
+    regardless of this function's result. Portfolio-concentration limits for
+    options are a pre-existing gap (no such overlay exists for options at
+    preview time either); this function does not newly introduce or close
+    it, and it is reported as a remaining finding, not silently assumed
+    solved. loss_per_trade_pct also stays 0.0 for options for the same
+    reason -- contract premium is not comparable to equity notional, and
+    building an options-specific loss model is out of scope for this phase
+    (see test_options_gap_boundary.py for the regression test proving this
+    boundary cannot be used to bypass equity or Shariah checks).
+    """
+    settings = load_settings()
+    normalized_symbol = str(symbol or "").strip().upper()
+    normalized_side = str(side or "BUY").strip().upper()
+
+    orders_today = _orders_today_count(connection)
+    daily_loss_pct = _period_loss_pct(
+        connection, since=_start_of_today_utc(), account_equity=settings.paper_account_equity
+    )
+    weekly_loss_pct = _period_loss_pct(
+        connection, since=_start_of_iso_week_utc(), account_equity=settings.paper_account_equity
+    )
+
+    portfolio_detail: dict = {"status": "NOT_EVALUATED", "reason": "option_or_invalid_candidate"}
+    position_pct = 0.0
+    total_exposure_pct = 0.0
+    loss_per_trade_pct = 0.0
+
+    if asset_class != "option":
+        try:
+            quantity_int = int(quantity)
+            price_float = float(price) if price is not None else None
+            if (
+                quantity_int <= 0
+                or not normalized_symbol
+                or price_float is None
+                or price_float <= 0
+            ):
+                raise ValueError("invalid candidate fields")
+            synthetic_request = PaperPreviewRequest(
+                symbol=normalized_symbol,
+                side=normalized_side,
+                quantity=quantity_int,
+                price=price_float,
+                position_pct=0.0,
+                total_exposure_pct=0.0,
+                loss_per_trade_pct=0.0,
+                daily_loss_pct=0.0,
+                orders_today=0,
+                asset_class="equity",
+            )
+        except (TypeError, ValueError, ValidationError):
+            portfolio_detail = {
+                "status": "REJECT",
+                "reason": "invalid_order_parameters_for_risk_recomputation",
+            }
+            loss_per_trade_pct = float("inf")
+        else:
+            overlay = portfolio_risk_overlay(
+                connection,
+                synthetic_request,
+                {"symbol": normalized_symbol, "price": price_float},
+            )
+            position_pct = overlay["projected_position_pct"]
+            total_exposure_pct = overlay["projected_total_exposure_pct"]
+            portfolio_detail = overlay
+            if normalized_side == "BUY":
+                if not settings.paper_account_equity or settings.paper_account_equity <= 0:
+                    loss_per_trade_pct = float("inf")
+                else:
+                    order_notional = overlay.get("order_notional") or 0.0
+                    loss_per_trade_pct = round(
+                        (order_notional / settings.paper_account_equity) * 100, 4
+                    )
+
+    risk = evaluate_risk(
+        position_pct=position_pct,
+        total_exposure_pct=total_exposure_pct,
+        loss_per_trade_pct=loss_per_trade_pct,
+        daily_loss_pct=daily_loss_pct,
+        orders_today=orders_today,
+        weekly_loss_pct=weekly_loss_pct,
+    )
+    if portfolio_detail.get("status") == "REJECT":
+        risk = {
+            **risk,
+            "status": "REJECT",
+            "reason": portfolio_detail.get("reason", "portfolio_limit_failed"),
+        }
+    risk["details"] = {
+        **risk.get("details", {}),
+        "portfolio": portfolio_detail,
+        "orders_today": orders_today,
+        "daily_loss_pct": daily_loss_pct,
+        "weekly_loss_pct": weekly_loss_pct,
+        "loss_per_trade_pct": loss_per_trade_pct,
+    }
+    return risk
+
+
 def paper_test_overrides(request: PaperPreviewRequest) -> dict:
     if not request.test_fixture:
         return {}
 
     settings = load_settings()
     symbol = request.symbol.strip().upper()
-    if (
-        symbol not in PAPER_TEST_SYMBOLS
-        or settings.moomoo_mode != "paper"
-        or settings.trading_mode != "approval"
-        or not settings.paper_execution_enabled
-    ):
+    if not _test_fixture_gate_open(symbol, settings):
         return {}
 
     price = request.price or 1.0
     return {
-        "shariah_override": {
-            "agent": "shariah",
-            "market": "US",
-            "provider": "PAPER_TEST_FIXTURE",
-            "status": "PASS",
-            "symbol": symbol,
-            "reason": "paper_execution_test_fixture",
-            "details": {"status": "COMPLIANT", "symbol": symbol, "fixture": True},
-        },
+        "shariah_override": _test_fixture_shariah_verdict(symbol),
         "quant_override": {
             "agent": "quant",
             "status": "PASS",
@@ -1611,12 +1871,24 @@ def broker_account_context(connection, preview: dict) -> dict:
 def approve_paper_order(request: PaperApprovalRequest) -> dict:
     settings = load_settings()
     preview = request.preview
-    shariah = preview.get("agent_summary", {}).get("shariah", preview.get("shariah", {}))
-    risk = preview.get("agent_summary", {}).get("risk", preview.get("risk", {}))
     side = preview.get("side", "BUY")
     connection = db()
     try:
         account = broker_account_context(connection, preview)
+        # Both server-derived, never trusted from the client-echoed preview --
+        # see authoritative_shariah_verdict's and authoritative_risk_verdict's
+        # docstrings for why. A client can hand-edit the preview JSON before
+        # resubmitting it; nothing ties /paper/approval's request back to a
+        # specific server-computed /paper/preview response.
+        shariah = authoritative_shariah_verdict(preview.get("symbol"))
+        risk = authoritative_risk_verdict(
+            connection,
+            symbol=preview.get("symbol"),
+            side=side,
+            quantity=preview.get("quantity"),
+            price=preview.get("price"),
+            asset_class=preview.get("asset_class", "equity"),
+        )
     finally:
         connection.close()
     candidate = build_shariah_candidate(
@@ -1652,7 +1924,12 @@ def approve_paper_order(request: PaperApprovalRequest) -> dict:
     connection = db()
     try:
         queue_item = record_approval(
-            connection, preview=preview, approval=approval, approved_by_user=request.approved
+            connection,
+            preview=preview,
+            approval=approval,
+            approved_by_user=request.approved,
+            verified_shariah=shariah,
+            verified_risk=risk,
         )
     finally:
         connection.close()
@@ -1772,3 +2049,106 @@ def portfolio_history() -> dict:
         return {"snapshots": list_portfolio_snapshots(connection)}
     finally:
         connection.close()
+
+
+# --- Malaysian screening/eligibility API -----------------------------------
+#
+# Read-only. Every handler below delegates to screening_api.py, which itself
+# calls straight into the same deterministic domain modules the trading gate
+# chain uses (shariah_gate, sc_malaysia_store, agents.quant_agent,
+# confidence, risk_checks, evidence, vault_indexer). No Shariah, risk, or
+# quant logic is duplicated here -- these routes only shape HTTP responses.
+
+
+@app.get("/api/universe")
+def api_universe(limit: int = 200, offset: int = 0) -> dict:
+    connection = db()
+    try:
+        return screening_api.universe_list(connection, limit=limit, offset=offset)
+    finally:
+        connection.close()
+
+
+@app.get("/api/universe/publications")
+def api_universe_publications() -> dict:
+    connection = db()
+    try:
+        return screening_api.universe_publications(connection)
+    finally:
+        connection.close()
+
+
+@app.get("/api/universe/{ticker}")
+def api_universe_ticker(ticker: str) -> dict:
+    connection = db()
+    try:
+        return screening_api.universe_ticker(connection, ticker)
+    finally:
+        connection.close()
+
+
+@app.get("/api/screen/{ticker}")
+def api_screen_ticker(ticker: str) -> dict:
+    return screening_api.screen_ticker(ticker)
+
+
+@app.get("/api/shariah/{ticker}")
+def api_shariah_ticker(ticker: str) -> dict:
+    connection = db()
+    try:
+        return screening_api.universe_ticker(connection, ticker)
+    finally:
+        connection.close()
+
+
+@app.get("/api/shariah/publication/{publication_id}")
+def api_shariah_publication(publication_id: str) -> dict:
+    connection = db()
+    try:
+        detail = screening_api.publication_detail(connection, publication_id)
+    finally:
+        connection.close()
+    if detail is None:
+        raise HTTPException(status_code=404, detail="publication_not_found")
+    return detail
+
+
+@app.get("/api/quant/{ticker}")
+def api_quant_ticker(ticker: str) -> dict:
+    result = screening_api.screen_ticker(ticker)
+    return {
+        "ticker": result["ticker"],
+        "quant": result["quant"],
+        "attractiveness": result["attractiveness"],
+    }
+
+
+@app.get("/api/risk")
+def api_risk() -> dict:
+    return screening_api.risk_limits()
+
+
+@app.get("/api/evidence/{ticker}")
+def api_evidence_ticker(ticker: str, limit: int = 20) -> dict:
+    return screening_api.evidence_for_ticker(ticker, limit=max(1, min(limit, 200)))
+
+
+@app.get("/api/knowledge/search")
+def api_knowledge_search(q: str, limit: int = 20) -> dict:
+    settings = load_settings()
+    if not settings.shariah_wiki_path:
+        return {"status": "vault_not_configured", "results": []}
+    return screening_api.knowledge_search(
+        settings.shariah_wiki_path, q, limit=max(1, min(limit, 100))
+    )
+
+
+@app.get("/api/knowledge/note/{note_path:path}")
+def api_knowledge_note(note_path: str) -> dict:
+    settings = load_settings()
+    if not settings.shariah_wiki_path:
+        raise HTTPException(status_code=404, detail="vault_not_configured")
+    note = screening_api.knowledge_note(settings.shariah_wiki_path, note_path)
+    if note is None:
+        raise HTTPException(status_code=404, detail="note_not_found")
+    return note
