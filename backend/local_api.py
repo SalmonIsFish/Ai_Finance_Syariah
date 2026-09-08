@@ -2184,18 +2184,53 @@ def api_knowledge_note(note_path: str) -> dict:
 
 # --- Phase 3 Paper Portfolio Routes ---
 import p3_portfolio_engine
+from fastapi import Depends
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import auth
 
 class P3ProposalRequest(BaseModel):
     ticker: str
     side: str
-    actor: str = "SYSTEM"
 
 class P3ApprovalRequest(BaseModel):
-    actor: str = "SYSTEM"
+    pass
 
 class P3PortfolioCreateRequest(BaseModel):
     name: str
     initial_cash: float
+
+security = HTTPBasic()
+
+def get_current_actor(credentials: HTTPBasicCredentials = Depends(security)) -> auth.Actor:
+    try:
+        return auth.authenticate_credentials(credentials.username, credentials.password)
+    except auth.AuthenticationError:
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+def get_propose_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
+    try:
+        auth.authorize(actor, "propose")
+    except auth.AuthorizationError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return actor
+
+def get_approve_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
+    try:
+        auth.authorize(actor, "approve")
+    except auth.AuthorizationError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return actor
+
+def get_execute_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
+    try:
+        auth.authorize(actor, "execute")
+    except auth.AuthorizationError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return actor
 
 @app.get("/api/p3/portfolios")
 def api_p3_list_portfolios():
@@ -2240,33 +2275,33 @@ def api_p3_get_portfolio_orders(portfolio_id: int):
         connection.close()
 
 @app.post("/api/p3/portfolios/{portfolio_id}/proposals")
-def api_p3_propose_order(portfolio_id: int, req: P3ProposalRequest):
+def api_p3_propose_order(portfolio_id: int, req: P3ProposalRequest, actor: auth.Actor = Depends(get_propose_actor)):
     connection = db()
     try:
         import p3_decision_engine
-        return p3_decision_engine.propose_order(connection, portfolio_id, req.ticker.strip().upper(), req.side.strip().upper(), req.actor)
+        return p3_decision_engine.propose_order(connection, portfolio_id, req.ticker.strip().upper(), req.side.strip().upper(), actor.username)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         connection.close()
 
 @app.post("/api/p3/portfolios/{portfolio_id}/orders/{order_id}/approve")
-def api_p3_approve_order(portfolio_id: int, order_id: int, req: P3ApprovalRequest):
+def api_p3_approve_order(portfolio_id: int, order_id: int, req: P3ApprovalRequest, actor: auth.Actor = Depends(get_approve_actor)):
     connection = db()
     try:
         import p3_decision_engine
-        return p3_decision_engine.approve_order(connection, order_id, req.actor)
+        return p3_decision_engine.approve_order(connection, order_id, actor.username)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         connection.close()
 
 @app.post("/api/p3/portfolios/{portfolio_id}/orders/{order_id}/execute")
-def api_p3_execute_order(portfolio_id: int, order_id: int, req: P3ApprovalRequest):
+def api_p3_execute_order(portfolio_id: int, order_id: int, req: P3ApprovalRequest, actor: auth.Actor = Depends(get_execute_actor)):
     connection = db()
     try:
         import p3_decision_engine
-        return p3_decision_engine.execute_order(connection, order_id, req.actor)
+        return p3_decision_engine.execute_order(connection, order_id, actor.username)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     finally:
