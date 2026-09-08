@@ -2061,10 +2061,14 @@ def portfolio_history() -> dict:
 
 
 @app.get("/api/universe")
-def api_universe(limit: int = 200, offset: int = 0) -> dict:
+def api_universe(limit: int = 200, offset: int = 0, shariah_status: str = "PASS") -> dict:
     connection = db()
     try:
-        return screening_api.universe_list(connection, limit=limit, offset=offset)
+        return screening_api.universe_list(
+            connection, limit=limit, offset=offset, shariah_status=shariah_status
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         connection.close()
 

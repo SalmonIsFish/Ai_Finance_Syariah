@@ -49,19 +49,52 @@ def _shariah_verdict(ticker: str) -> dict:
     }
 
 
-def universe_list(connection: sqlite3.Connection, *, limit: int = 200, offset: int = 0) -> dict:
+_UNIVERSE_STATUS_FILTERS = {"PASS", "REJECT", "ALL"}
+
+
+def universe_list(
+    connection: sqlite3.Connection,
+    *,
+    limit: int = 200,
+    offset: int = 0,
+    shariah_status: str = "PASS",
+) -> dict:
     """Securities in the currently active, approved SC publication.
 
     Empty (not an error) when nothing is active -- this reads only the
     approved+activated publication, never the legacy JSON fallback and
     never an unapproved 'pending' or 'needs_reconciliation' publication.
+
+    ``shariah_status`` filters which authoritative rows come back: PASS
+    (default, preserves the original COMPLIANT-only behavior), REJECT
+    (NON_COMPLIANT rows), or ALL (both). Every returned row carries a
+    normalized ``verdict`` of "PASS" or "REJECT" alongside the raw
+    ``shariah_status`` so callers never interpret the raw SC enum
+    themselves. Raises ValueError for anything else -- callers must fail
+    predictably, not silently fall back to a default.
     """
+    normalized_filter = shariah_status.strip().upper()
+    if normalized_filter not in _UNIVERSE_STATUS_FILTERS:
+        raise ValueError(f"invalid shariah_status: {shariah_status!r}")
+
     pub = sc_malaysia_store.get_active_publication(connection)
     if pub is None:
         return {"active_publication": None, "count": 0, "securities": []}
 
     securities = sc_malaysia_store.publication_securities(connection, pub["id"])
-    compliant = [dict(s) for s in securities if s["shariah_status"] == "COMPLIANT"]
+    tagged = []
+    for s in securities:
+        row = dict(s)
+        row["verdict"] = "PASS" if row["shariah_status"] == "COMPLIANT" else "REJECT"
+        tagged.append(row)
+
+    if normalized_filter == "PASS":
+        matched = [r for r in tagged if r["verdict"] == "PASS"]
+    elif normalized_filter == "REJECT":
+        matched = [r for r in tagged if r["verdict"] == "REJECT"]
+    else:
+        matched = tagged
+
     limit = max(1, min(limit, 1000))
     offset = max(0, offset)
     return {
@@ -70,10 +103,11 @@ def universe_list(connection: sqlite3.Connection, *, limit: int = 200, offset: i
             "publication_date": pub["publication_date"],
             "activated_at": pub["activated_at"],
         },
-        "count": len(compliant),
+        "count": len(matched),
         "offset": offset,
         "limit": limit,
-        "securities": compliant[offset : offset + limit],
+        "shariah_status_filter": normalized_filter,
+        "securities": matched[offset : offset + limit],
     }
 
 
