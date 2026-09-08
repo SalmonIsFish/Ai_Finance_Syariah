@@ -113,6 +113,11 @@ test("freshnessFromAsOfDate treats a missing as-of date as stale, not fresh", ()
   assert.equal(freshnessFromAsOfDate(null, "2026-09-08").isStale, true);
 });
 
+test("freshnessFromAsOfDate treats exactly staleDays as fresh and staleDays+1 as stale (boundary)", () => {
+  assert.equal(freshnessFromAsOfDate("2026-09-03", "2026-09-08").isStale, false); // exactly 5 days old
+  assert.equal(freshnessFromAsOfDate("2026-09-02", "2026-09-08").isStale, true); // 6 days old
+});
+
 test("safeQuantState never turns a fetch error into an optimistic BUY/eligible value", () => {
   const errored = safeQuantState(null, new Error("network down"));
   assert.equal(errored.status, "error");

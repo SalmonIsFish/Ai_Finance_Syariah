@@ -4,7 +4,7 @@
 // logic.js and is passed in here already computed -- this file only
 // builds and updates DOM nodes.
 
-import { formatDate, formatScore } from "./logic.js";
+import { formatDate, formatScore, statusBadge } from "./logic.js";
 
 const THEME_KEY = "amanah-theme"; // shared with the legacy dashboard/index.html
 
@@ -144,16 +144,7 @@ export function createUniverseTable(securities) {
     sectorCell.textContent = security.sector || "—";
 
     const shariahCell = document.createElement("td");
-    shariahCell.appendChild(
-      createBadge({
-        label: security.verdict,
-        className: security.verdict === "PASS" ? "badge badge--ok" : "badge badge--bad",
-        explanation:
-          security.verdict === "PASS"
-            ? "Authoritative compliant record in the active SC publication."
-            : "Authoritative non-compliant record in the active SC publication.",
-      }),
-    );
+    shariahCell.appendChild(createBadge(statusBadge(security.verdict)));
 
     const pubDateCell = document.createElement("td");
     pubDateCell.textContent = formatDate(security.publicationDate);

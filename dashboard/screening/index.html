@@ -172,12 +172,26 @@
 
       const quantActive = filters.signal !== "ALL" || typeof filters.minAttractiveness === "number";
 
-      for (const security of visible) {
+      const rowLoads = visible.map((security) => {
         const row = rowsByTicker.get(security.ticker);
-        loadQuantFor(row, security.ticker).then((quantState) => {
+        return loadQuantFor(row, security.ticker).then((quantState) => {
           if (quantActive && !filterByQuant(quantState, filters)) {
             row.remove();
           }
+        });
+      });
+
+      if (quantActive) {
+        Promise.all(rowLoads).then(() => {
+          const remaining = table.querySelectorAll("tbody tr").length;
+          if (remaining === 0) {
+            tableWrap.replaceChildren();
+            setState(createStateMessage("empty", "No securities match the current search and filters once quant signals are applied."));
+            resultNote.hidden = true;
+            return;
+          }
+          resultNote.hidden = false;
+          resultNote.textContent = `Showing ${remaining} of ${matched.length} matches — refine your search or filters to narrow further.`;
         });
       }
     }

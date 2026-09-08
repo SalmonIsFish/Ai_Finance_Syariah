@@ -32,6 +32,8 @@
     </header>
     <a class="back-link" href="./index.html">&larr; Back to universe</a>
 
+    <div id="publication-banner"></div>
+
     <div id="state"></div>
     <div id="content" hidden>
       <div class="identity" id="identity"></div>
@@ -44,11 +46,11 @@
   </div>
 
   <script type="module">
-    import { fetchScreen, fetchPublicationDetail, fetchRiskLimits, fetchEvidence } from "./api.js";
-    import { statusBadge, tradingStatusFromShariah, formatDate, formatPct, formatScore, formatPctValue } from "./logic.js";
+    import { fetchScreen, fetchPublicationDetail, fetchRiskLimits, fetchEvidence, fetchUniverse } from "./api.js";
+    import { statusBadge, tradingStatusFromShariah, formatDate, formatScore, formatPctValue, publicationBannerState } from "./logic.js";
     import {
       initTheme, wireThemeToggle, createBadge, createStateMessage, createSection,
-      createKeyValueList, createTradingStatusBanner, createDecisionCard,
+      createKeyValueList, createTradingStatusBanner, createDecisionCard, createPublicationBanner,
     } from "./render.js";
 
     initTheme();
@@ -75,6 +77,19 @@
       const market = document.createElement("p");
       market.textContent = `Market: ${screen.shariah.board || "—"}  ·  Sector: ${screen.shariah.sector || "—"}`;
       el.append(heading, market);
+    }
+
+    async function renderPublicationBanner() {
+      try {
+        const response = await fetchUniverse({ limit: 1 });
+        document.getElementById("publication-banner").replaceChildren(
+          createPublicationBanner(publicationBannerState(response.active_publication)),
+        );
+      } catch {
+        // Non-fatal: the detail page's own Shariah section (badge + reason)
+        // already conveys authoritative status for this ticker even if this
+        // supplementary global banner fails to load.
+      }
     }
 
     function renderShariah(screen, publicationDetail) {
@@ -158,6 +173,8 @@
         setState(createStateMessage("error", "No ticker specified. Use security.html?ticker=1155."));
         return;
       }
+
+      renderPublicationBanner();
 
       setState(createStateMessage("loading", `Loading ${ticker}…`));
 
