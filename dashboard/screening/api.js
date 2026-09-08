@@ -52,3 +52,23 @@ export function fetchEvidence(ticker, limit = 20) {
   const params = new URLSearchParams({ limit: String(limit) });
   return getJson(`/api/evidence/${encodeURIComponent(ticker)}?${params.toString()}`);
 }
+
+export async function fetchCopilotExplanation(ticker, question) {
+  const response = await fetch(`${apiBase()}/api/explain`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify({ ticker, question })
+  });
+  if (!response.ok) {
+    let errorDetail = "";
+    try {
+      const errBody = await response.json();
+      errorDetail = errBody.detail || "";
+    } catch { }
+    throw new Error(errorDetail || `${response.status} Failed to load explanation`);
+  }
+  return response.json();
+}

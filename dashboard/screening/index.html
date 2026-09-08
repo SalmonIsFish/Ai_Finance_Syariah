@@ -150,7 +150,9 @@
       return quantState;
     }
 
+    let renderGeneration = 0;
     function renderTable() {
+      const currentGeneration = ++renderGeneration;
       const filters = currentFilters();
       const query = searchInput.value;
 
@@ -175,6 +177,7 @@
       const rowLoads = visible.map((security) => {
         const row = rowsByTicker.get(security.ticker);
         return loadQuantFor(row, security.ticker).then((quantState) => {
+          if (currentGeneration !== renderGeneration) return;
           if (quantActive && !filterByQuant(quantState, filters)) {
             row.remove();
           }

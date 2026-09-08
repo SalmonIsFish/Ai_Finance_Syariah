@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, ValidationError
 
 import portfolio_metrics
+import copilot_api
 from agent_coordinator import evaluate_candidate
 from agents.risk_engine import evaluate_risk
 from agents.shariah_agent import detect_market, evaluate_shariah
@@ -2146,6 +2147,17 @@ def api_knowledge_search(q: str, limit: int = 20) -> dict:
         settings.shariah_wiki_path, q, limit=max(1, min(limit, 100))
     )
 
+
+class ExplainRequest(BaseModel):
+    ticker: str = Field(min_length=1, max_length=16)
+    question: str = Field(min_length=1, max_length=1000)
+
+@app.post("/api/explain")
+def api_explain(req: ExplainRequest) -> dict:
+    try:
+        return copilot_api.explain_ticker(req.ticker, req.question)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 @app.get("/api/knowledge/note/{note_path:path}")
 def api_knowledge_note(note_path: str) -> dict:

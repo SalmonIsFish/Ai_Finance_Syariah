@@ -40,13 +40,14 @@
       <div id="trading-status"></div>
       <div id="shariah-section"></div>
       <div id="quant-section"></div>
+      <div id="copilot-section"></div>
       <div id="risk-section"></div>
       <div id="evidence-section"></div>
     </div>
   </div>
 
   <script type="module">
-    import { fetchScreen, fetchPublicationDetail, fetchRiskLimits, fetchEvidence, fetchUniverse } from "./api.js";
+    import { fetchScreen, fetchPublicationDetail, fetchRiskLimits, fetchEvidence, fetchUniverse, fetchCopilotExplanation } from "./api.js";
     import { statusBadge, tradingStatusFromShariah, formatDate, formatScore, formatPctValue, publicationBannerState } from "./logic.js";
     import {
       initTheme, wireThemeToggle, createBadge, createStateMessage, createSection,
@@ -136,6 +137,72 @@
       document.getElementById("quant-section").replaceChildren(createSection("Quant", body));
     }
 
+    function renderCopilot(ticker) {
+      const body = document.createElement("div");
+      body.className = "copilot-container";
+      
+      const disclaimer = document.createElement("p");
+      disclaimer.innerHTML = "<strong>AI Copilot is an explanatory aid only.</strong> It does not compute Shariah status, and any explanations contradicting the authoritative badge above must be ignored.";
+      disclaimer.style.fontSize = "0.85em";
+      disclaimer.style.color = "var(--color-text-muted)";
+      disclaimer.style.marginBottom = "1rem";
+      
+      const form = document.createElement("form");
+      form.style.display = "flex";
+      form.style.gap = "0.5rem";
+      form.style.marginBottom = "1rem";
+      
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = `Ask a question about ${ticker}'s Shariah or Quant status...`;
+      input.style.flex = "1";
+      input.style.padding = "0.5rem";
+      input.required = true;
+      
+      const button = document.createElement("button");
+      button.type = "submit";
+      button.textContent = "Explain";
+      button.style.padding = "0.5rem 1rem";
+      
+      form.append(input, button);
+      
+      const resultDiv = document.createElement("div");
+      
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const question = input.value.trim();
+        if (!question) return;
+        
+        button.disabled = true;
+        input.disabled = true;
+        resultDiv.replaceChildren(createStateMessage("loading", "Copilot is analyzing..."));
+        
+        try {
+          const result = await fetchCopilotExplanation(ticker, question);
+          const expP = document.createElement("p");
+          expP.textContent = result.explanation;
+          expP.style.lineHeight = "1.5";
+          expP.style.marginBottom = "1rem";
+          
+          const metaList = createKeyValueList([
+            ["Model", result.model],
+            ["Verified Status Match", result.authoritative_status],
+            ["Sources (Evidence/Vault)", `${result.sources_used.evidence_count} / ${result.sources_used.vault_count}`]
+          ]);
+          
+          resultDiv.replaceChildren(expP, metaList);
+        } catch (error) {
+          resultDiv.replaceChildren(createStateMessage("error", `Copilot failed: ${error.message}`));
+        } finally {
+          button.disabled = false;
+          input.disabled = false;
+        }
+      });
+      
+      body.append(disclaimer, form, resultDiv);
+      document.getElementById("copilot-section").replaceChildren(createSection("AI Copilot", body));
+    }
+
     function renderRisk(riskLimits) {
       const limits = riskLimits.limits;
       const body = createKeyValueList([
@@ -204,6 +271,7 @@
       }
       renderShariah(screen, publicationDetail);
       renderQuant(screen);
+      renderCopilot(ticker);
 
       try {
         const riskLimits = await fetchRiskLimits();
