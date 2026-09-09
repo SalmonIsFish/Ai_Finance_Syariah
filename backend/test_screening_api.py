@@ -30,7 +30,7 @@ universe_path.write_text(
 os.environ["SHARIAH_UNIVERSE_PATH"] = str(universe_path)
 os.environ["TRADING_MODE"] = "approval"
 os.environ["PAPER_EXECUTION_ENABLED"] = "false"
-os.environ["PAPER_EXECUTION_ADAPTER"] = "disabled"
+
 os.environ["MOOMOO_MODE"] = "paper"
 
 from fastapi.testclient import TestClient

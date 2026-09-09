@@ -34,7 +34,7 @@ os.environ["MOOMOO_MODE"] = "paper"
 # real backend/.env -- which made this file issue live OpenRouter calls the moment
 # a key was configured. An empty string is present (so setdefault leaves it) and
 # falsy (so `os.getenv(...) or None` still yields None).
-os.environ["OPENROUTER_API_KEY"] = ""
+
 
 # These import after the fixture above, not before it: local_api reads
 # SHARIAH_UNIVERSE_PATH at import time and the file has to exist by then.

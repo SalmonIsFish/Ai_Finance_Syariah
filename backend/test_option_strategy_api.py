@@ -190,20 +190,11 @@ def test_route_resolves_account_facts_from_the_broker_context() -> None:
 
 
 def test_an_unreachable_broker_is_not_reported_as_an_empty_account() -> None:
-    """A failed account query must not be restated as a fact about the account.
-
-    Observed live on 2026-08-20: `check_paper_order.py CVX --option
-    cash_secured_put` printed `cash=99793.1` from its own status call and then,
-    one line later, `INSUFFICIENT_CASH -- no settled cash available to secure a
-    put`. The second account query had failed transiently, and
-    broker_account_context turned that into `cash_collateral: 0.0`, which the
-    strategy layer faithfully reported as "you have no money".
-
-    The order still could not have been approved -- account_type UNKNOWN makes
-    account_shariah_gate fail closed -- so this is a diagnosis bug, not a safety
-    one. But it sends the operator to look for a collateral problem that does not
-    exist, and it makes a retryable network blip look permanent.
-    """
+    """A failed account query must not be restated as a fact about the account."""
+    import os
+    original_adapter = os.environ.get("PAPER_EXECUTION_ADAPTER")
+    os.environ["PAPER_EXECUTION_ADAPTER"] = "alpaca"
+    
     original_status = local_api.check_alpaca_status
     unreachable = {
         "base_url": "https://paper-api.alpaca.markets",

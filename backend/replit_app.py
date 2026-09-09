@@ -33,18 +33,30 @@ GET / is untouched in both of those contexts.
 """
 
 from pathlib import Path
+from fastapi import APIRouter, Depends
+from fastapi.responses import RedirectResponse, FileResponse
+import auth
 
-from fastapi.responses import RedirectResponse
-from fastapi.staticfiles import StaticFiles
-
-from local_api import app
+from local_api import app, get_owner_actor
 
 DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
 
-app.mount("/dashboard", StaticFiles(directory=str(DASHBOARD_DIR), html=True), name="dashboard")
+dashboard_router = APIRouter(dependencies=[Depends(get_owner_actor)])
+
+@dashboard_router.get("/dashboard/")
+def get_dashboard_index():
+    return FileResponse(DASHBOARD_DIR / "index.html")
+
+@dashboard_router.get("/dashboard/{path:path}")
+def get_dashboard_file(path: str):
+    file_path = DASHBOARD_DIR / path
+    if file_path.is_file():
+        return FileResponse(file_path)
+    return FileResponse(DASHBOARD_DIR / "index.html")
+
+app.include_router(dashboard_router)
 
 app.router.routes = [route for route in app.router.routes if getattr(route, "path", None) != "/"]
-
 
 @app.get("/")
 def root_redirects_to_dashboard() -> RedirectResponse:

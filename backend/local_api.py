@@ -5,7 +5,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, ValidationError
 
@@ -66,6 +66,59 @@ from watchlist_store import (
 
 BACKEND_DIR = Path(__file__).resolve().parent
 DB_PATH = BACKEND_DIR / "paper_trading.db"
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import auth
+
+class P3ProposalRequest(BaseModel):
+    ticker: str
+    side: str
+
+class P3ApprovalRequest(BaseModel):
+    pass
+
+class P3PortfolioCreateRequest(BaseModel):
+    name: str
+    initial_cash: float
+
+security = HTTPBasic()
+
+def get_current_actor(credentials: HTTPBasicCredentials = Depends(security)) -> auth.Actor:
+    try:
+        return auth.authenticate_credentials(credentials.username, credentials.password)
+    except auth.AuthenticationError:
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+def get_owner_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
+    if actor.username != "project_owner":
+        raise HTTPException(status_code=403, detail="Owner access required")
+    return actor
+
+def get_propose_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
+    try:
+        auth.authorize(actor, "propose")
+    except auth.AuthorizationError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return actor
+
+def get_approve_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
+    try:
+        auth.authorize(actor, "approve")
+    except auth.AuthorizationError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return actor
+
+def get_execute_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
+    try:
+        auth.authorize(actor, "execute")
+    except auth.AuthorizationError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return actor
+
+
 app = FastAPI(title="Amanah Trader Local API")
 app.add_middleware(
     CORSMiddleware,
@@ -1408,7 +1461,7 @@ def home() -> dict:
 
 
 @app.get("/health")
-def health() -> dict:
+def health(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     settings = load_settings()
     return {
         "status": "ok",
@@ -1421,7 +1474,7 @@ def health() -> dict:
 
 
 @app.get("/paper/status")
-def paper_status() -> dict:
+def paper_status(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     settings = load_settings()
     return {
         "mode": "SIMULATE",
@@ -1435,7 +1488,7 @@ def paper_status() -> dict:
 
 
 @app.get("/paper/account")
-def paper_account() -> dict:
+def paper_account(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     """Live broker account facts -- equity, cash, buying power, daily change.
 
     Display only. account_shariah_gate and the risk overlay still size off the
@@ -1445,7 +1498,7 @@ def paper_account() -> dict:
 
 
 @app.get("/paper/positions/live")
-def paper_positions_live() -> dict:
+def paper_positions_live(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     """Live broker positions, including options -- read-only, never booked.
 
     Separate from GET /positions, which is the local equity-only ledger (see
@@ -1456,7 +1509,7 @@ def paper_positions_live() -> dict:
 
 
 @app.get("/portfolio/history/live")
-def portfolio_history_live(period: str = "1M", timeframe: str | None = None) -> dict:
+def portfolio_history_live(period: str = "1M", timeframe: str | None = None, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     """The account's real equity curve, straight from the broker.
 
     Backs the dashboard's Portfolio Value History chart with actual mark-to-
@@ -1517,7 +1570,7 @@ def daily_bar_metrics(history: dict, *, timeframe: str) -> dict:
 
 
 @app.get("/system/mode")
-def system_mode() -> dict:
+def system_mode(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     return trading_mode_status()
 
 
@@ -1527,7 +1580,7 @@ def market_data_status(symbol: str) -> dict:
 
 
 @app.get("/market-overview")
-def market_overview(stale_cache_hours: float = 24.0) -> dict:
+def market_overview(stale_cache_hours: float = 24.0, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     connection = db()
     try:
         return market_overview_snapshot(
@@ -1611,7 +1664,7 @@ def stock_explain(symbol: str) -> dict:
 
 
 @app.get("/investment-committee")
-def investment_committee(limit: int = 50) -> dict:
+def investment_committee(limit: int = 50, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     connection = db()
     try:
         return investment_committee_snapshot(connection, limit=limit)
@@ -1629,7 +1682,7 @@ def positions() -> dict:
 
 
 @app.get("/watchlist")
-def watchlist() -> dict:
+def watchlist(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     connection = db()
     try:
         return get_watchlist_settings(connection)
@@ -1734,7 +1787,7 @@ def opportunities(
 
 
 @app.get("/opportunity-alerts")
-def opportunity_alerts(limit: int = 50) -> list[dict]:
+def opportunity_alerts(limit: int = 50, actor: auth.Actor = Depends(get_owner_actor)) -> list[dict]:
     connection = db()
     try:
         return list_alert_events(connection, limit=max(1, min(200, limit)))
@@ -1951,7 +2004,7 @@ def record_audit(event_type: str, payload: str) -> dict:
 
 
 @app.get("/execution-audit")
-def execution_audit(limit: int = 100) -> dict:
+def execution_audit(limit: int = 100, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     connection = db()
     try:
         return execution_audit_snapshot(connection, limit=limit)
@@ -1960,7 +2013,7 @@ def execution_audit(limit: int = 100) -> dict:
 
 
 @app.get("/audit")
-def list_audit() -> list[dict]:
+def list_audit(actor: auth.Actor = Depends(get_owner_actor)) -> list[dict]:
     connection = db()
     try:
         rows = connection.execute(
@@ -1972,7 +2025,7 @@ def list_audit() -> list[dict]:
 
 
 @app.get("/approvals")
-def approvals() -> list[dict]:
+def approvals(actor: auth.Actor = Depends(get_owner_actor)) -> list[dict]:
     connection = db()
     try:
         return list_approvals(connection)
@@ -2020,7 +2073,7 @@ def reconcile_paper(queue_id: int) -> dict:
 
 
 @app.get("/portfolio")
-def portfolio() -> dict:
+def portfolio(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     connection = db()
     try:
         snapshot = portfolio_snapshot_with_exposure(connection)
@@ -2185,52 +2238,6 @@ def api_knowledge_note(note_path: str) -> dict:
 # --- Phase 3 Paper Portfolio Routes ---
 import p3_portfolio_engine
 from fastapi import Depends
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
-import auth
-
-class P3ProposalRequest(BaseModel):
-    ticker: str
-    side: str
-
-class P3ApprovalRequest(BaseModel):
-    pass
-
-class P3PortfolioCreateRequest(BaseModel):
-    name: str
-    initial_cash: float
-
-security = HTTPBasic()
-
-def get_current_actor(credentials: HTTPBasicCredentials = Depends(security)) -> auth.Actor:
-    try:
-        return auth.authenticate_credentials(credentials.username, credentials.password)
-    except auth.AuthenticationError:
-        raise HTTPException(
-            status_code=401,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-
-def get_propose_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
-    try:
-        auth.authorize(actor, "propose")
-    except auth.AuthorizationError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    return actor
-
-def get_approve_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
-    try:
-        auth.authorize(actor, "approve")
-    except auth.AuthorizationError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    return actor
-
-def get_execute_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
-    try:
-        auth.authorize(actor, "execute")
-    except auth.AuthorizationError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    return actor
 
 @app.get("/api/p3/portfolios")
 def api_p3_list_portfolios():
