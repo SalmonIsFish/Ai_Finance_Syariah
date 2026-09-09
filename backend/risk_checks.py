@@ -4,6 +4,7 @@ MAX_POSITION_PCT = 5.0
 MAX_TOTAL_EXPOSURE_PCT = 25.0
 MAX_LOSS_PER_TRADE_PCT = 0.5
 MAX_DAILY_LOSS_PCT = 1.0
+MAX_WEEKLY_LOSS_PCT = 2.0
 MAX_ORDERS_PER_DAY = 5
 
 
@@ -13,6 +14,7 @@ def default_limits() -> dict:
         "max_total_exposure_pct": MAX_TOTAL_EXPOSURE_PCT,
         "max_loss_per_trade_pct": MAX_LOSS_PER_TRADE_PCT,
         "max_daily_loss_pct": MAX_DAILY_LOSS_PCT,
+        "max_weekly_loss_pct": MAX_WEEKLY_LOSS_PCT,
         "max_orders_per_day": MAX_ORDERS_PER_DAY,
     }
 
@@ -24,8 +26,17 @@ def check_order(
     loss_per_trade_pct: float,
     daily_loss_pct: float,
     orders_today: int,
+    weekly_loss_pct: float | None = None,
     limits: dict | None = None,
 ) -> dict:
+    """weekly_loss_pct is optional and defaults to not-evaluated (omitted from
+    `checks`, no effect on `status`) so existing callers that have not been
+    updated to compute it are unaffected. A caller enforcing the weekly-loss
+    hard limit passes the computed percentage; pass float('inf') rather than
+    None when the caller has determined the data needed to compute it is
+    unavailable, so the check fails closed (inf can never be <= a finite
+    limit) instead of silently being skipped.
+    """
     active_limits = {**default_limits(), **(limits or {})}
     checks = {
         "position_ceiling": position_pct <= active_limits["max_position_pct"],
@@ -34,4 +45,10 @@ def check_order(
         "daily_loss": daily_loss_pct <= active_limits["max_daily_loss_pct"],
         "daily_order_cap": orders_today < active_limits["max_orders_per_day"],
     }
-    return {"status": "PASS" if all(checks.values()) else "REJECT", "checks": checks, "limits": active_limits}
+    if weekly_loss_pct is not None:
+        checks["weekly_loss"] = weekly_loss_pct <= active_limits["max_weekly_loss_pct"]
+    return {
+        "status": "PASS" if all(checks.values()) else "REJECT",
+        "checks": checks,
+        "limits": active_limits,
+    }

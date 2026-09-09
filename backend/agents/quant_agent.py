@@ -260,6 +260,7 @@ def evaluate_quant(
     results = evaluate_strategies(bars, configured_strategies())
     strategy = select_signal(results)
     close = float(bars[-1]["close"]) if bars else None
+    as_of_date = bars[-1]["date"] if bars else None
     return {
         "agent": "quant",
         "status": "PASS" if strategy.get("signal") == "BUY" else "NO_SIGNAL",
@@ -269,6 +270,7 @@ def evaluate_quant(
         "price": close,
         "bars": len(bars),
         "price_source": source,
+        "as_of_date": as_of_date,
         **freshness,
         # `strategy` stays the single dict every existing consumer reads
         # (opportunity_scanner.py pulls trend_ok/breakout_ok/breakout_level off

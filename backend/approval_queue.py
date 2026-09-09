@@ -30,7 +30,9 @@ def ensure_approval_queue(connection: sqlite3.Connection) -> None:
         )
         """
     )
-    existing_columns = {row[1] for row in connection.execute("PRAGMA table_info(approval_queue)").fetchall()}
+    existing_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(approval_queue)").fetchall()
+    }
     migrations = {
         "execution_status": "ALTER TABLE approval_queue ADD COLUMN execution_status TEXT",
         "execution_message": "ALTER TABLE approval_queue ADD COLUMN execution_message TEXT",
@@ -42,13 +44,36 @@ def ensure_approval_queue(connection: sqlite3.Connection) -> None:
     connection.commit()
 
 
-def record_approval(connection: sqlite3.Connection, *, preview: dict, approval: dict, approved_by_user: bool) -> dict:
+def record_approval(
+    connection: sqlite3.Connection,
+    *,
+    preview: dict,
+    approval: dict,
+    approved_by_user: bool,
+    verified_shariah: dict | None = None,
+    verified_risk: dict | None = None,
+) -> dict:
+    """`verified_shariah` / `verified_risk` are the server-derived verdicts the
+    caller actually gated the decision on -- pass them explicitly rather than
+    let this function fall back to reading the client-echoed `preview` dict,
+    which is untrusted (see local_api.authoritative_shariah_verdict and
+    authoritative_risk_verdict). Omitting them preserves the old
+    derive-from-preview behavior for existing callers/tests that construct
+    their own preview/approval fixtures directly, not through the real
+    /paper/approval endpoint.
+    """
     ensure_approval_queue(connection)
     created_at = datetime.now(timezone.utc).isoformat()
     agents = preview.get("agent_summary", {})
-    shariah = agents.get("shariah", preview.get("shariah", {}))
+    shariah = (
+        verified_shariah
+        if verified_shariah is not None
+        else agents.get("shariah", preview.get("shariah", {}))
+    )
     quant = agents.get("quant", {})
-    risk = agents.get("risk", preview.get("risk", {}))
+    risk = (
+        verified_risk if verified_risk is not None else agents.get("risk", preview.get("risk", {}))
+    )
     status = approval.get("status", "UNKNOWN")
     payload = {
         "approved_by_user": approved_by_user,
@@ -174,7 +199,9 @@ def get_approval(connection: sqlite3.Connection, approval_id: int) -> dict | Non
     return item
 
 
-def update_execution_status(connection: sqlite3.Connection, approval_id: int, *, status: str, message: str) -> dict:
+def update_execution_status(
+    connection: sqlite3.Connection, approval_id: int, *, status: str, message: str
+) -> dict:
     ensure_approval_queue(connection)
     executed_at = datetime.now(timezone.utc).isoformat()
     connection.execute(
@@ -186,13 +213,22 @@ def update_execution_status(connection: sqlite3.Connection, approval_id: int, *,
         (status, message, executed_at, approval_id),
     )
     connection.commit()
-    return {"id": approval_id, "execution_status": status, "execution_message": message, "executed_at": executed_at}
+    return {
+        "id": approval_id,
+        "execution_status": status,
+        "execution_message": message,
+        "executed_at": executed_at,
+    }
 
 
-def record_broker_submission(connection: sqlite3.Connection, approval_id: int, *, broker_response: dict) -> dict:
+def record_broker_submission(
+    connection: sqlite3.Connection, approval_id: int, *, broker_response: dict
+) -> dict:
     ensure_approval_queue(connection)
     executed_at = broker_response.get("submitted_at") or datetime.now(timezone.utc).isoformat()
-    row = connection.execute("SELECT payload FROM approval_queue WHERE id = ?", (approval_id,)).fetchone()
+    row = connection.execute(
+        "SELECT payload FROM approval_queue WHERE id = ?", (approval_id,)
+    ).fetchone()
     payload = {}
     if row is not None:
         try:
@@ -201,7 +237,11 @@ def record_broker_submission(connection: sqlite3.Connection, approval_id: int, *
             payload = {"raw_payload": row["payload"]}
     payload["broker_submission"] = broker_response
     status = broker_response.get("status", "BROKER_SUBMITTED")
-    message = broker_response.get("broker_order_id") or broker_response.get("reason") or "paper order submitted"
+    message = (
+        broker_response.get("broker_order_id")
+        or broker_response.get("reason")
+        or "paper order submitted"
+    )
     connection.execute(
         """
         UPDATE approval_queue
@@ -225,10 +265,14 @@ def record_broker_submission(connection: sqlite3.Connection, approval_id: int, *
     }
 
 
-def record_broker_reconciliation(connection: sqlite3.Connection, approval_id: int, *, reconciliation: dict) -> dict:
+def record_broker_reconciliation(
+    connection: sqlite3.Connection, approval_id: int, *, reconciliation: dict
+) -> dict:
     ensure_approval_queue(connection)
     reconciled_at = reconciliation.get("reconciled_at") or datetime.now(timezone.utc).isoformat()
-    row = connection.execute("SELECT payload FROM approval_queue WHERE id = ?", (approval_id,)).fetchone()
+    row = connection.execute(
+        "SELECT payload FROM approval_queue WHERE id = ?", (approval_id,)
+    ).fetchone()
     payload = {}
     if row is not None:
         try:
@@ -244,7 +288,12 @@ def record_broker_reconciliation(connection: sqlite3.Connection, approval_id: in
     payload["broker_reconciliation_history"] = history[-50:]
 
     status = reconciliation.get("status", "BROKER_STATUS_UNKNOWN")
-    message = reconciliation.get("broker_order_id") or reconciliation.get("reason") or reconciliation.get("order_status") or "paper order reconciled"
+    message = (
+        reconciliation.get("broker_order_id")
+        or reconciliation.get("reason")
+        or reconciliation.get("order_status")
+        or "paper order reconciled"
+    )
     connection.execute(
         """
         UPDATE approval_queue

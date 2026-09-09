@@ -35,7 +35,9 @@ def check_universe_dataset_is_intact() -> None:
     assert dataset["dataset_id"] == "sc-sac-my-2026-05-29"
     assert dataset["source"]["authority"].startswith("Securities Commission Malaysia")
     records = dataset["records"]
-    assert len(records) == dataset["expected_record_count"], "record count must match the published total"
+    assert len(records) == dataset["expected_record_count"], (
+        "record count must match the published total"
+    )
     assert len(records) == 688, len(records)
     assert all("ticker" in row and "shariah_status" in row for row in records)
 
@@ -44,13 +46,19 @@ def check_gate_and_notes_work_from_the_repo() -> None:
     import shariah_gate
     import wiki_context
 
-    compliant = shariah_gate.check_symbol("7113")
-    assert compliant["status"] == "PASS", compliant
-    assert compliant["issuer_name"], "a PASS must name the issuer for the audit trail"
+    # The committed legacy universe JSON is a migration-compatibility fixture,
+    # not an authority: even for a ticker it marks COMPLIANT, the gate must
+    # never produce PASS without an approved, activated SC publication. A
+    # fresh clone (no SC publication ever approved) must fail closed to
+    # UNKNOWN for every ticker -- this is the invariant itself, not a gap.
+    no_authority_yet = shariah_gate.check_symbol("7113")
+    assert no_authority_yet["status"] != "PASS", (
+        f"the legacy JSON fixture must never produce PASS on its own: {no_authority_yet}"
+    )
 
     unknown = shariah_gate.check_symbol("NOTAREALTICKER")
-    assert unknown["status"] == "REJECT", unknown
-    assert unknown["reason"] == "symbol_not_in_universe"
+    assert unknown["status"] in ("REJECT", "UNKNOWN"), unknown
+    assert unknown["status"] != "PASS", "absent ticker must never be PASS"
 
     hits = wiki_context.find_policy_context("riba interest prohibition screening")
     assert hits, "the committed policy notes must be searchable for explanations"
@@ -65,7 +73,9 @@ def check_no_redistributable_material_leaked() -> None:
     for note in wiki.rglob("*.md"):
         text = note.read_text(encoding="utf-8", errors="ignore")
         longest = max((len(block.strip()) for block in text.split("\n\n")), default=0)
-        assert longest < 5000, f"{note.name} contains a {longest}-char block; likely pasted source text"
+        assert longest < 5000, (
+            f"{note.name} contains a {longest}-char block; likely pasted source text"
+        )
 
 
 def main() -> None:

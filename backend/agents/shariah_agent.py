@@ -16,14 +16,18 @@ def detect_market(symbol: str) -> str:
 
 def _evaluate_malaysia(symbol: str) -> dict:
     result = check_symbol(symbol)
-    status = "PASS" if result.get("status") == "PASS" else "REJECT"
+    gate_status = result.get("status", "UNKNOWN")
+    if gate_status not in ("PASS", "REJECT", "UNKNOWN"):
+        gate_status = "UNKNOWN"
     return {
         "agent": "shariah",
         "market": "MY",
-        "provider": "SC_MY_LOCAL_UNIVERSE",
-        "status": status,
+        "provider": "SC_MY_APPROVED_PUBLICATION",
+        "status": gate_status,
         "symbol": symbol,
         "reason": result.get("reason"),
+        "publication_id": result.get("publication_id"),
+        "publication_date": result.get("publication_date"),
         "details": result,
     }
 

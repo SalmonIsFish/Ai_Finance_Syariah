@@ -5,12 +5,16 @@ from datetime import date, timedelta
 from alpaca_market_data import fetch_eod_prices as fetch_alpaca_eod_prices
 from config import load_settings
 from tiingo_prices import fetch_eod_prices as fetch_tiingo_eod_prices
+from yahoo_finance import fetch_eod_prices as fetch_yahoo_eod_prices
 
 
 def fetch_eod_prices(symbol: str, start_date: str, end_date: str, **kwargs):
     """Route to the configured market-data provider (MARKET_DATA_PROVIDER)."""
-    if load_settings().market_data_provider == "alpaca":
+    provider = load_settings().market_data_provider
+    if provider == "alpaca":
         return fetch_alpaca_eod_prices(symbol, start_date, end_date, **kwargs)
+    if provider == "yahoo":
+        return fetch_yahoo_eod_prices(symbol, start_date, end_date, **kwargs)
     return fetch_tiingo_eod_prices(symbol, start_date, end_date, **kwargs)
 
 

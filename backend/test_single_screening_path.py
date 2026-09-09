@@ -2,21 +2,21 @@
 
 If browsing, the CLI, and the order path each invoke a screen their own way, they
 will eventually disagree about the same company with no way to tell which is right.
-This test makes that structural rather than a convention someone has to remember:
-nothing may import zoya_compliance except the tools whose whole purpose is Zoya.
+This test makes that structural rather than a convention someone has to remember.
 
 It is a static import check on purpose. A runtime test would only catch the paths it
 happened to exercise; this catches a new one the moment it is written.
+
+Zoya (zoya_compliance.py, check_zoya.py) was a second, sandboxed screening path and
+has been removed entirely -- there is nothing left for a "no second Zoya path" check
+to guard against, so that check was removed along with it rather than kept as a
+vacuous pass against files that no longer exist.
 """
 
 import ast
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parent
-
-# The only modules allowed to touch Zoya: the connectivity checker itself, and the
-# provider module. zoya_compliance.py is retained for reference per CLAUDE.md.
-ZOYA_ALLOWED = {"check_zoya.py", "zoya_compliance.py"}
 
 # The single entry point every screening caller must reach the US screen through.
 SCREEN_MODULE = "sec_edgar_screen"
@@ -53,20 +53,6 @@ def _source_files() -> list[Path]:
     ]
 
 
-def check_zoya_is_not_a_second_screening_path() -> None:
-    offenders = []
-    for path in _source_files():
-        if path.name in ZOYA_ALLOWED:
-            continue
-        if "zoya_compliance" in _imported_modules(path):
-            offenders.append(path.relative_to(BACKEND).as_posix())
-
-    assert not offenders, (
-        "these modules import zoya_compliance directly, creating a second screening "
-        f"path to a different provider than the API uses: {offenders}"
-    )
-
-
 def check_the_screen_has_one_entry_point() -> None:
     offenders = []
     for path in _source_files():
@@ -93,7 +79,6 @@ def check_the_explain_cli_and_the_endpoint_share_a_source() -> None:
 
 
 def main() -> None:
-    check_zoya_is_not_a_second_screening_path()
     check_the_screen_has_one_entry_point()
     check_the_explain_cli_and_the_endpoint_share_a_source()
     print("PASS: one screening record, two views -- no second screening path.")

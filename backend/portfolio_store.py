@@ -88,7 +88,9 @@ def sync_filled_order(connection: sqlite3.Connection, approval: dict) -> dict:
     if not reconciliation or reconciliation.get("status") != "BROKER_FILLED":
         return {"status": "NOT_FILLED", "queue_id": queue_id, "position_updated": False}
 
-    existing = connection.execute("SELECT id FROM paper_fills WHERE queue_id = ?", (queue_id,)).fetchone()
+    existing = connection.execute(
+        "SELECT id FROM paper_fills WHERE queue_id = ?", (queue_id,)
+    ).fetchone()
     if existing is not None:
         return {"status": "ALREADY_SYNCED", "queue_id": queue_id, "position_updated": False}
 
@@ -97,12 +99,21 @@ def sync_filled_order(connection: sqlite3.Connection, approval: dict) -> dict:
     if quantity <= 0 or avg_price <= 0:
         return {"status": "INVALID_FILL", "queue_id": queue_id, "position_updated": False}
 
-    symbol = str(approval.get("symbol") or reconciliation.get("symbol") or reconciliation.get("broker_code") or "").upper()
+    symbol = str(
+        approval.get("symbol")
+        or reconciliation.get("symbol")
+        or reconciliation.get("broker_code")
+        or ""
+    ).upper()
     side = str(reconciliation.get("side") or approval.get("side") or "BUY").upper()
     account_suffix = str(reconciliation.get("account_suffix") or "UNKNOWN")
     account_type = reconciliation.get("account_type")
-    filled_at = reconciliation.get("updated_at_broker") or reconciliation.get("reconciled_at") or utc_now()
-    broker_order_id = str(reconciliation.get("broker_order_id") or approval.get("execution_message") or "")
+    filled_at = (
+        reconciliation.get("updated_at_broker") or reconciliation.get("reconciled_at") or utc_now()
+    )
+    broker_order_id = str(
+        reconciliation.get("broker_order_id") or approval.get("execution_message") or ""
+    )
     notional = round(quantity * avg_price, 4)
 
     if is_option_fill(reconciliation):
@@ -340,7 +351,9 @@ def apply_fill_to_position(
     }
 
 
-def open_position_quantity(connection: sqlite3.Connection, *, symbol: str, account_suffix: str | None = None) -> float:
+def open_position_quantity(
+    connection: sqlite3.Connection, *, symbol: str, account_suffix: str | None = None
+) -> float:
     ensure_portfolio_tables(connection)
     normalized_symbol = symbol.strip().upper()
     if account_suffix:
@@ -420,7 +433,9 @@ def portfolio_snapshot(connection: sqlite3.Connection, *, price_lookup=None) -> 
         position["price_date"] = price.get("latest_date")
         position["market_value"] = market_value
         position["unrealized_pnl"] = unrealized_pnl
-        position["unrealized_pnl_pct"] = round((unrealized_pnl / cost_basis) * 100, 4) if cost_basis else None
+        position["unrealized_pnl_pct"] = (
+            round((unrealized_pnl / cost_basis) * 100, 4) if cost_basis else None
+        )
         position["valuation_status"] = "VALUED"
 
     fills = [
@@ -435,19 +450,41 @@ def portfolio_snapshot(connection: sqlite3.Connection, *, price_lookup=None) -> 
         ).fetchall()
     ]
     total_cost_basis = round(sum(float(position["cost_basis"]) for position in positions), 4)
-    realized_row = connection.execute("SELECT COALESCE(SUM(realized_pnl), 0) AS total_realized_pnl FROM paper_positions").fetchone()
+    realized_row = connection.execute(
+        "SELECT COALESCE(SUM(realized_pnl), 0) AS total_realized_pnl FROM paper_positions"
+    ).fetchone()
     total_realized_pnl = round(float(realized_row["total_realized_pnl"] or 0), 4)
-    valued_positions = [position for position in positions if position.get("market_value") is not None]
-    market_value = round(sum(float(position["market_value"]) for position in valued_positions), 4) if valued_positions else None
-    unrealized_pnl = round(sum(float(position["unrealized_pnl"]) for position in valued_positions), 4) if valued_positions else None
+    valued_positions = [
+        position for position in positions if position.get("market_value") is not None
+    ]
+    market_value = (
+        round(sum(float(position["market_value"]) for position in valued_positions), 4)
+        if valued_positions
+        else None
+    )
+    unrealized_pnl = (
+        round(sum(float(position["unrealized_pnl"]) for position in valued_positions), 4)
+        if valued_positions
+        else None
+    )
     if market_value:
         for position in positions:
             if position.get("market_value") is not None:
-                position["exposure_weight_pct"] = round((float(position["market_value"]) / market_value) * 100, 4)
+                position["exposure_weight_pct"] = round(
+                    (float(position["market_value"]) / market_value) * 100, 4
+                )
 
     valuation_status = "NOT_REQUESTED"
     if price_lookup is not None:
-        valuation_status = "EMPTY" if not positions else "VALUED" if valued_positions and not valuation_errors else "PARTIAL" if valued_positions else "DATA_ERROR"
+        valuation_status = (
+            "EMPTY"
+            if not positions
+            else "VALUED"
+            if valued_positions and not valuation_errors
+            else "PARTIAL"
+            if valued_positions
+            else "DATA_ERROR"
+        )
 
     return {
         "status": "OK",
@@ -471,7 +508,9 @@ DEFAULT_PORTFOLIO_SNAPSHOT_THROTTLE_MINUTES = 15.0
 
 def latest_portfolio_snapshot_row(connection: sqlite3.Connection) -> dict | None:
     ensure_portfolio_tables(connection)
-    row = connection.execute("SELECT * FROM portfolio_value_snapshots ORDER BY id DESC LIMIT 1").fetchone()
+    row = connection.execute(
+        "SELECT * FROM portfolio_value_snapshots ORDER BY id DESC LIMIT 1"
+    ).fetchone()
     return dict(row) if row else None
 
 
@@ -548,3 +587,68 @@ def list_portfolio_snapshots(connection: sqlite3.Connection, *, limit: int = 500
         (capped_limit,),
     ).fetchall()
     return [dict(row) for row in reversed(rows)]
+
+
+def period_realized_pnl(connection: sqlite3.Connection, *, since: datetime) -> dict:
+    """Realized P&L within [since, now), for a daily/weekly hard-loss check.
+
+    Reuses the two existing realized-P&L records rather than introducing a
+    third: the live cumulative total (SUM(realized_pnl) over paper_positions,
+    exactly what portfolio_snapshot() already reports) and the historical
+    point-in-time record of that same cumulative total
+    (portfolio_value_snapshots). Period P&L is the difference between the two
+    -- current cumulative minus the most recent snapshot at or before `since`.
+
+    Fails closed (status INSUFFICIENT_DATA) rather than guessing a baseline
+    when no snapshot exists that far back and the account is not trivially
+    at a lifetime-zero realized P&L. A brand-new or never-sold-into account
+    is the one case that does not need a historical snapshot to answer: if
+    the live cumulative total is exactly 0, no SELL has ever net-realized a
+    gain or loss at any point in this account's history, so no period --
+    including this one -- can contain a realized loss either. This does not
+    distinguish "never touched" from "round-tripped back to exactly 0
+    within the period" (a real but narrow limitation, documented rather than
+    silently assumed away); every other case requires a real baseline.
+    """
+    ensure_portfolio_tables(connection)
+    since_iso = since.astimezone(timezone.utc).isoformat()
+    current = float(
+        connection.execute(
+            "SELECT COALESCE(SUM(realized_pnl), 0) AS total FROM paper_positions"
+        ).fetchone()["total"]
+        or 0
+    )
+    if current == 0:
+        return {
+            "status": "OK",
+            "period_start": since_iso,
+            "baseline_realized_pnl": 0.0,
+            "current_realized_pnl": 0.0,
+            "period_realized_pnl": 0.0,
+        }
+    baseline_row = connection.execute(
+        """
+        SELECT realized_pnl, captured_at
+        FROM portfolio_value_snapshots
+        WHERE captured_at <= ?
+        ORDER BY captured_at DESC
+        LIMIT 1
+        """,
+        (since_iso,),
+    ).fetchone()
+    if baseline_row is None:
+        return {
+            "status": "INSUFFICIENT_DATA",
+            "reason": "no_baseline_snapshot_before_period_start",
+            "period_start": since_iso,
+            "current_realized_pnl": round(current, 4),
+        }
+    baseline = float(baseline_row["realized_pnl"] or 0)
+    return {
+        "status": "OK",
+        "period_start": since_iso,
+        "baseline_realized_pnl": round(baseline, 4),
+        "baseline_captured_at": baseline_row["captured_at"],
+        "current_realized_pnl": round(current, 4),
+        "period_realized_pnl": round(current - baseline, 4),
+    }

@@ -282,11 +282,16 @@ def main() -> None:
     evaluation = evaluation_payload["evaluation"]
     assert set(evaluation["agent_summary"]) == {"shariah", "quant", "risk"}
     assert evaluation["agent_summary"]["shariah"]["market"] == "MY"
-    assert evaluation["agent_summary"]["shariah"]["provider"] == "SC_MY_LOCAL_UNIVERSE"
-    assert evaluation["agent_summary"]["shariah"]["status"] == "PASS"
+    assert evaluation["agent_summary"]["shariah"]["provider"] == "SC_MY_APPROVED_PUBLICATION"
+    # No SC publication is approved/activated in this fixture DB, and the
+    # legacy JSON fallback can never assert PASS on its own (Phase 0 audit
+    # finding: this used to be a live bypass) -- so an unlisted ticker is
+    # correctly UNKNOWN here, not PASS.
+    assert evaluation["agent_summary"]["shariah"]["status"] == "UNKNOWN"
     assert evaluation["agent_summary"]["risk"]["status"] == "PASS"
     assert evaluation["agent_summary"]["quant"]["signal"] == "NO_SIGNAL"
     assert evaluation["decision"] == "BLOCKED"
+    assert "shariah_rejected" in evaluation["blockers"]
     assert "quant_no_buy_signal" in evaluation["blockers"]
 
     ready_candidate = evaluate_candidate(
@@ -299,6 +304,19 @@ def main() -> None:
         loss_per_trade_pct=0.2,
         daily_loss_pct=0.3,
         orders_today=0,
+        # This is a direct unit-test call (not an HTTP request), so a
+        # shariah_override here is the intended test seam, not a bypass: no
+        # untrusted caller can reach this path with a fabricated verdict --
+        # see test_approval_shariah_bypass.py for why /paper/approval itself
+        # can no longer be tricked this way.
+        shariah_override={
+            "agent": "shariah",
+            "market": "MY",
+            "provider": "TEST_FIXTURE",
+            "status": "PASS",
+            "symbol": "0001",
+            "reason": "test_override",
+        },
         quant_override={
             "agent": "quant",
             "status": "PASS",
@@ -499,8 +517,12 @@ def main() -> None:
     assert preview_payload["broker_submission"] is False
     assert preview_payload["preview"]["status"] == "REJECT"
     assert preview_payload["preview"]["broker_submission"] is False
-    assert preview_payload["preview"]["agent_summary"]["shariah"]["status"] == "PASS"
+    # No SC publication is approved/activated in this fixture DB (see the
+    # earlier /agent/evaluate assertions above for why this is UNKNOWN, not
+    # PASS), so this preview is blocked on two independent grounds.
+    assert preview_payload["preview"]["agent_summary"]["shariah"]["status"] == "UNKNOWN"
     assert preview_payload["preview"]["agent_summary"]["risk"]["status"] == "PASS"
+    assert "shariah_rejected" in preview_payload["preview"]["blockers"]
     assert "quant_no_buy_signal" in preview_payload["preview"]["blockers"]
 
     approval = client.post(
