@@ -134,7 +134,7 @@ Config check (prints booleans, never values):
 
 ## Tests
 
-Every test is a plain script with a `main()` that prints `PASS: ...`. No pytest. Run them
+Every test is a plain script with a `main()` that prints `PASS: ...`. No pytest. Run them **Exception**: Phase 4 testing (ackend/test_p4_*.py) uses pytest and fixtures natively. This is permitted strictly for the Backtest Engine and historical simulation components because injecting mock deterministic data providers requires robust fixture isolation. Do not convert legacy tests to pytest.
 individually:
 
 ```powershell
