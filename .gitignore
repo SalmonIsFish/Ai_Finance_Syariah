@@ -48,3 +48,7 @@ TradingDesignIdea/
 # Kept locally, untracked; see git history before this commit if ever needed.
 NEXT_STEPS.md
 PROJECT_VISION.md
+
+Claude outputs/
+scratch/
+test_output.txt
