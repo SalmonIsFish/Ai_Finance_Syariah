@@ -17,6 +17,7 @@ class BacktestAssumptions:
     transaction_cost_fixed: float
     risk_policy: RiskPolicy
     provider_name: str
+    adv_participation_pct: float
 
 @dataclass
 class TargetOrder:
@@ -67,6 +68,8 @@ class MarketDataProvider(Protocol):
         ...
     def get_execution_data(self, ticker: str, date_iso: str) -> Optional[Dict]:
         """Returns {'open': float, 'volume': float, 'dividend': float, 'split_ratio': float}"""
+        ...
+    def is_deterministic(self) -> bool:
         ...
 
 def run_backtest(
@@ -157,7 +160,7 @@ def run_backtest(
                     continue
             
             volume = exec_data["volume"]
-            max_exec_shares = volume * 0.10
+            max_exec_shares = volume * (assumptions.adv_participation_pct / 100.0)
             exec_qty = min(order.quantity, max_exec_shares)
             
             if exec_qty < order.quantity:
@@ -218,5 +221,5 @@ def run_backtest(
         realized_pnl=realized_pnl,
         fills=fills,
         events=events,
-        is_reproducible="Yahoo" not in assumptions.provider_name
+        is_reproducible=provider.is_deterministic()
     )

@@ -25,6 +25,9 @@ class MockMarketDataProvider:
     def get_execution_data(self, ticker: str, date_iso: str) -> Optional[Dict]:
         return self.exec_data.get(date_iso, {}).get(ticker)
 
+    def is_deterministic(self) -> bool:
+        return True
+
 class MockStrategy:
     def __init__(self, orders: List[TargetOrder]):
         self.orders_to_return = orders
@@ -78,7 +81,7 @@ def test_no_lookahead_and_reproducibility(db_conn):
     provider = MockMarketDataProvider(df, exec_data)
     strategy = MockStrategy([TargetOrder("VALID_TK", "BUY", 100, 1.0)])
     
-    assumptions = BacktestAssumptions(10000.0, 0.0, 0.0, 0.0, RiskPolicy(max_loss_per_trade_pct=0.5), "Fixture")
+    assumptions = BacktestAssumptions(10000.0, 0.0, 0.0, 0.0, RiskPolicy(max_loss_per_trade_pct=0.5), "Fixture", 25.0)
     
     res = run_backtest(db_conn, strategy, "s1", "2023-01-02", "2023-01-03", assumptions, provider)
     
@@ -104,7 +107,7 @@ def test_pending_sc_and_bad_identities(db_conn):
         TargetOrder("AMBIG_TK", "BUY", 10),
         TargetOrder("PEND_TK", "BUY", 10)
     ])
-    assumptions = BacktestAssumptions(10000.0, 0.0, 0.0, 0.0, RiskPolicy(max_loss_per_trade_pct=0.0), "Fixture")
+    assumptions = BacktestAssumptions(10000.0, 0.0, 0.0, 0.0, RiskPolicy(max_loss_per_trade_pct=0.0), "Fixture", 25.0)
     
     res = run_backtest(db_conn, strategy, "s1", "2023-01-02", "2023-01-02", assumptions, provider)
     
@@ -120,16 +123,16 @@ def test_pending_sc_and_bad_identities(db_conn):
     # AMBIG_TK fails identity
     assert any("ambiguous" in e.details for e in data_qual if e.security == "AMBIG_TK")
 
-def test_10_percent_adv_cap(db_conn):
-    exec_data = {"2023-01-02": {"VALID_TK": {"open": 10.0, "volume": 1000}}} # 10% is 100 shares
+def test_adv_cap_participation(db_conn):
+    exec_data = {"2023-01-02": {"VALID_TK": {"open": 10.0, "volume": 1000}}} # 25% is 250 shares
     provider = MockMarketDataProvider(pd.DataFrame(index=pd.DatetimeIndex([], tz="UTC")), exec_data)
-    strategy = MockStrategy([TargetOrder("VALID_TK", "BUY", 200)]) # Request 200
-    assumptions = BacktestAssumptions(10000.0, 0.0, 0.0, 0.0, RiskPolicy(max_loss_per_trade_pct=0.0), "Fixture")
+    strategy = MockStrategy([TargetOrder("VALID_TK", "BUY", 400)]) # Request 200
+    assumptions = BacktestAssumptions(10000.0, 0.0, 0.0, 0.0, RiskPolicy(max_loss_per_trade_pct=0.0), "Fixture", 25.0)
     
     res = run_backtest(db_conn, strategy, "s1", "2023-01-02", "2023-01-02", assumptions, provider)
     
     assert len(res.fills) == 1
-    assert res.fills[0].quantity == 100
+    assert res.fills[0].quantity == 250
     assert any(e.event_type == "PARTIAL_FILL" for e in res.events)
 
 def test_slippage_and_costs(db_conn):
@@ -138,7 +141,7 @@ def test_slippage_and_costs(db_conn):
     strategy = MockStrategy([TargetOrder("VALID_TK", "BUY", 10)])
     
     # Slippage 1%, cost 1% + 5
-    assumptions = BacktestAssumptions(10000.0, 1.0, 1.0, 5.0, RiskPolicy(max_loss_per_trade_pct=0.0), "Fixture")
+    assumptions = BacktestAssumptions(10000.0, 1.0, 1.0, 5.0, RiskPolicy(max_loss_per_trade_pct=0.0), "Fixture", 25.0)
     res = run_backtest(db_conn, strategy, "s1", "2023-01-02", "2023-01-02", assumptions, provider)
     
     fill = res.fills[0]
@@ -149,7 +152,7 @@ def test_missing_price_volume(db_conn):
     exec_data = {"2023-01-02": {"VALID_TK": {"open": None, "volume": None}}}
     provider = MockMarketDataProvider(pd.DataFrame(index=pd.DatetimeIndex([], tz="UTC")), exec_data)
     strategy = MockStrategy([TargetOrder("VALID_TK", "BUY", 10)])
-    assumptions = BacktestAssumptions(10000.0, 0.0, 0.0, 0.0, RiskPolicy(max_loss_per_trade_pct=0.0), "Fixture")
+    assumptions = BacktestAssumptions(10000.0, 0.0, 0.0, 0.0, RiskPolicy(max_loss_per_trade_pct=0.0), "Fixture", 25.0)
     
     res = run_backtest(db_conn, strategy, "s1", "2023-01-02", "2023-01-02", assumptions, provider)
     assert len(res.fills) == 0
@@ -169,7 +172,7 @@ def test_corporate_actions(db_conn):
                 return [TargetOrder("VALID_TK", "BUY", 10)]
             return []
             
-    assumptions = BacktestAssumptions(10000.0, 0.0, 0.0, 0.0, RiskPolicy(max_loss_per_trade_pct=0.0), "Fixture")
+    assumptions = BacktestAssumptions(10000.0, 0.0, 0.0, 0.0, RiskPolicy(max_loss_per_trade_pct=0.0), "Fixture", 25.0)
     res = run_backtest(db_conn, CorpStrategy(), "s1", "2023-01-02", "2023-01-03", assumptions, provider)
     
     pos = res.final_positions["VALID_TK"]
