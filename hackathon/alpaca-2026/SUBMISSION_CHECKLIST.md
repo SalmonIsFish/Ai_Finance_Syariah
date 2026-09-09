@@ -7,11 +7,17 @@ and the general lablab.ai Hackathon Rule Book (https://lablab.ai/hackathon-rules
 
 ## Account setup
 
+**Update (2026-08-27):** re-checked the event page's "Account requirements" section directly —
+adds two hard requirements that weren't captured here before.
+
 - [ ] Sign up for Alpaca, open a paper trading account for early prototyping (any account is fine
-      for this stage).
+      for this stage — "explore freely" per the event page).
 - [ ] Before final submission: create a **brand-new** Alpaca paper trading account dedicated to
       this hackathon. Projects on a reused/existing account are **not eligible for judging** —
       this is a hard disqualifier per the event page.
+- [ ] **Set the competition account's starting balance to exactly $100,000.** This is a stated
+      account requirement, not a suggestion — verify it at account creation, don't assume Alpaca's
+      default paper balance matches.
 - [ ] Record that account's ID — required in the final submission for judges to evaluate P&L.
 
 ## Core technical requirements (all mandatory to qualify)
@@ -40,8 +46,15 @@ Alpaca directly (outside the MCP server), follow the existing pattern in `backen
 
 ## Track
 
-- [ ] Confirm final track: primary = Income & Portfolio Overlay Agents; stretch = Hedging & Risk
-      Protection Agents (see `IDEAS.md`).
+**Update (2026-08-27):** re-checked the event page — the multi-track structure this repo's
+`IDEAS.md` was written against no longer exists. There is now exactly **one track: "Options Alpha
+Agents"** (main track, open to all). No track choice to make anymore; the only thing that matters
+is meeting the mandatory options-trading requirement below and scoring well on the four judging
+criteria. `IDEAS.md`'s track comparison (Income & Portfolio Overlay vs. Hedging & Risk Protection
+vs. Options Alpha vs. Volatility & Event) is now historical context for *why* Level 1 structures
+were chosen, not a live decision.
+
+- [x] Track confirmed: Options Alpha Agents (only track — nothing to pick).
 
 ## Submission package
 
@@ -58,19 +71,37 @@ Alpaca directly (outside the MCP server), follow the existing pattern in `backen
       among Streamlit/Replit/Vercel. Any working, publicly reachable URL qualifies (the project
       now hosts on a self-managed VPS at `https://amanahtrader.uk`).
 - [ ] Alpaca paper trading account ID (see Account setup above).
+- [ ] **One-page write-up** covering: AI logic, risk gates, and Alpaca infrastructure
+      implementation. (Added to the event page's requirements as of 2026-08-27 — not just the
+      video/slides; this is a separate written artifact.) For this project that maps cleanly to:
+      AI logic = quant signal + option strike selection (`option_strategy.py`); risk gates = the
+      four-gate chain (`shariah_gate` → `option_structure_gate` → `account_shariah_gate` →
+      risk limits); Alpaca infrastructure = the dual REST/MCP transport and the
+      preview → approval → execute → reconcile pipeline. Draft from `CLAUDE.md`'s Architecture
+      and Module ownership sections rather than starting from scratch.
 - [ ] Up to 5 social media post links (X or LinkedIn), tagging **@lablabai**/lablab.ai and
       **@AlpacaHQ**/Alpaca. Optional but scored under the extra "Build in Public" challenge and the
       Social Engagement judging criterion.
 
-## Judging criteria to keep in mind while building (from the event page)
+## Judging criteria to keep in mind while building (from the event page, re-verified 2026-08-27)
 
-- P&L Performance (paper trading results) — frame as risk-adjusted return, not raw P&L; see
-  `IDEAS.md`.
-- Technology Implementation — how well Alpaca Trading API / MCP / CLI are actually used.
-- Creativity & Originality — the Shariah-gate angle is the intended differentiator here.
-- Presentation & Execution — demo clarity, reasoning behind trades should be shown, not just
-  results.
-- Social Engagement — quality + reach of the build-in-public posts.
+Confirmed exact criteria text on the live page — it's four criteria now, not five; "Social
+Engagement" is not a listed judging criterion (the social-post fields in the submission form may
+still exist but don't score under a named criterion the way the four below do):
+
+- **P&L Performance** — "the trading performance of the submitted agent in the Alpaca paper
+  trading environment... P&L and how effectively the strategy performs through its trading
+  activity." This is the weak point — see `WIN_PLAN.md` for why and what to do about it.
+- **Technology Implementation** — "how effectively the project uses Alpaca's Trading API, MCP
+  server, CLI, and other required technologies." Current strongest axis.
+- **Creativity & Originality** — "the originality of the concept, trading strategy, agent
+  behavior, and overall approach." The Shariah-gate angle carries this; the underlying options
+  strategy itself is deliberately vanilla — see `WIN_PLAN.md`.
+- **Presentation & Execution** — "how clearly and effectively the project communicates its idea,
+  demonstrates the agent in action, and presents the reasoning behind its trading strategy and
+  results." Scripts/drafts exist in `research/`; nothing is actually produced yet.
+
+See `WIN_PLAN.md` for the ranked action plan against these four.
 
 ## Team
 
