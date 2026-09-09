@@ -35,8 +35,6 @@ _load_local_env()
 @dataclass(frozen=True)
 class Settings:
     tiingo_api_token: str | None
-    zoya_api_key: str | None
-    zoya_environment: str
     alpaca_api_key_id: str | None
     alpaca_secret_key: str | None
     alpaca_mode: str
@@ -55,6 +53,7 @@ class Settings:
     max_total_exposure_pct: float
     max_loss_per_trade_pct: float
     max_daily_loss_pct: float
+    max_weekly_loss_pct: float
     max_orders_per_day: int
     openrouter_api_key: str | None
     openrouter_model: str
@@ -129,8 +128,8 @@ def load_settings() -> Settings:
         raise ValueError("ALPACA_MODE must remain 'paper'; live mode is disabled")
 
     market_data_provider = os.getenv("MARKET_DATA_PROVIDER", "alpaca").strip().lower()
-    if market_data_provider not in {"alpaca", "tiingo"}:
-        raise ValueError("MARKET_DATA_PROVIDER must be alpaca or tiingo")
+    if market_data_provider not in {"alpaca", "tiingo", "yahoo"}:
+        raise ValueError("MARKET_DATA_PROVIDER must be alpaca, tiingo, or yahoo")
 
     try:
         port = int(os.getenv("MOOMOO_PORT", "11111"))
@@ -144,8 +143,13 @@ def load_settings() -> Settings:
     max_total_exposure_pct = _float_env("MAX_TOTAL_EXPOSURE_PCT", "25.0", minimum=0)
     max_loss_per_trade_pct = _float_env("MAX_LOSS_PER_TRADE_PCT", "0.5", minimum=0)
     max_daily_loss_pct = _float_env("MAX_DAILY_LOSS_PCT", "1.0", minimum=0)
+    # 2% per the Obsidian vault's risk-policy.md ("Maximum weekly realised
+    # loss (% of portfolio)"). Not invented -- see local_api.py's
+    # _start_of_iso_week_utc for the calendar-week-vs-rolling-7-day
+    # interpretation this limit is checked against.
+    max_weekly_loss_pct = _float_env("MAX_WEEKLY_LOSS_PCT", "2.0", minimum=0)
     max_orders_per_day = _int_env("MAX_ORDERS_PER_DAY", "5", minimum=1)
-    max_sector_exposure_pct = _float_env("MAX_SECTOR_EXPOSURE_PCT", "15.0", minimum=0)
+    max_sector_exposure_pct = _float_env("MAX_SECTOR_EXPOSURE_PCT", "20.0", minimum=0)
     news_ai_summary_enabled = os.getenv("NEWS_AI_SUMMARY_ENABLED", "true").strip().lower() == "true"
     news_ai_summary_max_articles = _int_env("NEWS_AI_SUMMARY_MAX_ARTICLES", "5", minimum=0)
     news_ai_summary_cache_ttl_minutes = _float_env(
@@ -159,8 +163,6 @@ def load_settings() -> Settings:
 
     return Settings(
         tiingo_api_token=os.getenv("TIINGO_API_TOKEN") or None,
-        zoya_api_key=os.getenv("ZOYA_API_KEY") or None,
-        zoya_environment=os.getenv("ZOYA_ENVIRONMENT", "sandbox").strip().lower(),
         alpaca_api_key_id=os.getenv("ALPACA_API_KEY_ID") or None,
         alpaca_secret_key=os.getenv("ALPACA_SECRET_KEY") or None,
         alpaca_mode=alpaca_mode,
@@ -179,6 +181,7 @@ def load_settings() -> Settings:
         max_total_exposure_pct=max_total_exposure_pct,
         max_loss_per_trade_pct=max_loss_per_trade_pct,
         max_daily_loss_pct=max_daily_loss_pct,
+        max_weekly_loss_pct=max_weekly_loss_pct,
         max_orders_per_day=max_orders_per_day,
         openrouter_api_key=os.getenv("OPENROUTER_API_KEY") or None,
         openrouter_model=os.getenv("OPENROUTER_MODEL", "deepseek/deepseek-chat").strip(),
