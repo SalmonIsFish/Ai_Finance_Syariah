@@ -1,0 +1,3457 @@
+﻿{
+    "dataset_id":  "sc-sac-my-2026-05-29",
+    "publication_date":  "2026-05-29",
+    "source":  {
+                   "authority":  "Securities Commission Malaysia Shariah Advisory Council",
+                   "url":  "https://www.sc.com.my/api/documentms/download.ashx?id=9f03c706-607f-4fbe-b4c7-91afc352ee49",
+                   "local_evidence_path":  "E:\\Projects Stuff\\Multi_Ai_IslamicFinance\\02-Shariah-Compliant-Screening-Malaysia\\compliant-list-2026-05.md\\Full Table of all comlpiant company.md"
+               },
+    "expected_record_count":  688,
+    "records":  [
+                    {
+                        "ticker":  "0001",
+                        "issuer_name":  "Supercomnet | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0008",
+                        "issuer_name":  "Willowglen MSC Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0010",
+                        "issuer_name":  "Iris Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0012",
+                        "issuer_name":  "Three-A Resources Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0023",
+                        "issuer_name":  "IFCA MSC Bhd | 2 0308 | KTI Landmark Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0024",
+                        "issuer_name":  "JAG Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0025",
+                        "issuer_name":  "YBS International Bhd |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0028",
+                        "issuer_name":  "Scope Industries Bhd | PERKHIDMATAN",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0032",
+                        "issuer_name":  "REDtone Digital Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0034",
+                        "issuer_name":  "MMAG Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0036",
+                        "issuer_name":  "Key Alliance Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0038",
+                        "issuer_name":  "Artroniq Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0039",
+                        "issuer_name":  "GFM Services Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0040",
+                        "issuer_name":  "OpenSys (M) Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0045",
+                        "issuer_name":  "Southern Score | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0048",
+                        "issuer_name":  "Ancom Logistics Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0049",
+                        "issuer_name":  "Oceancash Pacific Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0050",
+                        "issuer_name":  "Systech Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0051",
+                        "issuer_name":  "Cuscapi Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0055",
+                        "issuer_name":  "Sersol Bhd |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0056",
+                        "issuer_name":  "NCT Alliance Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0059",
+                        "issuer_name":  "Ecobuilt Holdings Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0065",
+                        "issuer_name":  "Excel Force MSC Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0068",
+                        "issuer_name":  "Asdion Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0069",
+                        "issuer_name":  "Vinvest Capital Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0070",
+                        "issuer_name":  "MQ Technology Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0078",
+                        "issuer_name":  "GDEX Bhd | | Industries Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0079",
+                        "issuer_name":  "Aldrich Resources Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0080",
+                        "issuer_name":  "Straits Energy",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0081",
+                        "issuer_name":  "Rekatech Capital Bhd | SERVICES",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0082",
+                        "issuer_name":  "Green Packet Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0083",
+                        "issuer_name":  "Notion VTec Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0084",
+                        "issuer_name":  "Fast Energy Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0086",
+                        "issuer_name":  "YGL Convergence Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0089",
+                        "issuer_name":  "Tex Cycle Technology |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0091",
+                        "issuer_name":  "Propel Global Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0094",
+                        "issuer_name":  "Zen Tech International",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0097",
+                        "issuer_name":  "ViTrox Corporation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0098",
+                        "issuer_name":  "Aumas Resources Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0100",
+                        "issuer_name":  "ES Ceramics Technology",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0101",
+                        "issuer_name":  "TMC Life Sciences Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0102",
+                        "issuer_name":  "Waja Konsortium Bhd |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0104",
+                        "issuer_name":  "Genetec Technology Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0105",
+                        "issuer_name":  "Asia Poly Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0107",
+                        "issuer_name":  "Eduspec Holdings Bhd | HHAARRTTAANNAAHH |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0109",
+                        "issuer_name":  "SC Estate Builder Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0111",
+                        "issuer_name":  "K-One Technology Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0112",
+                        "issuer_name":  "Mikro MSC Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0113",
+                        "issuer_name":  "MMS Ventures Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0117",
+                        "issuer_name":  "SMRT Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0118",
+                        "issuer_name":  "Trive Property Group | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0120",
+                        "issuer_name":  "VisDynamics Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0122",
+                        "issuer_name":  "Advance Information | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0126",
+                        "issuer_name":  "Microlink Solutions Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0128",
+                        "issuer_name":  "Frontken Corporation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0131",
+                        "issuer_name":  "Divfex Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0132",
+                        "issuer_name":  "TechnoDex Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0133",
+                        "issuer_name":  "Sanichi Technology Bhd |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0136",
+                        "issuer_name":  "Greenyield Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0138",
+                        "issuer_name":  "Zetrix AI Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0143",
+                        "issuer_name":  "Key Asic Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0145",
+                        "issuer_name":  "TFP Solutions Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0146",
+                        "issuer_name":  "JF Technology Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0157",
+                        "issuer_name":  "Focus Point Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0158",
+                        "issuer_name":  "SCC Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0159",
+                        "issuer_name":  "MMM Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0160",
+                        "issuer_name":  "Hiap Huat Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0161",
+                        "issuer_name":  "Hextar Industries Bhd | | Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0162",
+                        "issuer_name":  "Widad Group Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0167",
+                        "issuer_name":  "MClean Technologies",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0168",
+                        "issuer_name":  "BM Greentech Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0172",
+                        "issuer_name":  "OCK Group Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0174",
+                        "issuer_name":  "EVD Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0175",
+                        "issuer_name":  "HHRG Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0177",
+                        "issuer_name":  "Midtown Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0180",
+                        "issuer_name":  "Kim Teck Cheong | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0181",
+                        "issuer_name":  "Aemulus Holdings Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0183",
+                        "issuer_name":  "Salutica Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0185",
+                        "issuer_name":  "HSS Engineers Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0186",
+                        "issuer_name":  "Perak Transit Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0187",
+                        "issuer_name":  "BCM Alliance Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0188",
+                        "issuer_name":  "HLT Global Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0190",
+                        "issuer_name":  "Eversafe Rubber Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0191",
+                        "issuer_name":  "Cabnet Holdings Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0192",
+                        "issuer_name":  "Inta Bina Group Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0193",
+                        "issuer_name":  "Kinergy Advancement | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0196",
+                        "issuer_name":  "QES Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0197",
+                        "issuer_name":  "Wegmans Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0198",
+                        "issuer_name":  "GDB Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0199",
+                        "issuer_name":  "Tri-Mode System (M)",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0200",
+                        "issuer_name":  "Revenue Group Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0203",
+                        "issuer_name":  "Securemetric Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0206",
+                        "issuer_name":  "Gagasan Nadi Cergas",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0208",
+                        "issuer_name":  "Greatech Technology | PROPERTY |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0209",
+                        "issuer_name":  "AIMFLEX Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0211",
+                        "issuer_name":  "Tashin Holdings Bhd |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0212",
+                        "issuer_name":  "SDS Group Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0213",
+                        "issuer_name":  "MTAG Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0215",
+                        "issuer_name":  "Solarvest Holdings Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0216",
+                        "issuer_name":  "Spring Art Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0218",
+                        "issuer_name":  "ACO Group Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0219",
+                        "issuer_name":  "Reservoir Link Energy | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0221",
+                        "issuer_name":  "TCS Group Holdings | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0222",
+                        "issuer_name":  "Optimax Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0223",
+                        "issuer_name":  "Samaiden Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0226",
+                        "issuer_name":  "Aneka Jaringan | | Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0227",
+                        "issuer_name":  "Econframe Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0228",
+                        "issuer_name":  "HPP Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0229",
+                        "issuer_name":  "Mobilia Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0230",
+                        "issuer_name":  "Teladan Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0231",
+                        "issuer_name":  "Flexidynamic Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0232",
+                        "issuer_name":  "Volcano Bhd |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0233",
+                        "issuer_name":  "Pekat Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0235",
+                        "issuer_name":  "Nestcon Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0236",
+                        "issuer_name":  "Ramssol Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0237",
+                        "issuer_name":  "Haily Group Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0238",
+                        "issuer_name":  "CEKD Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0239",
+                        "issuer_name":  "Ecomate Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0240",
+                        "issuer_name":  "Coraza Integrated | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0241",
+                        "issuer_name":  "Taghill Holdings Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0245",
+                        "issuer_name":  "MN Holdings Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0246",
+                        "issuer_name":  "Cnergenz Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0248",
+                        "issuer_name":  "Yew Lee Pacific Group |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0249",
+                        "issuer_name":  "LGMS Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0250",
+                        "issuer_name":  "YX Precious Metals Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0251",
+                        "issuer_name":  "SFP Tech Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0253",
+                        "issuer_name":  "Infoline Tec Group Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0256",
+                        "issuer_name":  "UMediC Group Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0257",
+                        "issuer_name":  "Unique Fire Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0258",
+                        "issuer_name":  "Agmo Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0259",
+                        "issuer_name":  "SNS Network | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0262",
+                        "issuer_name":  "Sunview Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0263",
+                        "issuer_name":  "Betamek Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0265",
+                        "issuer_name":  "Infomina Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0266",
+                        "issuer_name":  "Leform Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0267",
+                        "issuer_name":  "ECA Integrated | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0268",
+                        "issuer_name":  "L\u0026P Global Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0269",
+                        "issuer_name":  "DS Sigma Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0273",
+                        "issuer_name":  "Vestland Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0275",
+                        "issuer_name":  "Oppstar Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0276",
+                        "issuer_name":  "Autocount Dotcom Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0277",
+                        "issuer_name":  "Cloudpoint Technology",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0278",
+                        "issuer_name":  "Edelteq Holdings Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0279",
+                        "issuer_name":  "Synergy House Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0282",
+                        "issuer_name":  "KGW Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0284",
+                        "issuer_name":  "Glostrext Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0288",
+                        "issuer_name":  "Minox International",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0289",
+                        "issuer_name":  "PLYTEC Holding Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0291",
+                        "issuer_name":  "Critical Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0292",
+                        "issuer_name":  "Jati Tinggi Group Bhd | LOGISTICS |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0293",
+                        "issuer_name":  "KJTS Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0295",
+                        "issuer_name":  "Master Tec Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0296",
+                        "issuer_name":  "HE Group Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0297",
+                        "issuer_name":  "TSA Group Bhd |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0298",
+                        "issuer_name":  "Wentel Engineering |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0299",
+                        "issuer_name":  "AGX Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0300",
+                        "issuer_name":  "SBH Marine Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03008",
+                        "issuer_name":  "SL Innovation Capital",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03009",
+                        "issuer_name":  "SEERS Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0301",
+                        "issuer_name":  "Zantat Holdings Bhd |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03011",
+                        "issuer_name":  "Amlex Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03012",
+                        "issuer_name":  "Baba Eco Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03017",
+                        "issuer_name":  "Uni Wall Aps Holdings | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03019",
+                        "issuer_name":  "Matrix Parking",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0302",
+                        "issuer_name":  "Topmix Bhd |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03027",
+                        "issuer_name":  "MMIS Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03029",
+                        "issuer_name":  "GPP Resources Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03031",
+                        "issuer_name":  "Polydamic Group Bhd | TTEECCHHNNOOLLOOGGYY |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03033",
+                        "issuer_name":  "Supergenics Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03036",
+                        "issuer_name":  "Redplanet Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03037",
+                        "issuer_name":  "Aurora Italia",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03039",
+                        "issuer_name":  "RTS Technology",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03040",
+                        "issuer_name":  "Jishan Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03043",
+                        "issuer_name":  "UCI Resources Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0305",
+                        "issuer_name":  "Sin-Kung Logistics Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03050",
+                        "issuer_name":  "Sunmow Holding Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03051",
+                        "issuer_name":  "Alpha Ocean | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03052",
+                        "issuer_name":  "Ray Go Solar Holdings | TTEEKKNNOOLLOOGGII |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03053",
+                        "issuer_name":  "CC International Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03055",
+                        "issuer_name":  "DSR Taiko Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03057",
+                        "issuer_name":  "Sancy Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03059",
+                        "issuer_name":  "Autoris Group",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0306",
+                        "issuer_name":  "Smart Asia Chemical |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03060",
+                        "issuer_name":  "Hydropipes Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03061",
+                        "issuer_name":  "TP Tec Holding Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03062",
+                        "issuer_name":  "TSiC Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03064",
+                        "issuer_name":  "MyAxis Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03065",
+                        "issuer_name":  "LPC Group Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03066",
+                        "issuer_name":  "Croesus IT Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03068",
+                        "issuer_name":  "Bentley Music Group Â | 26. 3891 Â | Malayan United Â Â Â Â Â",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03069",
+                        "issuer_name":  "BIMOffice Group Bhd Â | 27. 5327 Â | Mega Fortris Bhd Â Â Â Â",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0307",
+                        "issuer_name":  "Kawan Renergy Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03071",
+                        "issuer_name":  "Noesis Exed Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "03072",
+                        "issuer_name":  "Milolo Bhd Â Â Â Â Â Â Â",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0310",
+                        "issuer_name":  "UUE Holdings Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0313",
+                        "issuer_name":  "BWYS Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0316",
+                        "issuer_name":  "Sik Cheong Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0317",
+                        "issuer_name":  "EPB Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0318",
+                        "issuer_name":  "Elridge Energy",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0319",
+                        "issuer_name":  "VETECE Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0320",
+                        "issuer_name":  "Steel Hawk Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0321",
+                        "issuer_name":  "Solar District Cooling |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0323",
+                        "issuer_name":  "Crest Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0326",
+                        "issuer_name":  "Sorento Capital Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0331",
+                        "issuer_name":  "Cropmate Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0333",
+                        "issuer_name":  "Vanzo Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0337",
+                        "issuer_name":  "Swift Energy |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0339",
+                        "issuer_name":  "CBH Engineering | | Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0341",
+                        "issuer_name":  "Colform Group Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0343",
+                        "issuer_name":  "TechStore Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0345",
+                        "issuer_name":  "ES Sunlogy Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0347",
+                        "issuer_name":  "Wawasan Dengkil | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0349",
+                        "issuer_name":  "Sumisaujana Group |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0350",
+                        "issuer_name":  "MSB Global Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0351",
+                        "issuer_name":  "Lim Seong Hai Capital | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0352",
+                        "issuer_name":  "WTEC Group Bhd |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0353",
+                        "issuer_name":  "West River Bhd |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0358",
+                        "issuer_name":  "ICT Zone Asia Bhd | 1 0452 | Gold Li Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0359",
+                        "issuer_name":  "Hartanah Kenyalang | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0360",
+                        "issuer_name":  "Signature Alliance | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0361",
+                        "issuer_name":  "Pan Merchant Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0362",
+                        "issuer_name":  "ASM Automation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0366",
+                        "issuer_name":  "Icents Group Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0367",
+                        "issuer_name":  "Enproserve Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0368",
+                        "issuer_name":  "Oxford Innotech Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0369",
+                        "issuer_name":  "JS Solar Holding Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0370",
+                        "issuer_name":  "Express Powerr Solutions",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0372",
+                        "issuer_name":  "Cheeding Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0373",
+                        "issuer_name":  "Verdant Solar Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0375",
+                        "issuer_name":  "THMY Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0376",
+                        "issuer_name":  "Insights Analytics Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0377",
+                        "issuer_name":  "Powertechnic Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0379",
+                        "issuer_name":  "PMW International Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0381",
+                        "issuer_name":  "Polymer Link Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0383",
+                        "issuer_name":  "PSP Energy Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0385",
+                        "issuer_name":  "BMS Holdings Bhd Â Â",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0389",
+                        "issuer_name":  "One Gasmaster Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0390",
+                        "issuer_name":  "ISF Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0391",
+                        "issuer_name":  "Ambest Group Bhd Â Â Â",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0392",
+                        "issuer_name":  "Kee Ming Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0393",
+                        "issuer_name":  "Teamstar Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0395",
+                        "issuer_name":  "OGX Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0396",
+                        "issuer_name":  "Adnex Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0397",
+                        "issuer_name":  "5E Resources Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0398",
+                        "issuer_name":  "Golden Destinations Â",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0399",
+                        "issuer_name":  "AMS Advanced Material Â",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0451",
+                        "issuer_name":  "Inspace Creation Bhd | TRANSPORTATION AND |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "0453",
+                        "issuer_name":  "EI Power Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1147",
+                        "issuer_name":  "Global Oriental Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1171",
+                        "issuer_name":  "MBSB Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1287",
+                        "issuer_name":  "Exsim Hospitality Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1481",
+                        "issuer_name":  "Advance Synergy Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1538",
+                        "issuer_name":  "Symphony Life Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1589",
+                        "issuer_name":  "Iskandar Waterfront | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1619",
+                        "issuer_name":  "DRB-HICOM Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1651",
+                        "issuer_name":  "Malaysian Resources",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1694",
+                        "issuer_name":  "Menang Corporation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1724",
+                        "issuer_name":  "Paramount",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1818",
+                        "issuer_name":  "Bursa Malaysia Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1899",
+                        "issuer_name":  "Batu Kawan Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1961",
+                        "issuer_name":  "IOI Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "1996",
+                        "issuer_name":  "Kretam Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2054",
+                        "issuer_name":  "TDM Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2089",
+                        "issuer_name":  "United Plantations Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2097",
+                        "issuer_name":  "Meta Bright Group",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2127",
+                        "issuer_name":  "Comfort Gloves Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2135",
+                        "issuer_name":  "Gopeng Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2224",
+                        "issuer_name":  "Selangor Dredging Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2259",
+                        "issuer_name":  "Talam Transform Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2283",
+                        "issuer_name":  "Zelan Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2291",
+                        "issuer_name":  "Genting Plantations",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2429",
+                        "issuer_name":  "Tanco Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2445",
+                        "issuer_name":  "Kuala Lumpur Kepong",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2542",
+                        "issuer_name":  "Riverview Rubber",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2593",
+                        "issuer_name":  "United Malacca Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2607",
+                        "issuer_name":  "Inch Kenneth Kajang",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2658",
+                        "issuer_name":  "Ajinomoto (Malaysia) | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2682",
+                        "issuer_name":  "Parkwood Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2739",
+                        "issuer_name":  "Techna-X Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "2852",
+                        "issuer_name":  "Cahya Mata Sarawak",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3026",
+                        "issuer_name":  "Dutch Lady Milk",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3042",
+                        "issuer_name":  "Petron Malaysia | | Rubber Public Ltd Co",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3107",
+                        "issuer_name":  "Fima Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3158",
+                        "issuer_name":  "YNH Property Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3336",
+                        "issuer_name":  "IJM Corporation Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3441",
+                        "issuer_name":  "Johan Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3557",
+                        "issuer_name":  "Ecofirst Consolidated",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3573",
+                        "issuer_name":  "Lien Hoe Corporation | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3611",
+                        "issuer_name":  "Paragon Globe Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3743",
+                        "issuer_name":  "Sunsuria Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3778",
+                        "issuer_name":  "Melewar Industrial",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3794",
+                        "issuer_name":  "Malayan Cement Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3816",
+                        "issuer_name":  "MISC Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3867",
+                        "issuer_name":  "Malaysian Pacific | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3891",
+                        "issuer_name":  "Malayan United",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "3913",
+                        "issuer_name":  "MUI Properties Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4022",
+                        "issuer_name":  "Maxim Global Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4065",
+                        "issuer_name":  "PPB Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4081",
+                        "issuer_name":  "Pan Malaysia",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4197",
+                        "issuer_name":  "Sime Darby Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4235",
+                        "issuer_name":  "Lion Industries",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4243",
+                        "issuer_name":  "W T K Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4251",
+                        "issuer_name":  "I-Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4359",
+                        "issuer_name":  "Turiya Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4375",
+                        "issuer_name":  "South Malaysia",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4383",
+                        "issuer_name":  "Jaya Tiasa Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4405",
+                        "issuer_name":  "Tan Chong Motor | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4456",
+                        "issuer_name":  "Dagang Nexchange Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4634",
+                        "issuer_name":  "Pos Malaysia Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4723",
+                        "issuer_name":  "JAKS Resources Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4731",
+                        "issuer_name":  "Scientex Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4758",
+                        "issuer_name":  "Ancom Nylex Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4847",
+                        "issuer_name":  "Epicon Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4863",
+                        "issuer_name":  "Telekom Malaysia Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "4995",
+                        "issuer_name":  "Versatile Creative Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5000",
+                        "issuer_name":  "Hume Cement",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5001",
+                        "issuer_name":  "Mieco Chipboard Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5005",
+                        "issuer_name":  "Unisem (M) Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5006",
+                        "issuer_name":  "Varia Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5007",
+                        "issuer_name":  "Chin Well Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5009",
+                        "issuer_name":  "White Horse Bhd | | Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5011",
+                        "issuer_name":  "Mesiniaga Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5012",
+                        "issuer_name":  "Ta Ann Holdings Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5015",
+                        "issuer_name":  "APM Automotive | | Products Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5020",
+                        "issuer_name":  "Glomac Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5021",
+                        "issuer_name":  "AYS Ventures Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5022",
+                        "issuer_name":  "Paos Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5024",
+                        "issuer_name":  "Hup Seng Industries | | Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5026",
+                        "issuer_name":  "MHC Plantations Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5027",
+                        "issuer_name":  "Kim Loong Resources",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5028",
+                        "issuer_name":  "HeiTech Padu Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5029",
+                        "issuer_name":  "Far East Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5031",
+                        "issuer_name":  "TIME dotCom Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5035",
+                        "issuer_name":  "Knusford Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5036",
+                        "issuer_name":  "Edaran Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5037",
+                        "issuer_name":  "Compugates Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5038",
+                        "issuer_name":  "KSL Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5040",
+                        "issuer_name":  "Meridian Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5041",
+                        "issuer_name":  "PBA Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5042",
+                        "issuer_name":  "TSR Capital Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5048",
+                        "issuer_name":  "YB Ventures Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5049",
+                        "issuer_name":  "Country View Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5054",
+                        "issuer_name":  "TRC Synergy Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5056",
+                        "issuer_name":  "Engtex Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5062",
+                        "issuer_name":  "Hua Yang Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5065",
+                        "issuer_name":  "Ornapaper Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5069",
+                        "issuer_name":  "BLD Plantation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5070",
+                        "issuer_name":  "Protasco Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5072",
+                        "issuer_name":  "Hiap Teck Venture Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5073",
+                        "issuer_name":  "Naim Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5075",
+                        "issuer_name":  "Plenitude Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5079",
+                        "issuer_name":  "One Glove Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5080",
+                        "issuer_name":  "Poh Kong Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5081",
+                        "issuer_name":  "Esthetics International",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5084",
+                        "issuer_name":  "Ibraco Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5090",
+                        "issuer_name":  "Media Chinese | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5094",
+                        "issuer_name":  "CSC Steel Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5095",
+                        "issuer_name":  "Heveaboard Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5099",
+                        "issuer_name":  "Capital A Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5100",
+                        "issuer_name":  "BP Plastics Holding Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5102",
+                        "issuer_name":  "Guan Chong Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5104",
+                        "issuer_name":  "Citra Nusa Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5112",
+                        "issuer_name":  "TH Plantations Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5115",
+                        "issuer_name":  "Alam Maritim",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5125",
+                        "issuer_name":  "Pantech Group",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5126",
+                        "issuer_name":  "Sarawak Oil Palms Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5129",
+                        "issuer_name":  "Melati Ehsan Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5132",
+                        "issuer_name":  "Deleum Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5133",
+                        "issuer_name":  "Petra Energy Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5140",
+                        "issuer_name":  "Tasco Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5142",
+                        "issuer_name":  "Wasco Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5145",
+                        "issuer_name":  "Sealink International",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5148",
+                        "issuer_name":  "UEM Sunrise Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5149",
+                        "issuer_name":  "TAS Offshore Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5151",
+                        "issuer_name":  "Hextar Global Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5160",
+                        "issuer_name":  "Homeritz Corporation | | Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5162",
+                        "issuer_name":  "VSTECS Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5165",
+                        "issuer_name":  "DFCITY Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5166",
+                        "issuer_name":  "Cyberjaya Education",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5168",
+                        "issuer_name":  "Hartalega Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5171",
+                        "issuer_name":  "Kimlun Corporation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5172",
+                        "issuer_name":  "Sinaran Advance | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5182",
+                        "issuer_name":  "Avaland Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5183",
+                        "issuer_name":  "PETRONAS Chemicals",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5184",
+                        "issuer_name":  "Cypark Resources Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5190",
+                        "issuer_name":  "Benalec Holdings Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5191",
+                        "issuer_name":  "Tambun Indah Land",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5192",
+                        "issuer_name":  "K. Seng Seng",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5195",
+                        "issuer_name":  "Censof Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5196",
+                        "issuer_name":  "Berjaya Food Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5197",
+                        "issuer_name":  "Focus Lumber Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5198",
+                        "issuer_name":  "ABM Fujiya Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5199",
+                        "issuer_name":  "Hibiscus Petroleum Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5200",
+                        "issuer_name":  "UOA Development",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5202",
+                        "issuer_name":  "MSM Malaysia",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5204",
+                        "issuer_name":  "AwanBiru Technology",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5205",
+                        "issuer_name":  "Eversendai",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5207",
+                        "issuer_name":  "SBC Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5208",
+                        "issuer_name":  "EITA Resources Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5209",
+                        "issuer_name":  "Gas Malaysia Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5210",
+                        "issuer_name":  "Bumi Armada Bhd | PPLLAANNTAATTIIOONN |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5211",
+                        "issuer_name":  "Sunway Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5216",
+                        "issuer_name":  "NexG Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5218",
+                        "issuer_name":  "Vantris Energy Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5220",
+                        "issuer_name":  "Globaltec Formation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5223",
+                        "issuer_name":  "Mentiga Corporation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5225",
+                        "issuer_name":  "IHH Healthcare Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5226",
+                        "issuer_name":  "Gabungan AQRS Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5236",
+                        "issuer_name":  "Matrix Concepts",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5238",
+                        "issuer_name":  "AirAsia X Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5239",
+                        "issuer_name":  "Titijaya Land Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5242",
+                        "issuer_name":  "Solid Automotive Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5243",
+                        "issuer_name":  "Velesto Energy Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5246",
+                        "issuer_name":  "Westports Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5247",
+                        "issuer_name":  "Karex Bhd | | Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5248",
+                        "issuer_name":  "Bermaz Auto Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5249",
+                        "issuer_name":  "IOI Properties Group | | Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5252",
+                        "issuer_name":  "Sasbadi Holdings Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5255",
+                        "issuer_name":  "Lianson Fleet Group",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5257",
+                        "issuer_name":  "Carimin Petroleum Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5258",
+                        "issuer_name":  "Bank Islam Malaysia",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5259",
+                        "issuer_name":  "Avangaad Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5260",
+                        "issuer_name":  "Only World Group",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5263",
+                        "issuer_name":  "Sunway Construction",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5264",
+                        "issuer_name":  "Malakoff Corporation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5267",
+                        "issuer_name":  "Xin Hwa Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5272",
+                        "issuer_name":  "Ranhill Utilities Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5273",
+                        "issuer_name":  "Chin Hin Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5277",
+                        "issuer_name":  "FoundPac Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5285",
+                        "issuer_name":  "SD Guthrie Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5286",
+                        "issuer_name":  "Mi Technovation Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5291",
+                        "issuer_name":  "HPMT Holdings Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5292",
+                        "issuer_name":  "UWC Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5293",
+                        "issuer_name":  "AME Elite Consortium | | (M) Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5296",
+                        "issuer_name":  "Mr D.I.Y. Group (M)",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5297",
+                        "issuer_name":  "Tuju Setia Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5298",
+                        "issuer_name":  "OM Holdings Ltd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5301",
+                        "issuer_name":  "CTOS Digital Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5303",
+                        "issuer_name":  "Swift Haulage Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5305",
+                        "issuer_name":  "Senheng New Retail | TECHNOLOGY |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5306",
+                        "issuer_name":  "Farm Fresh Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5309",
+                        "issuer_name":  "ITMAX System Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5310",
+                        "issuer_name":  "Kumpulan Kitacon Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5313",
+                        "issuer_name":  "Radium Development",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5315",
+                        "issuer_name":  "Skyworld Development",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5316",
+                        "issuer_name":  "MST Golf Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5317",
+                        "issuer_name":  "CPE Technology Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5318",
+                        "issuer_name":  "DXN Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5319",
+                        "issuer_name":  "MKH Oil Palm (East",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5321",
+                        "issuer_name":  "Keyfield International | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5323",
+                        "issuer_name":  "Johor Plantations",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5327",
+                        "issuer_name":  "Mega Fortris Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5328",
+                        "issuer_name":  "Life Water Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5329",
+                        "issuer_name":  "Azam Jaya Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5331",
+                        "issuer_name":  "Pantech Global Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5332",
+                        "issuer_name":  "Reach Ten Holdings | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5335",
+                        "issuer_name":  "HI Mobility Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5337",
+                        "issuer_name":  "Eco-Shop Marketing Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5340",
+                        "issuer_name":  "UMS Integration Ltd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5341",
+                        "issuer_name":  "LAC Med Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5343",
+                        "issuer_name":  "Wasco Greenergy Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5345",
+                        "issuer_name":  "Geohan Corporation Â",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5346",
+                        "issuer_name":  "Hock Soon Capital Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5347",
+                        "issuer_name":  "Tenaga Nasional Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5348",
+                        "issuer_name":  "Orkim Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5351",
+                        "issuer_name":  "Empire Premium Food",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5352",
+                        "issuer_name":  "MTT Shipping and",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5357",
+                        "issuer_name":  "SkyeChip Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5398",
+                        "issuer_name":  "Gamuda Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5401",
+                        "issuer_name":  "Tropicana Corporation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5533",
+                        "issuer_name":  "OCB Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5555",
+                        "issuer_name":  "Sunway Healthcare | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5576",
+                        "issuer_name":  "Minho (M) Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5592",
+                        "issuer_name":  "Grand Central",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5649",
+                        "issuer_name":  "Golden Pharos Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5665",
+                        "issuer_name":  "Southern Steel Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5703",
+                        "issuer_name":  "Muhibbah Engineering",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5738",
+                        "issuer_name":  "Country Heights",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5797",
+                        "issuer_name":  "Choo Bee Metal",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5843",
+                        "issuer_name":  "Kumpulan Perangsang",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5878",
+                        "issuer_name":  "KPJ Healthcare Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5916",
+                        "issuer_name":  "Malaysia Smelting",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "5983",
+                        "issuer_name":  "MBM Resources Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6012",
+                        "issuer_name":  "Maxis Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6033",
+                        "issuer_name":  "PETRONAS Gas Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6041",
+                        "issuer_name":  "Farlim Group (Malaysia)",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6076",
+                        "issuer_name":  "Encorp Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6114",
+                        "issuer_name":  "MKH Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6139",
+                        "issuer_name":  "Syarikat Takaful",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6173",
+                        "issuer_name":  "Bina Darulaman Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6181",
+                        "issuer_name":  "Malton Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6211",
+                        "issuer_name":  "Kia Lim Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6262",
+                        "issuer_name":  "Innoprise Plantations",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6378",
+                        "issuer_name":  "BEDI Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6491",
+                        "issuer_name":  "Kumpulan Fima Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6521",
+                        "issuer_name":  "Suria Capital Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6599",
+                        "issuer_name":  "AEON Co. (M) Bhd | | Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6602",
+                        "issuer_name":  "BCB Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6637",
+                        "issuer_name":  "PNE PCB Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6718",
+                        "issuer_name":  "Crescendo Corporation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6769",
+                        "issuer_name":  "JKG Land Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6815",
+                        "issuer_name":  "Eupe Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6874",
+                        "issuer_name":  "JAG Capital Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6888",
+                        "issuer_name":  "Axiata Group Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6912",
+                        "issuer_name":  "Pasdec Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6947",
+                        "issuer_name":  "CelcomDigi Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6963",
+                        "issuer_name":  "V.S. Industry Bhd | | Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "6998",
+                        "issuer_name":  "Bintai Kinden | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7006",
+                        "issuer_name":  "Rhong Khen Â",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7013",
+                        "issuer_name":  "Hubline Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7014",
+                        "issuer_name":  "YLI Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7017",
+                        "issuer_name":  "Komarkcorp Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7018",
+                        "issuer_name":  "CME Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7020",
+                        "issuer_name":  "Asteel Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7028",
+                        "issuer_name":  "Zecon Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7031",
+                        "issuer_name":  "Amtel Holdings Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7033",
+                        "issuer_name":  "Kumpulan H \u0026 L",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7034",
+                        "issuer_name":  "Thong Guan Industries",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7036",
+                        "issuer_name":  "Borneo Oil Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7047",
+                        "issuer_name":  "FBG Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7052",
+                        "issuer_name":  "Padini Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7054",
+                        "issuer_name":  "Astral Asia Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7060",
+                        "issuer_name":  "New Hoong Fatt",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7062",
+                        "issuer_name":  "Khind Holdings Bhd | | Industries Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7066",
+                        "issuer_name":  "Yong Tai Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7070",
+                        "issuer_name":  "Vizione Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7071",
+                        "issuer_name":  "OCR Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7073",
+                        "issuer_name":  "Seacera Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7076",
+                        "issuer_name":  "CB Industrial Product",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7077",
+                        "issuer_name":  "Kerjaya Prospek | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7079",
+                        "issuer_name":  "TWL Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7080",
+                        "issuer_name":  "Permaju Industries Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7081",
+                        "issuer_name":  "Pharmaniaga Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7084",
+                        "issuer_name":  "QL Resources Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7085",
+                        "issuer_name":  "LTKM Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7086",
+                        "issuer_name":  "Ablegroup Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7091",
+                        "issuer_name":  "Unimech Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7095",
+                        "issuer_name":  "P.I.E. Industrial Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7100",
+                        "issuer_name":  "Uchi Technologies Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7103",
+                        "issuer_name":  "Spritzer Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7105",
+                        "issuer_name":  "HCK Capital Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7107",
+                        "issuer_name":  "Oriental Food",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7108",
+                        "issuer_name":  "Perdana Petroleum Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7113",
+                        "issuer_name":  "Top Glove Corporation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7115",
+                        "issuer_name":  "SKB Shutters",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7117",
+                        "issuer_name":  "CJ Century Logistics | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7120",
+                        "issuer_name":  "Axteria Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7121",
+                        "issuer_name":  "XL Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7123",
+                        "issuer_name":  "Maxland Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7128",
+                        "issuer_name":  "CAM Resources Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7131",
+                        "issuer_name":  "ACME Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7132",
+                        "issuer_name":  "SMIS Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7137",
+                        "issuer_name":  "UMS Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7139",
+                        "issuer_name":  "Niche Capital Emas",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7140",
+                        "issuer_name":  "OKA Corporation Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7145",
+                        "issuer_name":  "TXCD Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7148",
+                        "issuer_name":  "Duopharma Biotech",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7149",
+                        "issuer_name":  "Eng Kah Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7152",
+                        "issuer_name":  "Jaycorp Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7153",
+                        "issuer_name":  "Kossan Rubber",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7154",
+                        "issuer_name":  "NexG Bina Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7155",
+                        "issuer_name":  "SKP Resources Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7157",
+                        "issuer_name":  "CYL Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7160",
+                        "issuer_name":  "Pentamaster | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7162",
+                        "issuer_name":  "Astino Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7163",
+                        "issuer_name":  "PJBumi Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7167",
+                        "issuer_name":  "Able Global Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7168",
+                        "issuer_name":  "PRG Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7169",
+                        "issuer_name":  "Dominant Enterprise Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7170",
+                        "issuer_name":  "LFE Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7172",
+                        "issuer_name":  "PMB Technology Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7174",
+                        "issuer_name":  "CAB Cakaran",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7176",
+                        "issuer_name":  "TPC Plus Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7180",
+                        "issuer_name":  "Sern Kou Resources | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7181",
+                        "issuer_name":  "ARB Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7184",
+                        "issuer_name":  "G3 Global Bhd | | Industries Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7186",
+                        "issuer_name":  "SWS Capital Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7187",
+                        "issuer_name":  "Chin Hin Group",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7188",
+                        "issuer_name":  "BTM Resources Bhd Â Â | 29. 5352 Â | MTT Shipping and Â Â Â Â",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7191",
+                        "issuer_name":  "Adventa Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7192",
+                        "issuer_name":  "GIIB Holdings Bhd | | Selangor Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7195",
+                        "issuer_name":  "Binastra Corporation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7197",
+                        "issuer_name":  "Ge-Shen Corporation | | High-Tech Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7198",
+                        "issuer_name":  "DPS Resources Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7200",
+                        "issuer_name":  "Tek Seng Holdings Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7203",
+                        "issuer_name":  "Wang-Zheng Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7204",
+                        "issuer_name":  "D \u0026 O Green",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7208",
+                        "issuer_name":  "Euro Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7211",
+                        "issuer_name":  "Tafi Industries Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7212",
+                        "issuer_name":  "Destini Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7214",
+                        "issuer_name":  "A-Rank Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7216",
+                        "issuer_name":  "Kawan Food Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7218",
+                        "issuer_name":  "Arka Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7219",
+                        "issuer_name":  "Aizo Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7228",
+                        "issuer_name":  "T7 Global Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7229",
+                        "issuer_name":  "Favelle Favco Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7230",
+                        "issuer_name":  "Tomei Consolidated | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7232",
+                        "issuer_name":  "Resintech Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7233",
+                        "issuer_name":  "Dufu Technology Corp.",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7235",
+                        "issuer_name":  "Superlon Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7237",
+                        "issuer_name":  "Power Root Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7240",
+                        "issuer_name":  "Infraharta Holdings Bhd | TTEENNAAGGAA |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7243",
+                        "issuer_name":  "Magma Group Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7245",
+                        "issuer_name":  "Citaglobal Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7246",
+                        "issuer_name":  "Signature International | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7248",
+                        "issuer_name":  "SLP Resources Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7249",
+                        "issuer_name":  "Skygate Solutions Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7250",
+                        "issuer_name":  "Uzma Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7252",
+                        "issuer_name":  "Teo Seng Capital Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7253",
+                        "issuer_name":  "Handal Energy Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7277",
+                        "issuer_name":  "Dialog Group Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7285",
+                        "issuer_name":  "Tomypak Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7315",
+                        "issuer_name":  "AHB Holdings Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7382",
+                        "issuer_name":  "Golden Land Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7412",
+                        "issuer_name":  "SHH Resources | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7439",
+                        "issuer_name":  "Teck Guan Perdana | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7471",
+                        "issuer_name":  "Eden Inc. Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7501",
+                        "issuer_name":  "Harn Len Corporation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7528",
+                        "issuer_name":  "DKLS Industries Bhd | | Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7579",
+                        "issuer_name":  "AWC Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7595",
+                        "issuer_name":  "MGB Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7609",
+                        "issuer_name":  "Ajiya Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7617",
+                        "issuer_name":  "Magna Prima Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7676",
+                        "issuer_name":  "G Capital Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7722",
+                        "issuer_name":  "Asia Brands Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7757",
+                        "issuer_name":  "UPA Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7765",
+                        "issuer_name":  "Rapid Synergy Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7773",
+                        "issuer_name":  "EP Manufacturing Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7854",
+                        "issuer_name":  "Timberwell Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7935",
+                        "issuer_name":  "Milux Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "7943",
+                        "issuer_name":  "Greentronics | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8079",
+                        "issuer_name":  "Lee Swee Kiat Group | | Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8141",
+                        "issuer_name":  "Majuperak Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8176",
+                        "issuer_name":  "Wavefront Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8206",
+                        "issuer_name":  "Eco World Development",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8303",
+                        "issuer_name":  "Lotus KFM Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8311",
+                        "issuer_name":  "Pesona Metro Holdings",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8338",
+                        "issuer_name":  "Dataprep Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8362",
+                        "issuer_name":  "KYM Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8419",
+                        "issuer_name":  "Pansar Bhd | | Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8478",
+                        "issuer_name":  "Hwa Tai Industries Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8486",
+                        "issuer_name":  "Lion Posim Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8494",
+                        "issuer_name":  "LBI Capital Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8524",
+                        "issuer_name":  "Taliworks Corporation",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8532",
+                        "issuer_name":  "Pertama Digital Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8567",
+                        "issuer_name":  "Salcon Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8583",
+                        "issuer_name":  "Mah Sing Group Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8591",
+                        "issuer_name":  "Crest Builder Holdings | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8613",
+                        "issuer_name":  "ENRA Group Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8664",
+                        "issuer_name":  "S P Setia Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8672",
+                        "issuer_name":  "Kamdar Group (M) | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8745",
+                        "issuer_name":  "S \u0026 F Capital Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8877",
+                        "issuer_name":  "Ekovest Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8885",
+                        "issuer_name":  "Avillion Bhd | | Industries Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8893",
+                        "issuer_name":  "MK Land Holdings Bhd | | Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8907",
+                        "issuer_name":  "EG Industries Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8966",
+                        "issuer_name":  "Techbase Industries | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "8982",
+                        "issuer_name":  "Cepatwawasan Group",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9008",
+                        "issuer_name":  "Omesti Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9059",
+                        "issuer_name":  "TSH Resources Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9075",
+                        "issuer_name":  "Theta Edge Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9083",
+                        "issuer_name":  "Kumpulan Jetson Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9091",
+                        "issuer_name":  "Emico Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9113",
+                        "issuer_name":  "Iconic Worldwide Bhd | | Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9172",
+                        "issuer_name":  "Formosa Prosonic",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9261",
+                        "issuer_name":  "Gadang Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9288",
+                        "issuer_name":  "Bonia Corporation Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9296",
+                        "issuer_name":  "RCE Capital Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9326",
+                        "issuer_name":  "LB Aluminium Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9334",
+                        "issuer_name":  "KESM Industries Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9377",
+                        "issuer_name":  "FSBM Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9385",
+                        "issuer_name":  "Lay Hong Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9393",
+                        "issuer_name":  "Industronics Bhd | Bil. Kod stok | Nama sekuriti",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9407",
+                        "issuer_name":  "Paragon Union Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9423",
+                        "issuer_name":  "CWG Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9431",
+                        "issuer_name":  "Seni Jaya Corporation | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9466",
+                        "issuer_name":  "KKB Engineering Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9571",
+                        "issuer_name":  "Mitrajaya Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9598",
+                        "issuer_name":  "Pintaras Jaya Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9628",
+                        "issuer_name":  "Lebtech Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9679",
+                        "issuer_name":  "WCT Holdings Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9687",
+                        "issuer_name":  "Ideal Capital Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9695",
+                        "issuer_name":  "PLS Plantations Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9792",
+                        "issuer_name":  "SEG International Bhd | |",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9814",
+                        "issuer_name":  "Bertam Alliance Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9946",
+                        "issuer_name":  "ETA Group Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9954",
+                        "issuer_name":  "RGT Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    },
+                    {
+                        "ticker":  "9962",
+                        "issuer_name":  "Gromutual Bhd",
+                        "shariah_status":  "COMPLIANT"
+                    }
+                ],
+    "validation":  {
+                       "status":  "active",
+                       "actual_record_count":  688,
+                       "validated_at":  "2026-07-21"
+                   }
+}
