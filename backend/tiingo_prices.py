@@ -33,11 +33,14 @@ class TiingoDataError(RuntimeError):
 
 
 def _fixture_prices(symbol: str) -> list[dict]:
+    from datetime import date, timedelta
     today = date.today()
-    return [
-        {"symbol": symbol, "date": (today - timedelta(days=2)).isoformat(), "open": 100.0, "high": 102.0, "low": 99.0, "close": 101.0, "volume": 100000},
-        {"symbol": symbol, "date": (today - timedelta(days=1)).isoformat(), "open": 101.0, "high": 103.0, "low": 100.0, "close": 102.0, "volume": 110000},
-    ]
+    bars = []
+    # Make a 205-bar uptrend
+    for i in range(205, -1, -1):
+        price = 100.0 + (205 - i) * 0.1
+        bars.append({"symbol": symbol, "date": (today - timedelta(days=i)).isoformat(), "open": price, "high": price+1, "low": price-1, "close": price, "volume": 100000})
+    return bars
 
 
 def _cache_path(symbol: str) -> Path:
