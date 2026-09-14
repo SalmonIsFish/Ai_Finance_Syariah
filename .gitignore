@@ -52,3 +52,5 @@ PROJECT_VISION.md
 Claude outputs/
 scratch/
 test_output.txt
+CararunCode.txt
+.claude/settings.local.json
