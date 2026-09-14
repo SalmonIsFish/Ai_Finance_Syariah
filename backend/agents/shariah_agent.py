@@ -34,7 +34,13 @@ def _evaluate_malaysia(symbol: str) -> dict:
 
 def _evaluate_us(symbol: str) -> dict:
     result = check_us_symbol(symbol)
-    status = "PASS" if result.get("status") == "COMPLIANT" else "REJECT"
+    raw = result.get("status")
+    if raw == "COMPLIANT":
+        status = "PASS"
+    elif raw == "NON_COMPLIANT":
+        status = "REJECT"
+    else:
+        status = "UNKNOWN"
     return {
         "agent": "shariah",
         "market": "US",
