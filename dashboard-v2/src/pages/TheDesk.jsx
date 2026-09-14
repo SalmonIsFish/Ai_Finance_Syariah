@@ -18,15 +18,25 @@ export default function TheDesk() {
   const [submitError, setSubmitError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
+  // position_pct / total_exposure_pct are advisory only: local_api.py's
+  // apply_portfolio_risk_overlay recomputes the real projected exposure from
+  // live portfolio state and that's what actually gates PASS/REJECT here, not
+  // what we send. loss_per_trade_pct / daily_loss_pct / orders_today have no
+  // "current value" source on the frontend yet (no endpoint exposes today's
+  // realized P&L or order count) -- sent as 0 so this preview never
+  // fabricates a false sense of safety margin. None of this is the final
+  // word regardless: /paper/approval re-derives every risk number
+  // authoritatively from server state (authoritative_risk_verdict) before
+  // anything can actually execute, ignoring whatever this preview submitted.
   const getOrderData = () => ({
     symbol: symbol.toUpperCase(),
     side,
     quantity: qty,
     price,
-    position_pct: 1.0,
-    total_exposure_pct: 5.0,
-    loss_per_trade_pct: 0.2,
-    daily_loss_pct: 0.3,
+    position_pct: 0,
+    total_exposure_pct: 0,
+    loss_per_trade_pct: 0,
+    daily_loss_pct: 0,
     orders_today: 0
   });
 
@@ -37,20 +47,7 @@ export default function TheDesk() {
     setSubmitSuccess(false);
     try {
       const order = getOrderData();
-      let result = await fetchPreview(order);
-      if (order.symbol === 'FAKE123') {
-        result.preview = {
-          ...result.preview,
-          agent_summary: {
-            ...result.preview.agent_summary,
-            risk: {
-              status: 'REJECT',
-              reason: 'missing_portfolio_limits',
-              details: {}
-            }
-          }
-        };
-      }
+      const result = await fetchPreview(order);
       setPreview(result.preview);
     } catch (err) {
       setError(err.message);
