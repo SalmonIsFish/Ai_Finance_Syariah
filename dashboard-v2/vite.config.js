@@ -25,6 +25,7 @@ export default defineConfig({
       '/paper/approval': 'http://127.0.0.1:8000',
       '/paper/execute': 'http://127.0.0.1:8000',
       '/paper/reconcile': 'http://127.0.0.1:8000',
+      '/paper/risk-snapshot': 'http://127.0.0.1:8000',
       '/news': 'http://127.0.0.1:8000',
       '/stock': 'http://127.0.0.1:8000',
       '/api': 'http://127.0.0.1:8000',

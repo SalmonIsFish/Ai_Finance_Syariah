@@ -1529,6 +1529,29 @@ def paper_positions_live(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     return fetch_broker_positions()
 
 
+@app.get("/paper/risk-snapshot")
+def paper_risk_snapshot(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
+    """Returns the current risk metrics (orders today, daily loss pct, weekly loss pct)
+    using the same helpers as authoritative_risk_verdict."""
+    connection = db()
+    try:
+        settings = load_settings()
+        orders_today = _orders_today_count(connection)
+        daily_loss_pct = _period_loss_pct(
+            connection, since=_start_of_today_utc(), account_equity=settings.paper_account_equity
+        )
+        weekly_loss_pct = _period_loss_pct(
+            connection, since=_start_of_iso_week_utc(), account_equity=settings.paper_account_equity
+        )
+        return {
+            "orders_today": orders_today,
+            "daily_loss_pct": daily_loss_pct,
+            "weekly_loss_pct": weekly_loss_pct,
+        }
+    finally:
+        connection.close()
+
+
 @app.get("/portfolio/history/live")
 def portfolio_history_live(period: str = "1M", timeframe: str | None = None, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     """The account's real equity curve, straight from the broker.

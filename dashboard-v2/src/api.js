@@ -44,6 +44,7 @@ const fetchGet = async (url) => {
 export const fetchPortfolio = () => fetchGet("/portfolio");
 export const fetchLivePositions = () => fetchGet("/paper/positions/live");
 export const fetchAccount = () => fetchGet("/paper/account");
+export const fetchRiskSnapshot = () => fetchGet("/paper/risk-snapshot");
 export const fetchPortfolioHistoryLive = (period = "1M") => fetchGet(`/portfolio/history/live?period=${period}`);
 export const fetchPortfolioHistory = (period = "1M") => fetchGet(`/portfolio/history?period=${period}`);
 export const fetchMarketOverview = () => fetchGet("/market-overview");

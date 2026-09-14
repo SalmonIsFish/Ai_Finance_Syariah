@@ -1,6 +1,6 @@
 import { useState } from "react";
 import OfficerCard from "../components/OfficerCard";
-import { fetchPreview, submitApproval } from "../api";
+import { fetchPreview, submitApproval, fetchRiskSnapshot } from "../api";
 
 export default function TheDesk() {
   const [symbol, setSymbol] = useState("AAPL");
@@ -20,15 +20,11 @@ export default function TheDesk() {
 
   // position_pct / total_exposure_pct are advisory only: local_api.py's
   // apply_portfolio_risk_overlay recomputes the real projected exposure from
-  // live portfolio state and that's what actually gates PASS/REJECT here, not
-  // what we send. loss_per_trade_pct / daily_loss_pct / orders_today have no
-  // "current value" source on the frontend yet (no endpoint exposes today's
-  // realized P&L or order count) -- sent as 0 so this preview never
-  // fabricates a false sense of safety margin. None of this is the final
-  // word regardless: /paper/approval re-derives every risk number
-  // authoritatively from server state (authoritative_risk_verdict) before
-  // anything can actually execute, ignoring whatever this preview submitted.
-  const getOrderData = () => ({
+  // live portfolio state and that's what actually gates PASS/REJECT here.
+  // loss_per_trade_pct is also computed by the risk evaluation based on
+  // the specific ticket. We fetch real daily/weekly loss and order counts
+  // from the backend so the preview doesn't show false safety margins.
+  const getOrderData = (risk) => ({
     symbol: symbol.toUpperCase(),
     side,
     quantity: qty,
@@ -36,8 +32,8 @@ export default function TheDesk() {
     position_pct: 0,
     total_exposure_pct: 0,
     loss_per_trade_pct: 0,
-    daily_loss_pct: 0,
-    orders_today: 0
+    daily_loss_pct: risk?.daily_loss_pct || 0,
+    orders_today: risk?.orders_today || 0
   });
 
   const handleEvaluate = async () => {
@@ -46,7 +42,8 @@ export default function TheDesk() {
     setIsReviewing(false);
     setSubmitSuccess(false);
     try {
-      const order = getOrderData();
+      const risk = await fetchRiskSnapshot();
+      const order = getOrderData(risk);
       const result = await fetchPreview(order);
       setPreview(result.preview);
     } catch (err) {
@@ -60,8 +57,9 @@ export default function TheDesk() {
     setIsReviewing(true);
     setSubmitError(null);
     try {
-      const order = getOrderData();
-      let result = await fetchPreview(order);
+      const risk = await fetchRiskSnapshot();
+      const order = getOrderData(risk);
+      const result = await fetchPreview(order);
       setReviewPreview(result.preview);
     } catch (err) {
       setSubmitError("Failed to recompute authoritative verdict: " + err.message);
