@@ -5,7 +5,8 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, APIRouter
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, ValidationError
 
@@ -126,6 +127,26 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+
+DASHBOARD_V2_DIR = Path(__file__).resolve().parent.parent / "dashboard-v2" / "dist"
+dashboard_router = APIRouter(dependencies=[Depends(get_owner_actor)])
+
+@dashboard_router.get("/dashboard/")
+def get_dashboard_index():
+    return FileResponse(DASHBOARD_V2_DIR / "index.html")
+
+@dashboard_router.get("/dashboard/{path:path}")
+def get_dashboard_file(path: str):
+    file_path = DASHBOARD_V2_DIR / path
+    resolved_path = file_path.resolve()
+    if not resolved_path.is_relative_to(DASHBOARD_V2_DIR.resolve()):
+        raise HTTPException(status_code=404, detail="Not Found")
+    if resolved_path.is_file():
+        return FileResponse(resolved_path)
+    return FileResponse(DASHBOARD_V2_DIR / "index.html")
+
+app.include_router(dashboard_router)
 
 
 def db() -> sqlite3.Connection:
@@ -1610,7 +1631,11 @@ def news(symbols: str | None = None, limit: int = 20) -> dict:
             ]
             selected = sorted(set(watchlist) | set(positions))
 
-        result = fetch_news(selected, limit=limit)
+        try:
+            result = fetch_news(selected, limit=limit)
+        except Exception as e:
+            result = {"news": [], "status": "unavailable", "reason": str(e)}
+
         # Summarized inside the connection's lifetime, unlike the contract sketch
         # in PORTFOLIO_HISTORY_AND_NEWS_CONTRACT.md which closes it first: the
         # summarizer reads each symbol's already-recorded verdict from this same
