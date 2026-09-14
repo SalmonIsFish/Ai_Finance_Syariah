@@ -54,3 +54,7 @@ scratch/
 test_output.txt
 CararunCode.txt
 .claude/settings.local.json
+
+# Agent sync infra: keep scripts + hook manifest, drop machine-local logs/locks
+.agents/conversation_ids_seen.log
+.agents/.pull_lock_*

@@ -1,0 +1,18 @@
+{
+  "vault-sync": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "python scripts/pull_vault.py",
+        "timeout": 15
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python scripts/sync_vault.py",
+        "timeout": 15
+      }
+    ]
+  }
+}
