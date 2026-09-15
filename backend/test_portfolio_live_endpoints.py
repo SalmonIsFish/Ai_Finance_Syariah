@@ -273,4 +273,15 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import auth
+    try:
+        from local_api import app as _my_app, get_owner_actor as _get_owner_actor
+    except ImportError:
+        import local_api
+        _my_app = local_api.app
+        _get_owner_actor = local_api.get_owner_actor
+    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(username='project_owner', role='admin')
+    try:
+        main()
+    finally:
+        _my_app.dependency_overrides.pop(_get_owner_actor, None)

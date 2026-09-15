@@ -13,6 +13,20 @@ parameters (daily loss / orders_today), symbol, quantity, price, and Shariah
 status cannot turn a genuinely-blocked order into an approved one; a
 genuinely valid order still succeeds.
 """
+import pytest
+import auth
+@pytest.fixture(autouse=True)
+def _owner_auth_fixture():
+    try:
+        from local_api import app as _my_app, get_owner_actor as _get_owner_actor
+    except ImportError:
+        import local_api
+        _my_app = local_api.app
+        _get_owner_actor = local_api.get_owner_actor
+    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(username='project_owner', role='admin')
+    yield
+    _my_app.dependency_overrides.pop(_get_owner_actor, None)
+
 
 import json
 import os
@@ -366,4 +380,15 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import auth
+    try:
+        from local_api import app as _my_app, get_owner_actor as _get_owner_actor
+    except ImportError:
+        import local_api
+        _my_app = local_api.app
+        _get_owner_actor = local_api.get_owner_actor
+    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(username='project_owner', role='admin')
+    try:
+        main()
+    finally:
+        _my_app.dependency_overrides.pop(_get_owner_actor, None)

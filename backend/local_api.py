@@ -1876,7 +1876,7 @@ def evaluate_agents(request: PaperPreviewRequest) -> dict:
 
 
 @app.post("/paper/preview")
-def preview_paper_order(request: PaperPreviewRequest) -> dict:
+def preview_paper_order(request: PaperPreviewRequest, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     evaluation = evaluate_preview_request(request)
     quote_snapshot = quote_snapshot_for_preview(evaluation, request)
     side = request.side.strip().upper()
@@ -1970,7 +1970,7 @@ def broker_account_context(connection, preview: dict) -> dict:
 
 
 @app.post("/paper/approval")
-def approve_paper_order(request: PaperApprovalRequest) -> dict:
+def approve_paper_order(request: PaperApprovalRequest, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     settings = load_settings()
     preview = request.preview
     side = preview.get("side", "BUY")
@@ -2082,7 +2082,7 @@ def approvals(actor: auth.Actor = Depends(get_owner_actor)) -> list[dict]:
 
 
 @app.post("/paper/execute/{queue_id}")
-def execute_paper(queue_id: int, request: PaperExecutionRequest | None = None) -> dict:
+def execute_paper(queue_id: int, request: PaperExecutionRequest | None = None, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     if request is None or request.confirmation_phrase != PAPER_EXECUTION_CONFIRMATION:
         result = {
             "status": "CONFIRMATION_REQUIRED",
@@ -2104,7 +2104,7 @@ def execute_paper(queue_id: int, request: PaperExecutionRequest | None = None) -
 
 
 @app.post("/paper/reconcile/{queue_id}")
-def reconcile_paper(queue_id: int) -> dict:
+def reconcile_paper(queue_id: int, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     connection = db()
     try:
         result = reconcile_submitted_paper_order(connection, queue_id)
