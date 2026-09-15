@@ -122,12 +122,20 @@ def test_legacy_json_never_produces_pass_even_when_file_claims_active():
     audit found live: ticker 7113 (Top Glove) is COMPLIANT in the committed
     fixture and the fixture's own validation.status is "active", yet the
     gate must still return UNKNOWN."""
-    result = shariah_gate._check_via_legacy_json("7113")
-    assert result["status"] == "UNKNOWN", result
-    assert result.get("legacy_shariah_status") == "COMPLIANT", (
-        "the fixture must still be the one that claims compliance, or this test proves nothing"
-    )
-    print("PASS: legacy_json_never_produces_pass_even_when_file_claims_active")
+    import os
+    _orig = os.environ.get("SHARIAH_UNIVERSE_PATH")
+    if "SHARIAH_UNIVERSE_PATH" in os.environ:
+        del os.environ["SHARIAH_UNIVERSE_PATH"]
+    try:
+        result = shariah_gate._check_via_legacy_json("7113")
+        assert result["status"] == "UNKNOWN", result
+        assert result.get("legacy_shariah_status") == "COMPLIANT", (
+            "the fixture must still be the one that claims compliance, or this test proves nothing"
+        )
+        print("PASS: legacy_json_never_produces_pass_even_when_file_claims_active")
+    finally:
+        if _orig is not None:
+            os.environ["SHARIAH_UNIVERSE_PATH"] = _orig
 
 
 def test_shariah_agent_preserves_unknown():

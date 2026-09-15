@@ -22,6 +22,26 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
+import pytest
+
+_ENV_ORIG = {k: os.environ.get(k) for k in ["PAPER_ACCOUNT_EQUITY", "MAX_POSITION_PCT", "MAX_TOTAL_EXPOSURE_PCT", "MAX_LOSS_PER_TRADE_PCT", "MAX_DAILY_LOSS_PCT", "MAX_WEEKLY_LOSS_PCT", "MAX_ORDERS_PER_DAY"]}
+
+@pytest.fixture(autouse=True)
+def _restore_env():
+    os.environ["PAPER_ACCOUNT_EQUITY"] = "10000"
+    os.environ["MAX_POSITION_PCT"] = "5.0"
+    os.environ["MAX_TOTAL_EXPOSURE_PCT"] = "25.0"
+    os.environ["MAX_LOSS_PER_TRADE_PCT"] = "0.5"
+    os.environ["MAX_DAILY_LOSS_PCT"] = "1.0"
+    os.environ["MAX_WEEKLY_LOSS_PCT"] = "2.0"
+    os.environ["MAX_ORDERS_PER_DAY"] = "5"
+    yield
+    for _k in _ENV_ORIG:
+        if _ENV_ORIG[_k] is None:
+            os.environ.pop(_k, None)
+        else:
+            os.environ[_k] = _ENV_ORIG[_k]
+
 os.environ["PAPER_ACCOUNT_EQUITY"] = "10000"
 os.environ["MAX_POSITION_PCT"] = "5.0"
 os.environ["MAX_TOTAL_EXPOSURE_PCT"] = "25.0"

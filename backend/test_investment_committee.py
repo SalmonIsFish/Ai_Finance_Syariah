@@ -13,6 +13,24 @@ from watchlist_store import save_opportunity_scan, save_watchlist_settings
 
 
 fixture_dir = tempfile.TemporaryDirectory()
+import pytest
+
+_ENV_ORIG = {k: os.environ.get(k) for k in ["TRADING_MODE", "PAPER_EXECUTION_ENABLED", "PAPER_EXECUTION_ADAPTER", "MOOMOO_MODE", "PAPER_ACCOUNT_EQUITY"]}
+
+@pytest.fixture(autouse=True)
+def _restore_env():
+    os.environ["TRADING_MODE"] = "approval"
+    os.environ["PAPER_EXECUTION_ENABLED"] = "false"
+    os.environ["PAPER_EXECUTION_ADAPTER"] = "disabled"
+    os.environ["MOOMOO_MODE"] = "paper"
+    os.environ["PAPER_ACCOUNT_EQUITY"] = "10000"
+    yield
+    for _k in _ENV_ORIG:
+        if _ENV_ORIG[_k] is None:
+            os.environ.pop(_k, None)
+        else:
+            os.environ[_k] = _ENV_ORIG[_k]
+
 os.environ["TRADING_MODE"] = "approval"
 os.environ["PAPER_EXECUTION_ENABLED"] = "false"
 os.environ["PAPER_EXECUTION_ADAPTER"] = "disabled"

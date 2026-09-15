@@ -48,6 +48,29 @@ universe_path.write_text(
     ),
     encoding="utf-8",
 )
+
+_ENV_ORIG = {k: os.environ.get(k) for k in ["SHARIAH_UNIVERSE_PATH", "TRADING_MODE", "PAPER_EXECUTION_ENABLED", "PAPER_EXECUTION_ADAPTER", "MOOMOO_MODE", "PAPER_ACCOUNT_EQUITY", "MAX_POSITION_PCT", "MAX_TOTAL_EXPOSURE_PCT", "MAX_DAILY_LOSS_PCT", "MAX_WEEKLY_LOSS_PCT", "MAX_ORDERS_PER_DAY"]}
+
+@pytest.fixture(autouse=True)
+def _restore_env():
+    os.environ["SHARIAH_UNIVERSE_PATH"] = str(universe_path)
+    os.environ["TRADING_MODE"] = "approval"
+    os.environ["PAPER_EXECUTION_ENABLED"] = "false"
+    os.environ["PAPER_EXECUTION_ADAPTER"] = "disabled"
+    os.environ["MOOMOO_MODE"] = "paper"
+    os.environ["PAPER_ACCOUNT_EQUITY"] = "10000"
+    os.environ["MAX_POSITION_PCT"] = "5.0"
+    os.environ["MAX_TOTAL_EXPOSURE_PCT"] = "25.0"
+    os.environ["MAX_DAILY_LOSS_PCT"] = "1.0"
+    os.environ["MAX_WEEKLY_LOSS_PCT"] = "2.0"
+    os.environ["MAX_ORDERS_PER_DAY"] = "5"
+    yield
+    for _k in _ENV_ORIG:
+        if _ENV_ORIG[_k] is None:
+            os.environ.pop(_k, None)
+        else:
+            os.environ[_k] = _ENV_ORIG[_k]
+
 os.environ["SHARIAH_UNIVERSE_PATH"] = str(universe_path)
 os.environ["TRADING_MODE"] = "approval"
 os.environ["PAPER_EXECUTION_ENABLED"] = "false"

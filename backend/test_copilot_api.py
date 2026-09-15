@@ -11,6 +11,25 @@ from unittest import mock
 fixture_dir = tempfile.TemporaryDirectory()
 universe_path = Path(fixture_dir.name) / "shariah_universe.json"
 universe_path.write_text('{"validation": {"status": "active"}, "records": []}', encoding="utf-8")
+import pytest
+
+_ENV_ORIG = {k: os.environ.get(k) for k in ["SHARIAH_UNIVERSE_PATH", "TRADING_MODE", "PAPER_EXECUTION_ENABLED", "PAPER_EXECUTION_ADAPTER", "MOOMOO_MODE", "OPENROUTER_API_KEY"]}
+
+@pytest.fixture(autouse=True)
+def _restore_env():
+    os.environ["SHARIAH_UNIVERSE_PATH"] = str(universe_path)
+    os.environ["TRADING_MODE"] = "approval"
+    os.environ["PAPER_EXECUTION_ENABLED"] = "false"
+    os.environ["PAPER_EXECUTION_ADAPTER"] = "disabled"
+    os.environ["MOOMOO_MODE"] = "paper"
+    os.environ["OPENROUTER_API_KEY"] = "test-key"
+    yield
+    for _k in _ENV_ORIG:
+        if _ENV_ORIG[_k] is None:
+            os.environ.pop(_k, None)
+        else:
+            os.environ[_k] = _ENV_ORIG[_k]
+
 os.environ["SHARIAH_UNIVERSE_PATH"] = str(universe_path)
 os.environ["TRADING_MODE"] = "approval"
 os.environ["PAPER_EXECUTION_ENABLED"] = "false"

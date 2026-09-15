@@ -19,6 +19,24 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+import pytest
+
+_ENV_ORIG = {k: os.environ.get(k) for k in ["ALPACA_API_KEY_ID", "ALPACA_SECRET_KEY", "ALPACA_MODE", "MOOMOO_MODE", "TRADING_MODE"]}
+
+@pytest.fixture(autouse=True)
+def _restore_env():
+    os.environ["ALPACA_API_KEY_ID"] = "test-key-id"
+    os.environ["ALPACA_SECRET_KEY"] = "test-secret-key"
+    os.environ["ALPACA_MODE"] = "paper"
+    os.environ["MOOMOO_MODE"] = "paper"
+    os.environ["TRADING_MODE"] = "approval"
+    yield
+    for _k in _ENV_ORIG:
+        if _ENV_ORIG[_k] is None:
+            os.environ.pop(_k, None)
+        else:
+            os.environ[_k] = _ENV_ORIG[_k]
+
 os.environ["ALPACA_API_KEY_ID"] = "test-key-id"
 os.environ["ALPACA_SECRET_KEY"] = "test-secret-key"
 os.environ["ALPACA_MODE"] = "paper"

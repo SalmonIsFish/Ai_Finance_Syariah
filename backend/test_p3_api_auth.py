@@ -57,6 +57,8 @@ def test_p3_api_auth_requirements(monkeypatch):
     import p3_decision_engine
     monkeypatch.setattr(p3_decision_engine, "screen_ticker", lambda t: {"shariah": {"status": "PASS", "sector": "Tech"}})
     monkeypatch.setattr(p3_decision_engine.yahoo_finance, "fetch_eod_prices", lambda t, start_date, end_date, allow_fallback, allow_stale_cache: ([{"close": 150.0}], "test"))
+    import backend.pure_risk as pure_risk
+    monkeypatch.setattr(pure_risk, "calculate_target_quantity", lambda *args, **kwargs: 100.0)
     
     # Authenticated reviewer -> propose
     res = client.post("/api/p3/portfolios/1/proposals", json={"ticker": "AAPL", "side": "BUY"}, headers=get_auth_headers("review_user", "review_pass"))
