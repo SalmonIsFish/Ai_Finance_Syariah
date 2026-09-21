@@ -385,10 +385,17 @@ when you need to drive a demo trade.
   the live file and its backups, since they sit on the same disk.
 - No infrastructure as code. This document is the recovery path; a rebuild is manual.
 - No monitoring or alerting. A crashed unit is discovered by loading the site.
-- **The nginx vhost in this repo has drifted from the one actually running, and the repo copy
-  is the stale one.** Found 2026-09-21 while trying to deploy rate limiting. The live
-  `/etc/nginx/sites-available/amanahtrader.uk` contains three blocks that
-  `docs/deployment/nginx/amanahtrader.uk.conf` does not:
+- ~~**The nginx vhost in this repo has drifted from the one actually running**~~ —
+  **RECONCILED 2026-09-21** (`29a0f73`). The repo copy is now byte-identical to the running
+  file apart from its header comment, and that header now says *diff before you copy* and
+  explains why. Rate limiting was applied by patching the live file rather than overwriting
+  it; verified against a pre-reload baseline, with every endpoint returning the same status
+  afterwards and 429s appearing once the burst was consumed.
+
+  Kept below because the shape of the near-miss is the useful part. The live
+  `/etc/nginx/sites-available/amanahtrader.uk` contained three blocks that
+  `docs/deployment/nginx/amanahtrader.uk.conf` did not, and the repo file's own header said
+  to `cp` over the live one:
 
   | live-only block | what it does |
   |---|---|
@@ -396,14 +403,15 @@ when you need to drive a demo trade.
   | `location /thetanuts/api/` + `location /thetanuts/` | proxies to `127.0.0.1:8790` and serves `/home/amanah/thetanuts-copilot/frontend/dist/` |
   | `location = /` | 302 redirect from root to `/dashboard/` |
 
-  **Copying the repo file over the live one would take down all three.** The header of that
-  file says "keep them in step"; they are not. Until someone reconciles them, treat the live
-  file as authoritative and apply changes to it surgically rather than by `cp`.
+  **Copying the repo file over the live one would have taken down all three**, and the repo
+  file's own header told you to do exactly that. The lesson outlives the fix: when a document
+  says two things are kept in step, that is a claim to verify, not a fact to rely on. Diff
+  first — the runbook now carries the command.
 
-  Pending as a result: the rate limiting added on 2026-09-21 (a general 240r/m zone on
-  `location /`, plus the write zone on `/p3/*` and `/copilot/*`) exists only in the repo copy.
-  The live host still serves those unthrottled, with HTTP Basic auth exposed to unlimited
-  credential guessing.
+  The rate limiting is live: a 240r/m `amanah_general` zone on `location /`, plus the existing
+  write zone on `/p3/*` and `/copilot/*`. `limit_req` sits inside `location /` rather than the
+  server block, so `/hackathon/` and `/thetanuts/` are deliberately unchanged — they are other
+  applications on this host, and throttling them is not this project's call.
 
 ## Stale files in the repo
 
