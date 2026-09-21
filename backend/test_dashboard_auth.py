@@ -38,6 +38,13 @@ def test_dashboard_endpoints_require_owner_auth(auth_client):
         "/opportunity-alerts",
         "/portfolio",
         "/portfolio/compliance",
+        # Both were publicly readable until 2026-09-22 while their siblings
+        # /portfolio and /paper/positions/live were gated -- an asymmetry that
+        # leaked real holdings (symbol, account suffix, cost basis, P&L) and
+        # account equity to anyone who asked. Missed when the dashboard was
+        # locked down because only the "live" variants were on the list.
+        "/positions",
+        "/portfolio/history",
         "/investment-committee",
         "/market-overview",
         "/execution-audit",

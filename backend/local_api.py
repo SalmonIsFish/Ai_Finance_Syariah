@@ -1738,7 +1738,7 @@ def investment_committee(limit: int = 50, actor: auth.Actor = Depends(get_owner_
 
 
 @app.get("/positions")
-def positions() -> dict:
+def positions(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     connection = db()
     try:
         return positions_snapshot(connection)
@@ -2204,7 +2204,7 @@ def portfolio(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
 
 
 @app.get("/portfolio/history")
-def portfolio_history() -> dict:
+def portfolio_history(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     connection = db()
     try:
         return {"snapshots": list_portfolio_snapshots(connection)}
