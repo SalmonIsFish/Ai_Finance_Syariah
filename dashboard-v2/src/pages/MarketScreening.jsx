@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 import { fetchMarketOverview, fetchNews, fetchStockProfile } from "../api";
 import { verdictTextClass } from "../verdict";
 
@@ -108,12 +110,13 @@ export default function MarketScreening() {
                 <th className="px-4 py-3 font-bold">Signal</th>
                 <th className="px-4 py-3 font-bold">Shariah</th>
                 <th className="px-4 py-3 font-bold">Risk</th>
+                <th className="px-4 py-3 font-bold text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
               {!data?.ready_candidates?.length ? (
                 <tr>
-                  <td colSpan="5" className="px-4 py-4 text-center text-[var(--color-muted)]">No ready opportunities right now.</td>
+                  <td colSpan="6" className="px-4 py-4 text-center text-[var(--color-muted)]">No ready opportunities right now.</td>
                 </tr>
               ) : (
                 data.ready_candidates.map(cand => (
@@ -123,12 +126,47 @@ export default function MarketScreening() {
                     <td className="px-4 py-3 font-bold text-[var(--color-ok)]">{cand.quant_signal}</td>
                     <td className={`px-4 py-3 font-bold ${verdictTextClass(cand.shariah_status)}`}>{cand.shariah_status}</td>
                     <td className={`px-4 py-3 font-bold ${verdictTextClass(cand.risk_status)}`}>{cand.risk_status}</td>
+                    <td className="px-4 py-3 text-right">
+                      {/* Opens a pre-filled ticket on The Desk. It does not buy
+                          anything -- the order still has to clear every gate at
+                          /paper/preview, be approved, and then be executed with
+                          the confirmation phrase. A Link rather than an onClick
+                          so middle-click and open-in-new-tab behave normally. */}
+                      {/* Green only when the compliance gate actually passed.
+                          A row whose Shariah verdict is REJECT or UNKNOWN still
+                          gets a link -- inspecting it on The Desk is reasonable,
+                          and the gates re-run there anyway -- but it must not
+                          wear an affirmative "go" colour. The UI should never
+                          look keener on a trade than the gate is. */}
+                      <Link
+                        to={`/?symbol=${encodeURIComponent(cand.symbol)}&price=${encodeURIComponent(cand.price)}`}
+                        title={
+                          cand.shariah_status === "PASS"
+                            ? `Open a pre-filled ticket for ${cand.symbol} on The Desk. This does not place an order.`
+                            : `${cand.symbol} is ${cand.shariah_status} on the Shariah gate. Opens a ticket for review; the gate will refuse it.`
+                        }
+                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition hover:brightness-125 ${
+                          cand.shariah_status === "PASS"
+                            ? "bg-[var(--color-ok-bg)] text-[var(--color-ok)] border border-[var(--color-ok)]"
+                            : "bg-transparent text-[var(--color-muted)] border border-[var(--color-border-strong)]"
+                        }`}
+                      >
+                        {cand.shariah_status === "PASS" ? "Buy" : "Review"}
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
+        <p className="mt-2 text-xs text-[var(--color-muted)]">
+          These verdicts come from the last watchlist scan. <span className="text-[var(--color-text)]">Buy</span> opens
+          a pre-filled ticket on The Desk — it does not place an order. Every gate is
+          re-run against live state at preview, again at approval, and execution still
+          requires the confirmation phrase.
+        </p>
       </section>
 
       <section>

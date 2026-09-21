@@ -1,13 +1,26 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import OfficerCard from "../components/OfficerCard";
 import { fetchPreview, submitApproval, fetchRiskSnapshot } from "../api";
 import { verdictTextClass } from "../verdict";
 
 export default function TheDesk() {
-  const [symbol, setSymbol] = useState("AAPL");
+  // Market & Screening links here as /dashboard?symbol=AMD&price=606.46 so a
+  // candidate can be carried into a ticket without retyping it. Query params
+  // rather than router state so the link survives a refresh and can be shared.
+  //
+  // This only pre-fills the form. Nothing here is an order: the ticket still
+  // has to clear the Shariah, option-structure, account and risk gates at
+  // /paper/preview, then be approved, then be executed with the confirmation
+  // phrase. A prefilled symbol has cleared exactly nothing.
+  const [searchParams] = useSearchParams();
+  const initialSymbol = (searchParams.get("symbol") || "AAPL").toUpperCase();
+  const initialPrice = Number(searchParams.get("price")) || 150.0;
+
+  const [symbol, setSymbol] = useState(initialSymbol);
   const [side, setSide] = useState("BUY");
   const [qty, setQty] = useState(1);
-  const [price, setPrice] = useState(150.0);
+  const [price, setPrice] = useState(initialPrice);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
