@@ -1,5 +1,15 @@
 import React from "react";
 import { CheckCircle, AlertTriangle, XCircle, HelpCircle } from "lucide-react";
+import { verdictStyle } from "../verdict";
+
+// Unrecognised verdicts get the question mark, matching verdict.js failing
+// closed to UNKNOWN rather than to anything reassuring.
+const VERDICT_ICONS = {
+  PASS: CheckCircle,
+  WARN: AlertTriangle,
+  REJECT: XCircle,
+  UNKNOWN: HelpCircle,
+};
 
 export default function OfficerCard({ 
   role, 
@@ -11,33 +21,8 @@ export default function OfficerCard({
   confidenceTitle,
   confidenceReason 
 }) {
-  const getVerdictStyles = () => {
-    switch (verdict) {
-      case "PASS":
-        return { 
-          badge: "bg-[var(--color-ok-bg)] text-[var(--color-ok)] border border-[var(--color-ok)]",
-          icon: <CheckCircle className="w-5 h-5 text-[var(--color-ok)]" />
-        };
-      case "WARN":
-        return { 
-          badge: "bg-[var(--color-warn-bg)] text-[var(--color-warn)] border border-[var(--color-warn)]",
-          icon: <AlertTriangle className="w-5 h-5 text-[var(--color-warn)]" />
-        };
-      case "REJECT":
-        return { 
-          badge: "bg-[var(--color-bad-bg)] text-[var(--color-bad)] border border-[var(--color-bad)]",
-          icon: <XCircle className="w-5 h-5 text-[var(--color-bad)]" />
-        };
-      case "UNKNOWN":
-      default:
-        return { 
-          badge: "bg-[var(--color-unknown-bg)] text-[var(--color-unknown)] border border-[var(--color-unknown)]",
-          icon: <HelpCircle className="w-5 h-5 text-[var(--color-unknown)]" />
-        };
-    }
-  };
-
-  const styles = getVerdictStyles();
+  const styles = verdictStyle(verdict);
+  const VerdictIcon = VERDICT_ICONS[verdict] ?? HelpCircle;
   const isFailClosed = confidence === 'FAIL-CLOSED';
 
   return (
@@ -50,7 +35,7 @@ export default function OfficerCard({
           <p className="text-sm font-sans text-[var(--color-muted)] mt-1">{title}</p>
         </div>
         <div className={`px-3 py-1 rounded flex items-center gap-2 text-sm font-bold uppercase tracking-wider ${styles.badge}`}>
-          {styles.icon}
+          <VerdictIcon className={`w-5 h-5 ${styles.icon}`} />
           {verdictLabel || verdict}
         </div>
       </div>

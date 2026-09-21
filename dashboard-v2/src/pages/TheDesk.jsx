@@ -1,6 +1,7 @@
 import { useState } from "react";
 import OfficerCard from "../components/OfficerCard";
 import { fetchPreview, submitApproval, fetchRiskSnapshot } from "../api";
+import { verdictTextClass } from "../verdict";
 
 export default function TheDesk() {
   const [symbol, setSymbol] = useState("AAPL");
@@ -293,7 +294,7 @@ export default function TheDesk() {
                 <div className="border border-[var(--color-border)] rounded p-4 bg-[var(--color-bg)]">
                   <span className="block text-[var(--color-subtle)] uppercase tracking-wider text-xs font-bold mb-1">Shariah Verdict <span className="text-[var(--color-accent)] ml-2">(recomputed just now)</span></span>
                   <div className="text-[var(--color-text)]">
-                    <span className={`font-bold ${reviewPreview.agent_summary?.shariah?.status === 'PASS' ? 'text-[var(--color-ok)]' : 'text-[var(--color-bad)]'}`}>
+                    <span className={`font-bold ${verdictTextClass(reviewPreview.agent_summary?.shariah?.status)}`}>
                       {reviewPreview.agent_summary?.shariah?.status}
                     </span>
                     <span className="mx-2">—</span>
@@ -304,7 +305,7 @@ export default function TheDesk() {
                 <div className="border border-[var(--color-border)] rounded p-4 bg-[var(--color-bg)]">
                   <span className="block text-[var(--color-subtle)] uppercase tracking-wider text-xs font-bold mb-1">Risk Verdict <span className="text-[var(--color-accent)] ml-2">(recomputed just now)</span></span>
                   <div className="text-[var(--color-text)]">
-                    <span className={`font-bold ${reviewPreview.agent_summary?.risk?.status === 'PASS' ? 'text-[var(--color-ok)]' : 'text-[var(--color-bad)]'}`}>
+                    <span className={`font-bold ${verdictTextClass(reviewPreview.agent_summary?.risk?.status)}`}>
                       {reviewPreview.agent_summary?.risk?.status}
                     </span>
                     <span className="mx-2">—</span>

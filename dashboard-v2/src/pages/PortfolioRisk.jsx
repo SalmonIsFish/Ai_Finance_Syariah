@@ -1,5 +1,117 @@
 import { useState, useEffect } from "react";
-import { fetchPortfolio, fetchLivePositions, fetchAccount, fetchPortfolioHistoryLive, fetchPortfolioHistory } from "../api";
+import { fetchPortfolio, fetchLivePositions, fetchAccount, fetchPortfolioHistoryLive, fetchPortfolioHistory, fetchCompliance } from "../api";
+import { verdictBadgeClass, verdictTextClass } from "../verdict";
+
+/**
+ * Re-screens what is actually held against the current Shariah authority.
+ *
+ * Order-time screening cannot catch a security the SC reclassifies after you
+ * bought it, and the list updates on a schedule (last Friday of May and
+ * November). This panel is the standing answer to "is what I hold still
+ * compliant?".
+ *
+ * NON_COMPLIANT and UNCONFIRMED are shown separately and never share a colour.
+ * A reclassified holding carries a disposal duty and a purification obligation;
+ * a holding merely absent from the publication carries neither, and presenting
+ * them alike would invite a sale the authority never asked for.
+ */
+function CompliancePanel({ compliance }) {
+  if (!compliance) {
+    return (
+      <div className="text-[var(--color-muted)] text-sm">
+        Compliance screening unavailable.
+      </div>
+    );
+  }
+
+  const { screening, purification } = compliance;
+  const nonCompliant = (screening.flagged || []).filter(h => h.alert === "NON_COMPLIANT_HOLDING");
+  const unconfirmed = (screening.flagged || []).filter(h => h.alert === "UNCONFIRMED_HOLDING");
+
+  if (screening.position_count === 0) {
+    return <div className="text-[var(--color-muted)] text-sm">No open positions to screen.</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {screening.flagged_count === 0 ? (
+        <div className={`px-3 py-2 rounded text-sm font-medium ${verdictBadgeClass("PASS")}`}>
+          All {screening.position_count} holding{screening.position_count === 1 ? "" : "s"} confirmed
+          compliant by the active publication.
+        </div>
+      ) : (
+        <div className={`px-3 py-2 rounded text-sm font-medium ${verdictBadgeClass("WARN")}`}>
+          {screening.flagged_count} of {screening.position_count} holdings need attention.
+        </div>
+      )}
+
+      {nonCompliant.length > 0 && (
+        <div>
+          <h3 className={`text-xs font-bold uppercase tracking-wider mb-2 ${verdictTextClass("REJECT")}`}>
+            Non-compliant — the authority says these are not eligible
+          </h3>
+          <div className="space-y-2">
+            {nonCompliant.map(h => (
+              <div key={`${h.symbol}-${h.account_suffix}`} className={`rounded p-3 text-sm ${verdictBadgeClass("REJECT")}`}>
+                <div className="flex justify-between font-bold">
+                  <span>{h.symbol}</span>
+                  <span className="font-mono tabular-nums">{h.quantity}</span>
+                </div>
+                <div className="text-xs mt-1 opacity-90">
+                  cost {h.cost_basis} · per {h.publication_id || "active publication"}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-[var(--color-muted)] mt-2">
+            Disposal ruling: sell within one month, recover cost only; anything above cost goes to
+            baitulmal. Confirm against the SC paper — this reports, it does not decide.
+          </p>
+        </div>
+      )}
+
+      {unconfirmed.length > 0 && (
+        <div>
+          <h3 className={`text-xs font-bold uppercase tracking-wider mb-2 ${verdictTextClass("UNKNOWN")}`}>
+            Unconfirmed — not a ruling
+          </h3>
+          <div className="space-y-2">
+            {unconfirmed.map(h => (
+              <div key={`${h.symbol}-${h.account_suffix}`} className={`rounded p-3 text-sm ${verdictBadgeClass("UNKNOWN")}`}>
+                <div className="flex justify-between font-bold">
+                  <span>{h.symbol}</span>
+                  <span className="font-mono tabular-nums">{h.quantity}</span>
+                </div>
+                <div className="text-xs mt-1 opacity-90">{h.reason}</div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-[var(--color-muted)] mt-2">
+            No authority has ruled on these, so no divestment duty arises. Check whether the ticker
+            was renumbered or the position is stale.
+          </p>
+        </div>
+      )}
+
+      {purification && purification.entries?.length > 0 && (
+        <div className="border-t border-[var(--color-border)] pt-3">
+          <div className="flex justify-between text-sm">
+            <span className="text-[var(--color-muted)]">Purification owed (estimate)</span>
+            <span className="font-mono tabular-nums font-bold text-[var(--color-text)]">
+              {purification.total_purification_due}
+            </span>
+          </div>
+          {!purification.complete && (
+            <div className="text-xs text-[var(--color-warn)] mt-1">
+              Incomplete — no price for {purification.unpriced.join(", ")}. The true figure is
+              higher than shown.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StatCard({ label, value }) {
   return (
@@ -57,7 +169,7 @@ function SimpleLineChart({ data }) {
 }
 
 export default function PortfolioRisk() {
-  const [data, setData] = useState({ portfolio: null, positions: null, account: null });
+  const [data, setData] = useState({ portfolio: null, positions: null, account: null, compliance: null });
   const [historyData, setHistoryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -65,10 +177,11 @@ export default function PortfolioRisk() {
   useEffect(() => {
     async function load() {
       try {
-        const [portfolioResult, positionsResult, accountResult] = await Promise.allSettled([
+        const [portfolioResult, positionsResult, accountResult, complianceResult] = await Promise.allSettled([
           fetchPortfolio(),
           fetchLivePositions(),
-          fetchAccount()
+          fetchAccount(),
+          fetchCompliance()
         ]);
         
         let portfolio = portfolioResult.status === "fulfilled" ? portfolioResult.value : null;
@@ -79,6 +192,9 @@ export default function PortfolioRisk() {
 
         let account = accountResult.status === "fulfilled" ? accountResult.value : null;
         if (accountResult.status === "rejected") console.error("fetchAccount failed:", accountResult.reason);
+
+        let compliance = complianceResult.status === "fulfilled" ? complianceResult.value : null;
+        if (complianceResult.status === "rejected") console.error("fetchCompliance failed:", complianceResult.reason);
         
         let hist = null;
         try {
@@ -92,7 +208,7 @@ export default function PortfolioRisk() {
           }
         }
         
-        setData({ portfolio, positions, account });
+        setData({ portfolio, positions, account, compliance });
         setHistoryData(hist);
       } catch (err) {
         setError(err.message);
@@ -106,7 +222,7 @@ export default function PortfolioRisk() {
   if (loading) return <div className="text-[var(--color-muted)] animate-pulse">Loading Portfolio & Risk...</div>;
   if (error) return <div className="text-[var(--color-bad)] p-4 bg-[var(--color-bad-bg)] rounded">{error}</div>;
 
-  const { portfolio, positions, account } = data;
+  const { portfolio, positions, account, compliance } = data;
   const limits = portfolio?.risk_limits || {};
 
   return (
@@ -164,6 +280,11 @@ export default function PortfolioRisk() {
         </div>
 
         <div>
+          <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Shariah Compliance of Holdings</h2>
+          <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm p-4 mb-6">
+            <CompliancePanel compliance={compliance} />
+          </div>
+
           <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Risk Policy</h2>
           <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm p-4 space-y-3">
              <div className="flex justify-between text-sm border-b border-[var(--color-border)] pb-2">

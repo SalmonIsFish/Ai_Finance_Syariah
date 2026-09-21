@@ -7,7 +7,7 @@ import TheLedger from "./pages/TheLedger";
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/dashboard">
       <Routes>
         <Route path="/" element={<Shell />}>
           <Route index element={<TheDesk />} />

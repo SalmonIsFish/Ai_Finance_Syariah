@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { fetchMarketOverview, fetchNews, fetchStockProfile } from "../api";
+import { verdictTextClass } from "../verdict";
 
 export default function MarketScreening() {
   const [data, setData] = useState(null);
@@ -104,8 +105,8 @@ export default function MarketScreening() {
                     <td className="px-4 py-3 font-bold">{cand.symbol}</td>
                     <td className="px-4 py-3 font-mono tabular-nums">${Number(cand.price).toFixed(2)}</td>
                     <td className="px-4 py-3 font-bold text-[var(--color-ok)]">{cand.quant_signal}</td>
-                    <td className={`px-4 py-3 font-bold ${cand.shariah_status === 'PASS' ? 'text-[var(--color-ok)]' : 'text-[var(--color-bad)]'}`}>{cand.shariah_status}</td>
-                    <td className={`px-4 py-3 font-bold ${cand.risk_status === 'PASS' ? 'text-[var(--color-ok)]' : 'text-[var(--color-bad)]'}`}>{cand.risk_status}</td>
+                    <td className={`px-4 py-3 font-bold ${verdictTextClass(cand.shariah_status)}`}>{cand.shariah_status}</td>
+                    <td className={`px-4 py-3 font-bold ${verdictTextClass(cand.risk_status)}`}>{cand.risk_status}</td>
                   </tr>
                 ))
               )}
@@ -144,7 +145,7 @@ export default function MarketScreening() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="border border-[var(--color-border)] rounded p-4 bg-[var(--color-panel-2)]">
                 <span className="block text-[var(--color-subtle)] uppercase tracking-wider text-xs font-bold mb-1">Shariah Status</span>
-                <div className={`text-lg font-bold ${profileData.shariah?.status === 'PASS' ? 'text-[var(--color-ok)]' : 'text-[var(--color-bad)]'}`}>
+                <div className={`text-lg font-bold ${verdictTextClass(profileData.shariah?.status)}`}>
                   {profileData.shariah?.status || 'UNKNOWN'}
                 </div>
                 <div className="text-xs text-[var(--color-muted)] mt-1 line-clamp-2">{profileData.shariah?.reason || 'No data'}</div>
