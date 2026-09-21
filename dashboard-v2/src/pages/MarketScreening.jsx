@@ -2,6 +2,22 @@ import { useState, useEffect } from "react";
 import { fetchMarketOverview, fetchNews, fetchStockProfile } from "../api";
 import { verdictTextClass } from "../verdict";
 
+/**
+ * `/news` returns ai_summary as an OBJECT -- {text, model, shariah_status,
+ * shariah_tradeable, generated_at} -- not a string. Rendering it directly threw
+ * "Objects are not valid as a React child", and with no error boundary above it
+ * that unmounted the entire app: /dashboard/market went completely blank, nav
+ * included. Accepts a plain string too, in case anything older is still cached.
+ *
+ * Deliberately does not surface ai_summary.shariah_status as a verdict. A model
+ * may describe a gate's decision; it must never look like it made one.
+ */
+function aiSummaryText(summary) {
+  if (!summary) return null;
+  if (typeof summary === "string") return summary;
+  return typeof summary.text === "string" ? summary.text : null;
+}
+
 export default function MarketScreening() {
   const [data, setData] = useState(null);
   const [news, setNews] = useState(null);
@@ -193,7 +209,16 @@ export default function MarketScreening() {
                 </div>
                 <h3 className="text-sm font-bold text-[var(--color-text)] mb-2 line-clamp-2">{item.headline}</h3>
                 {item.summary && <p className="text-xs text-[var(--color-subtle)] line-clamp-3">{item.summary}</p>}
-                {item.ai_summary && <div className="mt-2 text-xs text-[var(--color-accent)] font-medium">AI: {item.ai_summary}</div>}
+                {aiSummaryText(item.ai_summary) && (
+                  <div className="mt-2 text-xs text-[var(--color-accent)] font-medium">
+                    AI: {aiSummaryText(item.ai_summary)}
+                    {item.ai_summary?.model && (
+                      <span className="ml-1 text-[var(--color-muted)] font-normal">
+                        ({item.ai_summary.model})
+                      </span>
+                    )}
+                  </div>
+                )}
               </a>
             ))
           )}

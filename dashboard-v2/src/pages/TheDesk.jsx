@@ -122,7 +122,11 @@ export default function TheDesk() {
       <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm p-6">
         <h2 className="text-sm font-medium text-[var(--color-subtle)] uppercase tracking-wider mb-4">Ticket Entry</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Four columns only from xl. At md this was ~180px per card, which is
+            not enough for a role name and a verdict badge, and "Shariah
+            Compliance Officer" wrapped to three lines while its badge overlapped
+            it. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm text-[var(--color-muted)] mb-1">Symbol</label>
             <input 

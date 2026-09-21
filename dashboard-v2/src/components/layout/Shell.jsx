@@ -1,8 +1,10 @@
-import { Outlet, NavLink } from "react-router-dom";
+import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { Moon, Sun, Briefcase, Activity, BarChart2, BookOpen } from "lucide-react";
 import { useState, useEffect } from "react";
+import ErrorBoundary from "../ErrorBoundary";
 
 export default function Shell() {
+  const location = useLocation();
   const [theme, setTheme] = useState(
     () => localStorage.getItem("theme") || "dark"
   );
@@ -67,7 +69,9 @@ export default function Shell() {
         {/* Page Content */}
         <div className="flex-1 overflow-auto p-8">
           <div className="max-w-6xl mx-auto space-y-6">
-            <Outlet />
+            <ErrorBoundary resetKey={location.pathname}>
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </div>
       </main>
