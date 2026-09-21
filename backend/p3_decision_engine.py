@@ -8,6 +8,12 @@ from screening_api import screen_ticker, risk_limits
 import yahoo_finance
 
 
+# Bursa Malaysia's standard board lot. Orders are placed in multiples of this;
+# odd lots trade on a separate market at worse prices and are not what this
+# engine proposes.
+BURSA_BOARD_LOT = 100
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -66,9 +72,21 @@ def authoritative_revalidation(
     # 4. Risk Gate & Sizing
     limits = risk_limits().get("limits", {})
     cash = portfolio["current_cash"]
-    paper_account_equity = limits.get("paper_account_equity", cash)
 
-    # If equity is provided by limits config but we want to use the local paper portfolio's actual equity:
+    # Equity here is THIS portfolio's own (cash + its position value, computed
+    # below), not settings.paper_account_equity. That is deliberate and should
+    # not be "fixed" by aligning the two: a P3 portfolio is a self-contained
+    # book with its own current_cash and its own positions table, created by
+    # create_portfolio(name, initial_cash). It never reads paper_positions and
+    # has no relationship to the Alpaca broker account that PAPER_ACCOUNT_EQUITY
+    # describes. They are different accounts, not two views of one, so the same
+    # percentage limit correctly means different absolute amounts in each path.
+    #
+    # A `paper_account_equity = limits.get("paper_account_equity", cash)` line
+    # used to sit here, assigned and never read, under a comment that trailed
+    # off mid-sentence -- someone began wiring broker equity into P3 and stopped.
+    # Removed rather than documented, because a dead variable naming the wrong
+    # account is an invitation to wire it up.
     positions = p3_portfolio_engine.get_portfolio_positions(connection, portfolio_id)
 
     max_position_pct = limits.get("max_position_pct", 5.0)
@@ -181,6 +199,40 @@ def authoritative_revalidation(
                 },
             }
         validated_qty = proposed_quantity
+
+    # Bursa Malaysia trades in board lots of 100 shares. A fractional or sub-lot
+    # quantity is not an order anyone can actually place, and the risk sizing
+    # above readily produces one: a 0.5% per-trade cap against full notional
+    # gives a third of a share on a 10,000 portfolio at 150/share.
+    #
+    # Round DOWN, never up -- rounding up would breach the risk limit that was
+    # just computed. Market is classified with detect_market(), the same
+    # function the Shariah gate routes on, so sizing and screening cannot
+    # disagree about what counts as Malaysian. US equities are left alone:
+    # fractional shares are legitimate there.
+    #
+    # When rounding leaves nothing, say so specifically. The generic
+    # "zero_quantity_allowed" below would be technically true and diagnostically
+    # useless -- it reads as "your risk limits refused this" when the real
+    # meaning is "this portfolio cannot afford one tradeable lot of this stock
+    # under its current per-trade cap", which is a different problem with a
+    # different fix.
+    from agents.shariah_agent import detect_market
+
+    lot_size = BURSA_BOARD_LOT if detect_market(ticker) == "MY" else 1
+    if lot_size > 1:
+        whole_lots = int(validated_qty // lot_size)
+        if whole_lots < 1:
+            return {
+                "status": "BLOCKED",
+                "reason": "below_minimum_lot",
+                "details": {
+                    "maximum_quantity": validated_qty,
+                    "lot_size": lot_size,
+                    "shortfall": lot_size - validated_qty,
+                },
+            }
+        validated_qty = float(whole_lots * lot_size)
 
     if validated_qty <= 0:
         return {"status": "BLOCKED", "reason": "zero_quantity_allowed", "details": {}}

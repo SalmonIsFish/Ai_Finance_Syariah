@@ -156,8 +156,13 @@ files and asserted "All 42 of those pass" while the suite had grown past 80, so 
 began from a false picture of what was actually verified. Enumerate the current set instead:
 
 ```powershell
-Get-ChildItem backend\test_*.py | Select-Object -ExpandProperty Name
+.\.venv\Scripts\python.exe backend\run_all_tests.py            # census; exits 1 on any failure
+.\.venv\Scripts\python.exe backend\run_all_tests.py --verbose  # stream each result
+.\.venv\Scripts\python.exe backend\run_all_tests.py --filter sc_
 ```
+
+`run_all_tests.py` implements the dispatch rule above so you do not have to re-derive it. Use
+it for the census — but it is not a substitute for evidence.
 
 Run the files relevant to your change **individually** and show their real output. A bare
 `pytest backend\` is not acceptable as evidence: it collects nothing from the plain-script

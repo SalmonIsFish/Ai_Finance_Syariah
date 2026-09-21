@@ -220,6 +220,53 @@ def test_per_trade_loss_cap_binds_rather_than_collapsing_to_the_cash_limit(monke
     )
 
 
+def test_malaysian_quantity_is_rounded_down_to_whole_board_lots(monkeypatch):
+    """Bursa trades in 100-share lots; a fractional quantity is not an order.
+
+    100000 equity x 0.5% = 500 of permitted loss; at 2.00/share the risk cap
+    allows 250 shares, which is two whole lots plus a 50-share remainder. The
+    remainder is dropped rather than rounded up -- rounding up would breach the
+    per-trade cap that was just computed.
+    """
+    import p3_decision_engine
+
+    conn, port = _seed_buy_proposal(monkeypatch, cash=100000.0, price=2.0)
+    order = p3_decision_engine.propose_order(conn, port["id"], "1155", "BUY")
+
+    assert order["quantity"] == 200.0, (
+        f"expected 2 whole board lots, got {order['quantity']} -- a sub-lot or "
+        f"fractional Bursa quantity cannot be placed"
+    )
+    assert order["quantity"] % 100 == 0
+
+
+def test_malaysian_position_below_one_lot_is_blocked_with_a_specific_reason(monkeypatch):
+    """The diagnosis matters as much as the block.
+
+    10000 equity x 0.5% at 2.00/share allows 25 shares -- a quarter of a lot.
+    The generic zero_quantity_allowed would be true but useless: it reads as
+    "your risk limits refused this" when the actual meaning is "this portfolio
+    cannot afford one tradeable lot under its per-trade cap", which has a
+    different fix.
+    """
+    import p3_decision_engine
+
+    conn, port = _seed_buy_proposal(monkeypatch, cash=10000.0, price=2.0)
+    with pytest.raises(ValueError, match="below_minimum_lot"):
+        p3_decision_engine.propose_order(conn, port["id"], "1155", "BUY")
+
+
+def test_us_tickers_are_not_lot_rounded(monkeypatch):
+    """Lot sizing is a Bursa rule. US equities trade fractionally."""
+    import p3_decision_engine
+
+    conn, port = _seed_buy_proposal(monkeypatch)
+    order = p3_decision_engine.propose_order(conn, port["id"], "AAPL", "BUY")
+
+    assert order["quantity"] == pytest.approx(10000.0 * 0.005 / 150.0, rel=1e-9)
+    assert order["quantity"] < 1, "a US fractional quantity was rounded to a lot"
+
+
 def test_tighter_loss_limit_produces_a_smaller_position(monkeypatch):
     """The cap responds to its own configuration rather than being incidental."""
     import p3_decision_engine
