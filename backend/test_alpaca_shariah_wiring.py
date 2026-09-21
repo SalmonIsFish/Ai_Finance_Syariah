@@ -29,7 +29,13 @@ CASH_ACCOUNT = {
 MARGIN_ACCOUNT = {**CASH_ACCOUNT, "account_type": "MARGIN"}
 BROKE_ACCOUNT = {**CASH_ACCOUNT, "cash": 500.0}
 
-SHARIAH_PASS = {"agent": "shariah", "status": "PASS", "provider": "ZOYA", "market": "US", "reason": "COMPLIANT"}
+SHARIAH_PASS = {
+    "agent": "shariah",
+    "status": "PASS",
+    "provider": "ZOYA",
+    "market": "US",
+    "reason": "COMPLIANT",
+}
 
 
 def covered_call_preview(**overrides) -> dict:
@@ -52,7 +58,11 @@ def covered_call_preview(**overrides) -> dict:
             "strike": 310.0,
         },
         "quote_snapshot": {"symbol": "AAPL", "latest_close": 309.21, "source": "alpaca"},
-        "agent_summary": {"shariah": SHARIAH_PASS, "quant": {"status": "PASS", "signal": "SELL"}, "risk": {"status": "PASS"}},
+        "agent_summary": {
+            "shariah": SHARIAH_PASS,
+            "quant": {"status": "PASS", "signal": "SELL"},
+            "risk": {"status": "PASS"},
+        },
     }
     preview.update(overrides)
     return preview
@@ -173,9 +183,18 @@ def check_equity_path_is_unchanged() -> None:
     seed_shares(0)
 
     equity = covered_call_preview(
-        side="BUY", quantity=1, price=309.21, notional=309.21, asset_class="equity", option_contract=None
+        side="BUY",
+        quantity=1,
+        price=309.21,
+        notional=309.21,
+        asset_class="equity",
+        option_contract=None,
     )
-    equity["agent_summary"] = {"shariah": SHARIAH_PASS, "quant": {"status": "PASS", "signal": "BUY"}, "risk": {"status": "PASS"}}
+    equity["agent_summary"] = {
+        "shariah": SHARIAH_PASS,
+        "quant": {"status": "PASS", "signal": "BUY"},
+        "risk": {"status": "PASS"},
+    }
     approval = approve(equity)["approval"]
     assert approval["status"] == "APPROVED_PAPER_READY", approval
     assert "option_structure" not in (approval.get("candidate") or {})
@@ -197,19 +216,37 @@ def check_preview_endpoint_carries_option_intent() -> None:
         "notional": 855.0,
         "blockers": [],
         "blocker_messages": [],
-        "agent_summary": {"shariah": SHARIAH_PASS, "quant": {"status": "PASS", "signal": "SELL"}, "risk": {"status": "PASS"}},
+        "agent_summary": {
+            "shariah": SHARIAH_PASS,
+            "quant": {"status": "PASS", "signal": "SELL"},
+            "risk": {"status": "PASS"},
+        },
     }
     local_api.quote_snapshot_for_preview = lambda evaluation, request: {
-        "symbol": "AAPL", "latest_close": 309.21, "source": "alpaca",
+        "symbol": "AAPL",
+        "latest_close": 309.21,
+        "source": "alpaca",
     }
     try:
-        contract = {"strategy": "COVERED_CALL", "underlying": "AAPL", "expiration": "2026-09-18",
-                    "option_type": "CALL", "strike": 310.0}
+        contract = {
+            "strategy": "COVERED_CALL",
+            "underlying": "AAPL",
+            "expiration": "2026-09-18",
+            "option_type": "CALL",
+            "strike": 310.0,
+        }
         request = local_api.PaperPreviewRequest(
-            symbol="AAPL", side="SELL", quantity=1, price=8.55,
-            position_pct=1.0, total_exposure_pct=1.0, loss_per_trade_pct=0.1,
-            daily_loss_pct=0.1, orders_today=0,
-            asset_class="option", option_contract=contract,
+            symbol="AAPL",
+            side="SELL",
+            quantity=1,
+            price=8.55,
+            position_pct=1.0,
+            total_exposure_pct=1.0,
+            loss_per_trade_pct=0.1,
+            daily_loss_pct=0.1,
+            orders_today=0,
+            asset_class="option",
+            option_contract=contract,
         )
         preview = local_api.preview_paper_order(request)["preview"]
         assert preview["asset_class"] == "option", preview
@@ -217,9 +254,15 @@ def check_preview_endpoint_carries_option_intent() -> None:
 
         # And an equity request must stay equity with no contract attached.
         equity_request = local_api.PaperPreviewRequest(
-            symbol="AAPL", side="BUY", quantity=1, price=309.21,
-            position_pct=1.0, total_exposure_pct=1.0, loss_per_trade_pct=0.1,
-            daily_loss_pct=0.1, orders_today=0,
+            symbol="AAPL",
+            side="BUY",
+            quantity=1,
+            price=309.21,
+            position_pct=1.0,
+            total_exposure_pct=1.0,
+            loss_per_trade_pct=0.1,
+            daily_loss_pct=0.1,
+            orders_today=0,
         )
         equity_preview = local_api.preview_paper_order(equity_request)["preview"]
         assert equity_preview["asset_class"] == "equity", equity_preview
@@ -250,12 +293,22 @@ def check_option_intent_survives_into_the_queue() -> None:
     assert stored["option_contract"]["strategy"] == "COVERED_CALL"
 
     intent = order_intent_from_approval(row)
-    assert intent["asset_class"] == "option", "the adapter must see an option order, not an equity one"
+    assert intent["asset_class"] == "option", (
+        "the adapter must see an option order, not an equity one"
+    )
     assert intent["option_contract"]["strike"] == 310.0
 
 
 def main() -> None:
-    saved_env = {k: os.environ.get(k) for k in ["PAPER_EXECUTION_ADAPTER", "TRADING_MODE", "PAPER_EXECUTION_ENABLED"]}
+    saved_env = {
+        k: os.environ.get(k)
+        for k in [
+            "PAPER_EXECUTION_ADAPTER",
+            "TRADING_MODE",
+            "PAPER_EXECUTION_ENABLED",
+            "PAPER_ACCOUNT_EQUITY",
+        ]
+    }
     original_status = local_api.check_alpaca_status
     original_db_path = local_api.DB_PATH
 
@@ -267,6 +320,14 @@ def main() -> None:
     os.environ["PAPER_EXECUTION_ADAPTER"] = "alpaca_mcp"
     os.environ["TRADING_MODE"] = "approval"
     os.environ["PAPER_EXECUTION_ENABLED"] = "true"
+    # Pinned rather than inherited from backend/.env. Approval-time risk
+    # re-derivation sizes loss_per_trade_pct as the order's notional over
+    # settings.paper_account_equity against MAX_LOSS_PER_TRADE_PCT (0.5%), so
+    # check_equity_path_is_unchanged's 1 AAPL at 309.21 needs an account large
+    # enough for that to be a legitimate trade. At the 10000 default it is 3.09%
+    # and the gate correctly refuses it. Left unset, this file passes or fails
+    # according to whatever each developer's .env happens to contain.
+    os.environ["PAPER_ACCOUNT_EQUITY"] = "100000"
     try:
         check_covered_call_on_cash_account_is_approved()
         check_covered_call_on_margin_account_is_rejected()

@@ -54,7 +54,7 @@ export function fetchEvidence(ticker, limit = 20) {
 }
 
 export async function fetchCopilotExplanation(ticker, question) {
-  const response = await fetch(${apiBase()}/api/explain, {
+  const response = await fetch(${apiBase()}/copilot/explain, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify({ ticker, question })
@@ -72,7 +72,7 @@ export function fetchResearch(ticker) {
 }
 
 export async function fetchResearchCopilot(ticker, question) {
-  const response = await fetch(${apiBase()}/api/research/copilot, {
+  const response = await fetch(${apiBase()}/copilot/research, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify({ ticker, question })

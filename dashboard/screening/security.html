@@ -101,11 +101,11 @@
         
         try {
           // fetch first portfolio
-          const res = await fetch("http://localhost:8000/api/p3/portfolios");
+          const res = await fetch("http://localhost:8000/p3/portfolios");
           const data = await res.json();
           let portfolio_id = 1;
           if (!data.portfolios || data.portfolios.length === 0) {
-             const cr = await fetch("http://localhost:8000/api/p3/portfolios", {
+             const cr = await fetch("http://localhost:8000/p3/portfolios", {
                method: "POST",
                headers: {"Content-Type": "application/json"},
                body: JSON.stringify({name: "Default Paper", initial_cash: 100000})
@@ -125,7 +125,7 @@
           buyBtn.type = "submit";
           form.onsubmit = async (e) => {
              e.preventDefault();
-             await fetch(`http://localhost:8000/api/p3/portfolios/${portfolio_id}/proposals`, {
+             await fetch(`http://localhost:8000/p3/portfolios/${portfolio_id}/proposals`, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({ticker, side: "BUY", actor: "USER"})
@@ -135,7 +135,7 @@
           form.append(buyBtn);
           
           const orderList = document.createElement("div");
-          const ordersRes = await fetch(`http://localhost:8000/api/p3/portfolios/${portfolio_id}/orders`);
+          const ordersRes = await fetch(`http://localhost:8000/p3/portfolios/${portfolio_id}/orders`);
           const ordersData = await ordersRes.json();
           const activeOrders = ordersData.orders.filter(o => o.ticker === ticker);
           
@@ -147,7 +147,7 @@
                 const appBtn = document.createElement("button");
                 appBtn.textContent = "Approve";
                 appBtn.onclick = async () => {
-                   await fetch(`http://localhost:8000/api/p3/portfolios/${portfolio_id}/orders/${o.id}/approve`, {method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({})});
+                   await fetch(`http://localhost:8000/p3/portfolios/${portfolio_id}/orders/${o.id}/approve`, {method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({})});
                    renderPortfolio(ticker);
                 };
                 row.append(appBtn);
@@ -155,7 +155,7 @@
                 const execBtn = document.createElement("button");
                 execBtn.textContent = "Execute";
                 execBtn.onclick = async () => {
-                   await fetch(`http://localhost:8000/api/p3/portfolios/${portfolio_id}/orders/${o.id}/execute`, {method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({})});
+                   await fetch(`http://localhost:8000/p3/portfolios/${portfolio_id}/orders/${o.id}/execute`, {method:"POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({})});
                    renderPortfolio(ticker);
                 };
                 row.append(execBtn);

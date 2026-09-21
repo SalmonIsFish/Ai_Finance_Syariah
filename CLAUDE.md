@@ -134,63 +134,41 @@ Config check (prints booleans, never values):
 
 ## Tests
 
-Every test is a plain script with a `main()` that prints `PASS: ...`. No pytest. Run them **Exception**: Phase 4 testing (ackend/test_p4_*.py) uses pytest and fixtures natively. This is permitted strictly for the Backtest Engine and historical simulation components because injecting mock deterministic data providers requires robust fixture isolation. Do not convert legacy tests to pytest.
-individually:
+**Two conventions coexist**, and the difference decides how a file must be run:
+
+- **Plain scripts** — a `main()` that prints `PASS: ...`, run directly. Most of the suite.
+- **pytest-native** — `test_p4_*.py` (Backtest Engine and historical simulation, where
+  injecting deterministic mock data providers needs real fixture isolation), plus the newer
+  SC Malaysia, risk-verdict and P3 suites. Do not convert legacy tests to pytest.
+
+**A third shape exists and is easy to misread.** A few files — `test_approval_workflow.py` and
+`test_us_pipeline_fixture.py` — have neither a `__main__` guard nor `def test_` functions, and
+execute every assertion at module import. Run under pytest they import cleanly (so the
+assertions *do* run, and pass) and then report `no tests ran` with exit code 5, which looks
+exactly like a failure and is not one. Dispatch on whether a file has collectable `test_`
+functions, **not** on whether it has a `__main__` guard. A one-off runner that got this
+backwards on 2026-09-21 manufactured two false failures before the mistake was caught.
+
+**83 `test_*.py` files on disk. 82 run and all 82 pass; `test_moomoo.py` is the one excluded**
+(full census, 2026-09-21). Treat that number as a measurement with a date on it, not a fact —
+and do not trust a hardcoded list in this file. The list that used to sit here enumerated 42
+files and asserted "All 42 of those pass" while the suite had grown past 80, so a fresh reader
+began from a false picture of what was actually verified. Enumerate the current set instead:
 
 ```powershell
-.\.venv\Scripts\python.exe backend\test_account_shariah_agent.py
-.\.venv\Scripts\python.exe backend\test_account_shariah_gate.py
-.\.venv\Scripts\python.exe backend\test_agent_coordinator.py
-.\.venv\Scripts\python.exe backend\test_alpaca_execution_wiring.py
-.\.venv\Scripts\python.exe backend\test_alpaca_market_data.py
-.\.venv\Scripts\python.exe backend\test_alpaca_news.py
-.\.venv\Scripts\python.exe backend\test_alpaca_paper_adapter.py
-.\.venv\Scripts\python.exe backend\test_alpaca_shariah_wiring.py
-.\.venv\Scripts\python.exe backend\test_approval_workflow.py
-.\.venv\Scripts\python.exe backend\test_execution_audit.py
-.\.venv\Scripts\python.exe backend\test_investment_committee.py
-.\.venv\Scripts\python.exe backend\test_local_api_smoke.py
-.\.venv\Scripts\python.exe backend\test_market_overview.py
-.\.venv\Scripts\python.exe backend\test_moomoo_paper_adapter.py
-.\.venv\Scripts\python.exe backend\test_moomoo_status.py
-.\.venv\Scripts\python.exe backend\test_option_execution_smoke.py
-.\.venv\Scripts\python.exe backend\test_option_fill_ledger.py
-.\.venv\Scripts\python.exe backend\test_option_strategy.py
-.\.venv\Scripts\python.exe backend\test_option_strategy_api.py
-.\.venv\Scripts\python.exe backend\test_option_structure_agent.py
-.\.venv\Scripts\python.exe backend\test_option_structure_gate.py
-.\.venv\Scripts\python.exe backend\test_paper_execution_gates.py
-.\.venv\Scripts\python.exe backend\test_portfolio_metrics.py
-.\.venv\Scripts\python.exe backend\test_portfolio_risk_limits.py
-.\.venv\Scripts\python.exe backend\test_portfolio_snapshot_history.py
-.\.venv\Scripts\python.exe backend\test_provision_cash_account.py
-.\.venv\Scripts\python.exe backend\test_portfolio_store.py
-.\.venv\Scripts\python.exe backend\test_positions_api.py
-.\.venv\Scripts\python.exe backend\test_quant_agent_provider.py
-.\.venv\Scripts\python.exe backend\test_repo_defaults.py
-.\.venv\Scripts\python.exe backend\test_risk_checks.py
-.\.venv\Scripts\python.exe backend\test_sec_edgar_cache.py
-.\.venv\Scripts\python.exe backend\test_sec_edgar_screen.py
-.\.venv\Scripts\python.exe backend\test_shariah_candidate.py
-.\.venv\Scripts\python.exe backend\test_shariah_explain.py
-.\.venv\Scripts\python.exe backend\test_shariah_screen_store.py
-.\.venv\Scripts\python.exe backend\test_shariah_trace.py
-.\.venv\Scripts\python.exe backend\test_single_screening_path.py
-.\.venv\Scripts\python.exe backend\test_stock_profile.py
-.\.venv\Scripts\python.exe backend\test_tiingo_prices.py
-.\.venv\Scripts\python.exe backend\test_us_pipeline_fixture.py
-.\.venv\Scripts\python.exe backend\test_watchlist_store.py
+Get-ChildItem backend\test_*.py | Select-Object -ExpandProperty Name
 ```
 
-All 42 of those pass. There are 43 `test_*.py` files on disk; `test_moomoo.py` is the one
-excluded, for the reason below. `check_moomoo_status()` pre-checks TCP reachability before
-touching the moomoo
-SDK, so a closed OpenD port fails in ~1.5s instead of the SDK's own multi-minute retry/backoff —
-this is what used to make `test_local_api_smoke.py` and the dashboard's status refresh hang;
-both now complete fast with no Moomoo gateway running. `test_moomoo.py` still hangs by design:
-it instantiates the moomoo SDK directly, bypassing that pre-check, since its purpose is to
-manually verify a *real* OpenD connection when you actually have one running — it is the one
-suite not run as part of the regular list above.
+Run the files relevant to your change **individually** and show their real output. A bare
+`pytest backend\` is not acceptable as evidence: it collects nothing from the plain-script
+files, which are most of the suite, and reports success regardless.
+
+`test_moomoo.py` hangs by design — it drives the moomoo SDK directly, bypassing the
+`check_moomoo_status()` TCP pre-check, because its purpose is to verify a *real* OpenD
+connection when you have one running. That pre-check is why a closed OpenD port now fails in
+~1.5s instead of the SDK's multi-minute retry/backoff, which is what used to make
+`test_local_api_smoke.py` and the dashboard's status refresh hang. Both now complete fast with
+no Moomoo gateway running.
 
 ### Testing conventions
 
@@ -227,8 +205,9 @@ suite not run as part of the regular list above.
    **Every verdict is now logged.** `check_us_symbol` is a thin wrapper over
    `_screen_us_symbol` that appends the verdict to the append-only `shariah_screens` table
    (`shariah_screen_store.py`), readable at `GET /shariah/screens`. That is the *verdict* half
-   of the two-layer store in NEXT_STEPS.md; `sec_edgar_cache.py` remains the raw-response half
-   and is **not** replaced by it. The log is observability, not a gate: `_record_screen` is a
+   of a two-layer store; `sec_edgar_cache.py` remains the raw-response half and is **not**
+   replaced by it. (This used to cite `NEXT_STEPS.md`, which is gitignored as internal
+   planning notes — so the reference dangled for anyone working from a clone.) The log is observability, not a gate: `_record_screen` is a
    swappable seam and a failed write is swallowed, because a locked SQLite file must never turn
    a COMPLIANT company into an ERROR. Malaysia is structurally excluded — the hook sits in the
    US screen, and `_evaluate_malaysia` does not pass through it.
@@ -405,3 +384,16 @@ A `PostToolUse` hook (`.claude/settings.json` → `.claude/hooks/ruff_after_edit
 `ruff check --fix` and `ruff format` on whatever `.py` file Claude just wrote or edited —
 scoped to that one file, never the whole repo, so it can't retroactively touch the
 pre-existing findings elsewhere.
+
+**That hook deletes an import the instant its last use disappears**, because `--fix` resolves
+F401. Two ways this bites, both of which cost time on 2026-09-21:
+
+- Adding an import in one edit and the code that uses it in the next. The hook fires between
+  them, sees an unused import, and removes it — so the second edit lands with a `NameError`.
+  **Add the usage first, or both in one edit.**
+- Temporarily commenting out the only use of an import during a deliberate-break check. The
+  import is removed; restoring the code afterwards leaves it dangling.
+
+It also reformats the *whole* file it touches, not just the edited lines, so a small change to
+a long-unformatted file can produce a large diff of pure line-rewrapping. That is the hook
+working as designed — check `git diff -w` to separate real changes from rewrapping.

@@ -27,7 +27,27 @@ universe_path.write_text(
 )
 import pytest
 
-_ENV_ORIG = {k: os.environ.get(k) for k in ["SHARIAH_UNIVERSE_PATH", "TRADING_MODE", "PAPER_EXECUTION_ENABLED", "PAPER_EXECUTION_ADAPTER", "MOOMOO_MODE"]}
+_ENV_ORIG = {
+    k: os.environ.get(k)
+    for k in [
+        "SHARIAH_UNIVERSE_PATH",
+        "TRADING_MODE",
+        "PAPER_EXECUTION_ENABLED",
+        "PAPER_EXECUTION_ADAPTER",
+        "MOOMOO_MODE",
+        "PAPER_ACCOUNT_EQUITY",
+    ]
+}
+
+# Pinned rather than inherited. approval-time risk re-derivation sizes
+# loss_per_trade_pct as the order's notional over settings.paper_account_equity
+# against MAX_LOSS_PER_TRADE_PCT (0.5%), so the AAPL scenario below needs an
+# account large enough for a single 333.74 share to be a legitimate trade.
+# PAPER_ACCOUNT_EQUITY defaults to 10000, under which that one share is 3.34%
+# and the gate correctly refuses it. Left unset, this file's outcome depends on
+# whatever each developer's backend/.env happens to contain.
+_FIXTURE_ACCOUNT_EQUITY = "100000"
+
 
 @pytest.fixture(autouse=True)
 def _restore_env():
@@ -36,6 +56,7 @@ def _restore_env():
     os.environ["PAPER_EXECUTION_ENABLED"] = "false"
     os.environ["PAPER_EXECUTION_ADAPTER"] = "disabled"
     os.environ["MOOMOO_MODE"] = "paper"
+    os.environ["PAPER_ACCOUNT_EQUITY"] = _FIXTURE_ACCOUNT_EQUITY
     yield
     for _k in _ENV_ORIG:
         if _ENV_ORIG[_k] is None:
@@ -43,20 +64,35 @@ def _restore_env():
         else:
             os.environ[_k] = _ENV_ORIG[_k]
 
+
 os.environ["SHARIAH_UNIVERSE_PATH"] = str(universe_path)
 os.environ["TRADING_MODE"] = "approval"
 os.environ["PAPER_EXECUTION_ENABLED"] = "false"
 os.environ["PAPER_EXECUTION_ADAPTER"] = "disabled"
 os.environ["MOOMOO_MODE"] = "paper"
+os.environ["PAPER_ACCOUNT_EQUITY"] = _FIXTURE_ACCOUNT_EQUITY
 
 from agent_coordinator import evaluate_candidate
 from agents.shariah_agent import detect_market
 import local_api
+import sc_malaysia_store
 from local_api import app
 
 
 def main() -> None:
-    local_api.DB_PATH = Path(fixture_dir.name) / "paper_trading.db"
+    db_path = Path(fixture_dir.name) / "paper_trading.db"
+    local_api.DB_PATH = db_path
+    # sc_malaysia_store keeps its own module-level DB_PATH, and
+    # shariah_gate.check_symbol reaches the store through
+    # sc_malaysia_store.connect_default() rather than through local_api. Without
+    # this second redirect the Shariah verdict in this file comes from the real
+    # backend/paper_trading.db: the assertions below passed for months only
+    # because a self-superseded publication had made every live ticker resolve
+    # UNKNOWN, which is the state they assert. Repairing that publication turned
+    # them red. The fixture DB below is deliberately empty of publications, so
+    # "no approved publication" is now a property of the fixture rather than an
+    # accident of production.
+    sc_malaysia_store.DB_PATH = db_path
     client = TestClient(app)
 
     home = client.get("/")
@@ -307,10 +343,20 @@ def main() -> None:
     # correctly UNKNOWN here, not PASS.
     assert evaluation["agent_summary"]["shariah"]["status"] == "UNKNOWN"
     assert evaluation["agent_summary"]["risk"]["status"] == "PASS"
-    assert evaluation["agent_summary"]["quant"]["signal"] == "NO_SIGNAL"
+    # The fixture price series produces a genuine S001 BUY (trend + breakout).
+    # It did not always: this assertion previously expected NO_SIGNAL, which was
+    # true only while the fixture held fewer than MIN_BARS=200 bars and SMA200
+    # could not be computed at all. Expanding that fixture to 205 bars gave the
+    # quant agent enough history to emit a real signal, and this assertion was
+    # never updated to match.
+    #
+    # Asserting BUY here is the stronger test anyway: Shariah is UNKNOWN while
+    # quant is bullish and risk passes, so the single remaining blocker proves
+    # the Shariah gate is decisive on its own rather than merely contributing
+    # one of two reasons to an already-doomed order.
+    assert evaluation["agent_summary"]["quant"]["signal"] == "BUY"
     assert evaluation["decision"] == "BLOCKED"
-    assert "shariah_rejected" in evaluation["blockers"]
-    assert "quant_no_buy_signal" in evaluation["blockers"]
+    assert evaluation["blockers"] == ["shariah_rejected"]
 
     ready_candidate = evaluate_candidate(
         symbol="0001",
@@ -466,7 +512,9 @@ def main() -> None:
     ready_approval_payload = ready_approval.json()
     assert ready_approval_payload["broker_submission"] is False
     assert ready_approval_payload["queue_id"] > 0
-    assert ready_approval_payload["approval"]["status"] == "APPROVED_PAPER_READY"
+    assert ready_approval_payload["approval"]["status"] == "APPROVED_PAPER_READY", (
+        ready_approval_payload
+    )
     assert ready_approval_payload["approval"]["paper_execution_enabled"] is False
     assert ready_approval_payload["approval"]["broker_submission"] is False
 
@@ -537,11 +585,12 @@ def main() -> None:
     assert preview_payload["preview"]["broker_submission"] is False
     # No SC publication is approved/activated in this fixture DB (see the
     # earlier /agent/evaluate assertions above for why this is UNKNOWN, not
-    # PASS), so this preview is blocked on two independent grounds.
+    # PASS). Quant and risk both pass on the fixture data, so Shariah is the
+    # sole blocker -- which is the point worth asserting: the compliance gate
+    # rejects this order entirely on its own authority.
     assert preview_payload["preview"]["agent_summary"]["shariah"]["status"] == "UNKNOWN"
     assert preview_payload["preview"]["agent_summary"]["risk"]["status"] == "PASS"
-    assert "shariah_rejected" in preview_payload["preview"]["blockers"]
-    assert "quant_no_buy_signal" in preview_payload["preview"]["blockers"]
+    assert preview_payload["preview"]["blockers"] == ["shariah_rejected"]
 
     approval = client.post(
         "/paper/approval",
@@ -569,13 +618,17 @@ def main() -> None:
 
 if __name__ == "__main__":
     import auth
+
     try:
         from local_api import app as _my_app, get_owner_actor as _get_owner_actor
     except ImportError:
         import local_api
+
         _my_app = local_api.app
         _get_owner_actor = local_api.get_owner_actor
-    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(username='project_owner', role='admin')
+    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(
+        username="project_owner", role="admin"
+    )
     try:
         main()
     finally:

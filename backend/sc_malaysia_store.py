@@ -340,11 +340,29 @@ def activate_publication(
     if not pub.get("parser_version"):
         return {"status": "error", "reason": "parser_version_missing"}
 
+    if pub.get("activated_at"):
+        # Already the active publication. Return without writing: rewriting
+        # activated_at would destroy the record of when this publication
+        # actually became authoritative for a Shariah PASS.
+        return {
+            "status": "activated",
+            "publication_id": publication_id,
+            "activated_at": pub["activated_at"],
+            "activated_by": pub.get("activated_by"),
+            "already_active": True,
+        }
+
     now = utc_now()
+    # `id != ?` is load-bearing: without it, activating an already-active
+    # publication matches it in this UPDATE and supersedes it with itself,
+    # leaving activated_at == deactivated_at. get_active_publication then
+    # returns None and every ticker resolves UNKNOWN. The guard above makes
+    # this unreachable today; both stay, because either alone is one edit
+    # away from reintroducing the fault.
     connection.execute(
         "UPDATE sc_publications SET deactivated_at = ?, deactivation_reason = ? "
-        "WHERE activated_at IS NOT NULL AND deactivated_at IS NULL",
-        (now, f"superseded_by:{publication_id}"),
+        "WHERE activated_at IS NOT NULL AND deactivated_at IS NULL AND id != ?",
+        (now, f"superseded_by:{publication_id}", publication_id),
     )
     connection.execute(
         "UPDATE sc_publications SET activated_at = ?, activated_by = ? WHERE id = ?",

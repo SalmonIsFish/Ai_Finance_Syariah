@@ -6,6 +6,7 @@ notes both resolve to committed in-repo paths when nothing is configured.
 
 import json
 import os
+import tempfile
 from pathlib import Path
 
 import config
@@ -51,14 +52,32 @@ def check_gate_and_notes_work_from_the_repo() -> None:
     # never produce PASS without an approved, activated SC publication. A
     # fresh clone (no SC publication ever approved) must fail closed to
     # UNKNOWN for every ticker -- this is the invariant itself, not a gap.
-    no_authority_yet = shariah_gate.check_symbol("7113")
-    assert no_authority_yet["status"] != "PASS", (
-        f"the legacy JSON fixture must never produce PASS on its own: {no_authority_yet}"
-    )
+    # The fresh clone has to be *simulated*, not assumed. shariah_gate reaches
+    # the SC store through sc_malaysia_store.connect_default(), which opens
+    # sc_malaysia_store.DB_PATH -- the real backend/paper_trading.db. On a true
+    # fresh clone that file does not exist (it is gitignored) so every ticker is
+    # UNKNOWN, which is the condition asserted below. On a developer machine it
+    # is populated, and without this redirect the assertion reports whatever
+    # that developer's database happens to hold. It passed for months only
+    # because a self-superseded publication made every live ticker resolve
+    # UNKNOWN; repairing that publication turned it red, since 7113 (Top Glove)
+    # is genuinely COMPLIANT in the activated SC list.
+    import sc_malaysia_store
 
-    unknown = shariah_gate.check_symbol("NOTAREALTICKER")
-    assert unknown["status"] in ("REJECT", "UNKNOWN"), unknown
-    assert unknown["status"] != "PASS", "absent ticker must never be PASS"
+    original_db_path = sc_malaysia_store.DB_PATH
+    with tempfile.TemporaryDirectory() as fresh_clone_dir:
+        sc_malaysia_store.DB_PATH = Path(fresh_clone_dir) / "paper_trading.db"
+        try:
+            no_authority_yet = shariah_gate.check_symbol("7113")
+            assert no_authority_yet["status"] != "PASS", (
+                f"the legacy JSON fixture must never produce PASS on its own: {no_authority_yet}"
+            )
+
+            unknown = shariah_gate.check_symbol("NOTAREALTICKER")
+            assert unknown["status"] in ("REJECT", "UNKNOWN"), unknown
+            assert unknown["status"] != "PASS", "absent ticker must never be PASS"
+        finally:
+            sc_malaysia_store.DB_PATH = original_db_path
 
     hits = wiki_context.find_policy_context("riba interest prohibition screening")
     assert hits, "the committed policy notes must be searchable for explanations"

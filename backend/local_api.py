@@ -52,6 +52,7 @@ from shariah_screen_store import (
     list_shariah_screens,
 )
 from shariah_explain import explain_symbol
+import holdings_compliance
 from shariah_trace import describe_approval
 from trading_modes import trading_mode_status
 from watchlist_store import (
@@ -70,18 +71,23 @@ DB_PATH = BACKEND_DIR / "paper_trading.db"
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import auth
 
+
 class P3ProposalRequest(BaseModel):
     ticker: str
     side: str
 
+
 class P3ApprovalRequest(BaseModel):
     pass
+
 
 class P3PortfolioCreateRequest(BaseModel):
     name: str
     initial_cash: float
 
+
 security = HTTPBasic()
+
 
 def get_current_actor(credentials: HTTPBasicCredentials = Depends(security)) -> auth.Actor:
     try:
@@ -93,10 +99,12 @@ def get_current_actor(credentials: HTTPBasicCredentials = Depends(security)) -> 
             headers={"WWW-Authenticate": "Basic"},
         )
 
+
 def get_owner_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
     if actor.username != "project_owner":
         raise HTTPException(status_code=403, detail="Owner access required")
     return actor
+
 
 def get_propose_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
     try:
@@ -105,12 +113,14 @@ def get_propose_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Ac
         raise HTTPException(status_code=403, detail=str(e))
     return actor
 
+
 def get_approve_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
     try:
         auth.authorize(actor, "approve")
     except auth.AuthorizationError as e:
         raise HTTPException(status_code=403, detail=str(e))
     return actor
+
 
 def get_execute_actor(actor: auth.Actor = Depends(get_current_actor)) -> auth.Actor:
     try:
@@ -132,9 +142,11 @@ app.add_middleware(
 DASHBOARD_V2_DIR = Path(__file__).resolve().parent.parent / "dashboard-v2" / "dist"
 dashboard_router = APIRouter(dependencies=[Depends(get_owner_actor)])
 
+
 @dashboard_router.get("/dashboard/")
 def get_dashboard_index():
     return FileResponse(DASHBOARD_V2_DIR / "index.html")
+
 
 @dashboard_router.get("/dashboard/{path:path}")
 def get_dashboard_file(path: str):
@@ -145,6 +157,7 @@ def get_dashboard_file(path: str):
     if resolved_path.is_file():
         return FileResponse(resolved_path)
     return FileResponse(DASHBOARD_V2_DIR / "index.html")
+
 
 app.include_router(dashboard_router)
 
@@ -1553,7 +1566,9 @@ def paper_risk_snapshot(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
 
 
 @app.get("/portfolio/history/live")
-def portfolio_history_live(period: str = "1M", timeframe: str | None = None, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
+def portfolio_history_live(
+    period: str = "1M", timeframe: str | None = None, actor: auth.Actor = Depends(get_owner_actor)
+) -> dict:
     """The account's real equity curve, straight from the broker.
 
     Backs the dashboard's Portfolio Value History chart with actual mark-to-
@@ -1624,7 +1639,9 @@ def market_data_status(symbol: str) -> dict:
 
 
 @app.get("/market-overview")
-def market_overview(stale_cache_hours: float = 24.0, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
+def market_overview(
+    stale_cache_hours: float = 24.0, actor: auth.Actor = Depends(get_owner_actor)
+) -> dict:
     connection = db()
     try:
         return market_overview_snapshot(
@@ -1876,7 +1893,9 @@ def evaluate_agents(request: PaperPreviewRequest) -> dict:
 
 
 @app.post("/paper/preview")
-def preview_paper_order(request: PaperPreviewRequest, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
+def preview_paper_order(
+    request: PaperPreviewRequest, actor: auth.Actor = Depends(get_owner_actor)
+) -> dict:
     evaluation = evaluate_preview_request(request)
     quote_snapshot = quote_snapshot_for_preview(evaluation, request)
     side = request.side.strip().upper()
@@ -1970,7 +1989,9 @@ def broker_account_context(connection, preview: dict) -> dict:
 
 
 @app.post("/paper/approval")
-def approve_paper_order(request: PaperApprovalRequest, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
+def approve_paper_order(
+    request: PaperApprovalRequest, actor: auth.Actor = Depends(get_owner_actor)
+) -> dict:
     settings = load_settings()
     preview = request.preview
     side = preview.get("side", "BUY")
@@ -2082,7 +2103,11 @@ def approvals(actor: auth.Actor = Depends(get_owner_actor)) -> list[dict]:
 
 
 @app.post("/paper/execute/{queue_id}")
-def execute_paper(queue_id: int, request: PaperExecutionRequest | None = None, actor: auth.Actor = Depends(get_owner_actor)) -> dict:
+def execute_paper(
+    queue_id: int,
+    request: PaperExecutionRequest | None = None,
+    actor: auth.Actor = Depends(get_owner_actor),
+) -> dict:
     if request is None or request.confirmation_phrase != PAPER_EXECUTION_CONFIRMATION:
         result = {
             "status": "CONFIRMATION_REQUIRED",
@@ -2118,6 +2143,40 @@ def reconcile_paper(queue_id: int, actor: auth.Actor = Depends(get_owner_actor))
     payload = {**result, "portfolio_sync": portfolio_sync}
     audit = add_audit_event("paper_reconciliation", payload)
     return {"reconciliation_id": audit["id"], "created_at": audit["created_at"], **payload}
+
+
+def compliance_price_lookup(symbol: str) -> float | None:
+    """Adapt portfolio_price_lookup's bar summary to a bare price.
+
+    Returns None rather than raising on any failure, because
+    purification_ledger reports an unpriced holding as unpriced instead of
+    silently valuing it at zero -- which would understate what is owed.
+    """
+    try:
+        summary = portfolio_price_lookup(symbol)
+    except Exception:
+        return None
+    latest_close = summary.get("latest_close")
+    return float(latest_close) if latest_close is not None else None
+
+
+@app.get("/portfolio/compliance")
+def portfolio_compliance(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
+    """Re-screen held positions against the current Shariah authority.
+
+    Read-only and advisory. It reports what the authority currently says about
+    what is held; it never trades and never decides. A NON_COMPLIANT holding is
+    the owner's decision to act on, against the SC paper.
+    """
+    connection = db()
+    try:
+        screening = holdings_compliance.screen_holdings(connection)
+        purification = holdings_compliance.purification_ledger(
+            screening, price_lookup=compliance_price_lookup
+        )
+    finally:
+        connection.close()
+    return {"screening": screening, "purification": purification}
 
 
 @app.get("/portfolio")
@@ -2253,12 +2312,14 @@ class ExplainRequest(BaseModel):
     ticker: str = Field(min_length=1, max_length=16)
     question: str = Field(min_length=1, max_length=1000)
 
-@app.post("/api/explain")
-def api_explain(req: ExplainRequest) -> dict:
+
+@app.post("/copilot/explain")
+def api_explain(req: ExplainRequest, actor: auth.Actor = Depends(get_current_actor)) -> dict:
     try:
         return copilot_api.explain_ticker(req.ticker, req.question)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
 
 @app.get("/api/research/{ticker}")
 def api_research_ticker(ticker: str) -> dict:
@@ -2266,12 +2327,16 @@ def api_research_ticker(ticker: str) -> dict:
     vault_path = settings.shariah_wiki_path
     return screening_api.research_intelligence_for_ticker(ticker, vault_path)
 
-@app.post("/api/research/copilot")
-def api_research_copilot(req: ExplainRequest) -> dict:
+
+@app.post("/copilot/research")
+def api_research_copilot(
+    req: ExplainRequest, actor: auth.Actor = Depends(get_current_actor)
+) -> dict:
     try:
         return copilot_api.research_copilot_ticker(req.ticker, req.question)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
 
 @app.get("/api/knowledge/note/{note_path:path}")
 def api_knowledge_note(note_path: str) -> dict:
@@ -2283,12 +2348,14 @@ def api_knowledge_note(note_path: str) -> dict:
         raise HTTPException(status_code=404, detail="note_not_found")
     return note
 
+
 # --- Phase 3 Paper Portfolio Routes ---
 import p3_portfolio_engine
 from fastapi import Depends
 
-@app.get("/api/p3/portfolios")
-def api_p3_list_portfolios():
+
+@app.get("/p3/portfolios")
+def api_p3_list_portfolios(actor: auth.Actor = Depends(get_current_actor)):
     connection = db()
     try:
         p3_portfolio_engine.ensure_p3_tables(connection)
@@ -2297,65 +2364,97 @@ def api_p3_list_portfolios():
     finally:
         connection.close()
 
-@app.post("/api/p3/portfolios")
-def api_p3_create_portfolio(req: P3PortfolioCreateRequest):
+
+@app.post("/p3/portfolios")
+def api_p3_create_portfolio(
+    req: P3PortfolioCreateRequest, actor: auth.Actor = Depends(get_owner_actor)
+):
     connection = db()
     try:
         return p3_portfolio_engine.create_portfolio(connection, req.name, req.initial_cash)
     finally:
         connection.close()
 
-@app.get("/api/p3/portfolios/{portfolio_id}")
-def api_p3_get_portfolio(portfolio_id: int):
+
+@app.get("/p3/portfolios/{portfolio_id}")
+def api_p3_get_portfolio(portfolio_id: int, actor: auth.Actor = Depends(get_current_actor)):
     connection = db()
     try:
         return p3_portfolio_engine.get_portfolio(connection, portfolio_id)
     finally:
         connection.close()
 
-@app.get("/api/p3/portfolios/{portfolio_id}/positions")
-def api_p3_get_portfolio_positions(portfolio_id: int):
+
+@app.get("/p3/portfolios/{portfolio_id}/positions")
+def api_p3_get_portfolio_positions(
+    portfolio_id: int, actor: auth.Actor = Depends(get_current_actor)
+):
     connection = db()
     try:
         return {"positions": p3_portfolio_engine.get_portfolio_positions(connection, portfolio_id)}
     finally:
         connection.close()
 
-@app.get("/api/p3/portfolios/{portfolio_id}/orders")
-def api_p3_get_portfolio_orders(portfolio_id: int):
+
+@app.get("/p3/portfolios/{portfolio_id}/orders")
+def api_p3_get_portfolio_orders(portfolio_id: int, actor: auth.Actor = Depends(get_current_actor)):
     connection = db()
     try:
         return {"orders": p3_portfolio_engine.get_portfolio_orders(connection, portfolio_id)}
     finally:
         connection.close()
 
-@app.post("/api/p3/portfolios/{portfolio_id}/proposals")
-def api_p3_propose_order(portfolio_id: int, req: P3ProposalRequest, actor: auth.Actor = Depends(get_propose_actor)):
+
+@app.post("/p3/portfolios/{portfolio_id}/proposals")
+def api_p3_propose_order(
+    portfolio_id: int, req: P3ProposalRequest, actor: auth.Actor = Depends(get_propose_actor)
+):
     connection = db()
     try:
         import p3_decision_engine
-        return p3_decision_engine.propose_order(connection, portfolio_id, req.ticker.strip().upper(), req.side.strip().upper(), actor.username)
+
+        return p3_decision_engine.propose_order(
+            connection,
+            portfolio_id,
+            req.ticker.strip().upper(),
+            req.side.strip().upper(),
+            actor.username,
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         connection.close()
 
-@app.post("/api/p3/portfolios/{portfolio_id}/orders/{order_id}/approve")
-def api_p3_approve_order(portfolio_id: int, order_id: int, req: P3ApprovalRequest, actor: auth.Actor = Depends(get_approve_actor)):
+
+@app.post("/p3/portfolios/{portfolio_id}/orders/{order_id}/approve")
+def api_p3_approve_order(
+    portfolio_id: int,
+    order_id: int,
+    req: P3ApprovalRequest,
+    actor: auth.Actor = Depends(get_approve_actor),
+):
     connection = db()
     try:
         import p3_decision_engine
+
         return p3_decision_engine.approve_order(connection, order_id, actor.username)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     finally:
         connection.close()
 
-@app.post("/api/p3/portfolios/{portfolio_id}/orders/{order_id}/execute")
-def api_p3_execute_order(portfolio_id: int, order_id: int, req: P3ApprovalRequest, actor: auth.Actor = Depends(get_execute_actor)):
+
+@app.post("/p3/portfolios/{portfolio_id}/orders/{order_id}/execute")
+def api_p3_execute_order(
+    portfolio_id: int,
+    order_id: int,
+    req: P3ApprovalRequest,
+    actor: auth.Actor = Depends(get_execute_actor),
+):
     connection = db()
     try:
         import p3_decision_engine
+
         return p3_decision_engine.execute_order(connection, order_id, actor.username)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

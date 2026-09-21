@@ -47,6 +47,7 @@ import os
 import sqlite3
 
 import auth
+import holdings_compliance
 import sc_malaysia_store
 
 
@@ -194,6 +195,79 @@ def cmd_reject(args: argparse.Namespace) -> None:
     _print(result)
 
 
+def _report_holdings_after_activation(connection) -> None:
+    """Re-screen held Malaysian positions against the just-activated publication.
+
+    Activation is the instant a reclassification becomes real, so it is the
+    moment to tell the operator which holdings it affects. Without this the
+    owner has to remember to ask, and the SC list changes on a schedule
+    (last Friday of May and November) rather than on a prompt.
+
+    Scoped to MY deliberately: an SC publication cannot reclassify a US holding,
+    and screening one runs through sec_edgar_screen -- a live SEC fetch of up to
+    ~4.7 MB, which an admin CLI has no business firing.
+
+    Never raises. The activation has already committed by the time this runs, so
+    a failure here is a failed *report*, not a failed activation, and must not be
+    presented as one -- the same reason sec_edgar_screen swallows its own audit
+    write. Equally, finding non-compliant holdings is not an activation failure:
+    the publication is the authority, and the holdings are its consequence.
+    """
+    print()
+    print("Re-screening held Malaysian positions against the new publication...")
+    try:
+        screening = holdings_compliance.screen_holdings(connection, market="MY")
+    except Exception as exc:
+        print(f"  WARNING: the holdings sweep failed ({type(exc).__name__}: {exc}).")
+        print("  The activation itself SUCCEEDED and is committed -- this is a reporting")
+        print("  failure only. Check holdings with GET /portfolio/compliance.")
+        return
+
+    if screening["position_count"] == 0:
+        print("  No open Malaysian positions to re-screen.")
+        return
+
+    print(f"  {screening['position_count']} Malaysian position(s) screened.")
+    if not screening["flagged"]:
+        print("  All still compliant under the new publication.")
+        return
+
+    print()
+    print(f"  *** {screening['flagged_count']} holding(s) need your attention ***")
+
+    non_compliant = [
+        h for h in screening["flagged"] if h["alert"] == holdings_compliance.ALERT_NON_COMPLIANT
+    ]
+    unconfirmed = [
+        h for h in screening["flagged"] if h["alert"] == holdings_compliance.ALERT_UNCONFIRMED
+    ]
+
+    if non_compliant:
+        print()
+        print(
+            f"  NON-COMPLIANT ({len(non_compliant)}) -- the authority says these are not eligible:"
+        )
+        for h in non_compliant:
+            print(
+                f"    {h['symbol']:<8} qty {h['quantity']:<10} cost {h['cost_basis']:<12} "
+                f"per {h['publication_id']}"
+            )
+        print()
+        print("  Your ruling: dispose within one month, recover cost only; anything above")
+        print("  cost goes to baitulmal. Confirm against the SC paper before acting --")
+        print("  this tool reports, it does not decide. GET /portfolio/compliance shows")
+        print("  the estimated purification amount at current prices.")
+
+    if unconfirmed:
+        print()
+        print(f"  UNCONFIRMED ({len(unconfirmed)}) -- absent from this publication, NOT a ruling:")
+        for h in unconfirmed:
+            print(f"    {h['symbol']:<8} qty {h['quantity']:<10} reason: {h['reason']}")
+        print()
+        print("  Unconfirmed is not non-compliant. No divestment duty arises from absence")
+        print("  alone -- check whether the ticker was renumbered or the position is stale.")
+
+
 def cmd_activate(args: argparse.Namespace) -> None:
     actor = _authenticate(args, action="activate")
     if actor is None:
@@ -219,11 +293,19 @@ def cmd_activate(args: argparse.Namespace) -> None:
         print("security records, record counts reconcile, source hash present, parser version")
         print("present, not already superseded) are enforced by activate_publication itself when")
         print("you re-run with --apply -- if any fail, nothing is written and a reason is printed.")
+        print()
+        print("On --apply, held Malaysian positions are re-screened against the newly")
+        print("activated publication and any that are no longer compliant are listed. That")
+        print("report cannot fail the activation, and is not previewed here: answering")
+        print("'what would this publication say' for a not-yet-active publication needs a")
+        print("store change that has not been made.")
         return
     result = sc_malaysia_store.activate_publication(
         conn, args.publication_id, activated_by=actor.username
     )
     _print(result)
+    if result.get("status") == "activated":
+        _report_holdings_after_activation(conn)
 
 
 def cmd_deactivate(args: argparse.Namespace) -> None:

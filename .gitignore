@@ -3,6 +3,10 @@ backend/.env
 __pycache__/
 *.pyc
 backend/*.db
+# In-place backups (backend/paper_trading.db.bak-<timestamp>). These hold real
+# account and position data but do not match backend/*.db, so without this line
+# git sees them as ordinary untracked files.
+backend/*.db.bak*
 backend/market_data_cache/
 backend/sec_edgar_cache/
 tmp/

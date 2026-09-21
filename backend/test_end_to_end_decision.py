@@ -1,10 +1,10 @@
 """End-to-end decision pipeline test.
 
 Four scenarios with zero LLM, zero network, zero broker dependency:
-  1. SC-compliant ticker + BUY signal + within risk → APPROVED
-  2. Ticker not in SC universe → UNKNOWN → BLOCKED
-  3. Ticker compliant + NO_SIGNAL → BLOCKED (quant)
-  4. Ticker compliant + BUY + over risk → BLOCKED (risk)
+  1. SC-compliant ticker + BUY signal + within risk -> APPROVED
+  2. Ticker not in SC universe -> UNKNOWN -> BLOCKED
+  3. Ticker compliant + NO_SIGNAL -> BLOCKED (quant)
+  4. Ticker compliant + BUY + over risk -> BLOCKED (risk)
 
 Each scenario verifies the full evidence record is produced with correct provenance.
 """
@@ -203,7 +203,7 @@ def test_scenario_1_all_pass():
     assert record["shariah"]["reason"], "missing shariah reason code"
     assert record["quant"]["strategy_id"], "missing quant strategy id"
     assert record["quant"]["price_source"], "missing market-data source"
-    print("PASS: scenario_1 — compliant + BUY + within risk → APPROVED with full evidence")
+    print("PASS: scenario_1 — compliant + BUY + within risk -> APPROVED with full evidence")
 
 
 def test_scenario_2_unknown_ticker():
@@ -216,7 +216,7 @@ def test_scenario_2_unknown_ticker():
     assert record["shariah"]["status"] == "UNKNOWN"
     assert "quant" not in record
     assert "risk" not in record
-    print("PASS: scenario_2 — absent ticker → UNKNOWN → BLOCKED, pipeline short-circuits")
+    print("PASS: scenario_2 — absent ticker -> UNKNOWN -> BLOCKED, pipeline short-circuits")
 
 
 def test_scenario_3_no_signal():
@@ -228,7 +228,7 @@ def test_scenario_3_no_signal():
     assert record["decision_reason"] == "quant_no_buy_signal"
     assert record["shariah"]["status"] == "PASS"
     assert record["quant"]["signal"] != "BUY"
-    print("PASS: scenario_3 — compliant but no BUY signal → BLOCKED")
+    print("PASS: scenario_3 — compliant but no BUY signal -> BLOCKED")
 
 
 def test_scenario_4_risk_breach():
@@ -242,7 +242,7 @@ def test_scenario_4_risk_breach():
     assert record["quant"]["signal"] == "BUY"
     assert record["risk"]["status"] == "REJECT"
     assert record["risk"]["checks"]["position_ceiling"] is False
-    print("PASS: scenario_4 — compliant + BUY but over risk → BLOCKED")
+    print("PASS: scenario_4 — compliant + BUY but over risk -> BLOCKED")
 
 
 def test_evidence_append():
