@@ -69,6 +69,23 @@ There is no deploy script. Deployment is `git pull` in the checkout followed by
 `sudo systemctl restart amanah-trader`. `backend/.env` is **not** in git (`.gitignore:1`) and is
 placed on the box by hand — see Credentials below.
 
+**The dashboard does not ship with the pull.** `local_api.py:142` serves
+`dashboard-v2/dist`, and `dist` is gitignored (`dashboard-v2/.gitignore:11`), so a `git pull`
+updates the *source* and leaves the served bundle untouched. After any dashboard change:
+
+```bash
+cd /home/amanah/amanah-trader/dashboard-v2
+npm ci --no-audit --no-fund     # node 22 / npm 10 are installed on the box
+npm run build                   # writes dist/, ~1s
+```
+
+Verified 2026-09-21: the box reproduces the local build exactly, same asset hashes.
+
+**The checkout's `origin` is the pre-rename URL** (`Alpaca_Hackhaton_Ai_Finance_Syariah.git`).
+GitHub redirects it to `Ai_Finance_Syariah.git`, and `git ls-remote` on both returns identical
+refs, so pulls and pushes work — it is confusing, not broken. Worth re-pointing next time
+someone is on the box, so nobody concludes the droplet tracks a different repository.
+
 ### Runtime configuration
 
 `/home/amanah/amanah-trader/backend/.env` — mode `0600`, owner `amanah:amanah`.
@@ -368,6 +385,25 @@ when you need to drive a demo trade.
   the live file and its backups, since they sit on the same disk.
 - No infrastructure as code. This document is the recovery path; a rebuild is manual.
 - No monitoring or alerting. A crashed unit is discovered by loading the site.
+- **The nginx vhost in this repo has drifted from the one actually running, and the repo copy
+  is the stale one.** Found 2026-09-21 while trying to deploy rate limiting. The live
+  `/etc/nginx/sites-available/amanahtrader.uk` contains three blocks that
+  `docs/deployment/nginx/amanahtrader.uk.conf` does not:
+
+  | live-only block | what it does |
+  |---|---|
+  | `location /hackathon/` | proxies to `127.0.0.1:8001` |
+  | `location /thetanuts/api/` + `location /thetanuts/` | proxies to `127.0.0.1:8790` and serves `/home/amanah/thetanuts-copilot/frontend/dist/` |
+  | `location = /` | 302 redirect from root to `/dashboard/` |
+
+  **Copying the repo file over the live one would take down all three.** The header of that
+  file says "keep them in step"; they are not. Until someone reconciles them, treat the live
+  file as authoritative and apply changes to it surgically rather than by `cp`.
+
+  Pending as a result: the rate limiting added on 2026-09-21 (a general 240r/m zone on
+  `location /`, plus the write zone on `/p3/*` and `/copilot/*`) exists only in the repo copy.
+  The live host still serves those unthrottled, with HTTP Basic auth exposed to unlimited
+  credential guessing.
 
 ## Stale files in the repo
 
