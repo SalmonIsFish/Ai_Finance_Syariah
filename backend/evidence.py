@@ -17,6 +17,7 @@ This module is write-only at the decision layer. Reading is for audit/API.
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,7 +25,16 @@ from pathlib import Path
 from config import REPO_ROOT
 
 
-EVIDENCE_DIR = REPO_ROOT / "data" / "evidence"
+# Overridable so a test run can never write into the real trail. An evidence
+# file containing fabricated test decisions is worse than no evidence file: the
+# whole value of the trail is that every line in it actually happened. When the
+# decision recorder was first wired up on 2026-09-22 a single suite run appended
+# 26 synthetic decisions here, which is exactly the contamination this prevents.
+#
+# backend/run_all_tests.py sets EVIDENCE_DIR for the whole suite; individual
+# tests that exercise the trail swap these module globals directly, which still
+# works because both are read at call time.
+EVIDENCE_DIR = Path(os.getenv("EVIDENCE_DIR") or (REPO_ROOT / "data" / "evidence"))
 DECISIONS_FILE = EVIDENCE_DIR / "decisions.jsonl"
 
 

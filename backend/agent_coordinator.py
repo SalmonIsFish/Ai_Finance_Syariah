@@ -6,6 +6,52 @@ from agents.risk_engine import evaluate_risk
 from agents.shariah_agent import evaluate_shariah
 
 
+def _record_decision(result: dict) -> None:
+    """Append this evaluation to the append-only evidence trail.
+
+    The project's claim is that the gate chain *enforces and proves*: an order
+    failing any gate cannot be submitted, and every decision is recorded with its
+    evidence. The recording half was not true. evidence.py implemented
+    build_decision_record() and append_decision() in full, and **nothing ever
+    called append_decision** -- only the read path was wired, through
+    screening_api.evidence_for_ticker. On 2026-09-22 `data/evidence/` did not
+    exist locally or on the droplet, and GET /api/evidence/{ticker} returned
+    `{"count": 0, "decisions": []}` for everything. The trail was a read endpoint
+    over a file nobody wrote.
+
+    Swappable seam and failures are swallowed, for the same reason
+    sec_edgar_screen._record_screen swallows its own audit write: this is
+    bookkeeping hanging off a decision that has already been made correctly, and
+    a full disk must never turn a working REJECT into an error. Observability,
+    not a gate.
+    """
+    import evidence
+
+    summary = result.get("agent_summary") or {}
+    record = evidence.build_decision_record(
+        ticker=result.get("symbol", ""),
+        shariah_result=summary.get("shariah") or {},
+        quant_result=summary.get("quant"),
+        risk_result=summary.get("risk"),
+        account_result=summary.get("option_structure"),
+        final_decision=result.get("decision", ""),
+        # The blockers ARE the reason. An empty list means nothing objected,
+        # which is itself worth recording rather than leaving blank.
+        decision_reason=", ".join(result.get("blockers") or []) or "no_blockers",
+        market_data_snapshot={
+            "price": result.get("price"),
+            "price_source": (summary.get("quant") or {}).get("price_source"),
+            "data_freshness": (summary.get("quant") or {}).get("data_freshness"),
+            "as_of_date": (summary.get("quant") or {}).get("as_of_date"),
+        },
+    )
+    evidence.append_decision(record)
+
+
+# Tests swap this to avoid writing to the real evidence trail.
+record_decision = _record_decision
+
+
 def evaluate_candidate(
     *,
     symbol: str,
@@ -96,7 +142,7 @@ def evaluate_candidate(
     }
     if option_structure_result is not None:
         agent_summary["option_structure"] = option_structure_result
-    return {
+    result = {
         "symbol": normalized_symbol,
         "side": normalized_side,
         "quantity": quantity,
@@ -107,3 +153,15 @@ def evaluate_candidate(
         "broker_submission": False,
         "agent_summary": agent_summary,
     }
+
+    # Record BLOCKED as well as READY_FOR_APPROVAL. A refusal is the decision
+    # most worth proving later -- "your system let this through" and "your system
+    # stopped this" are both claims that need evidence.
+    try:
+        record_decision(result)
+    except Exception:
+        # Deliberately silent. See _record_decision's docstring: a failed write
+        # must not change a decision that was already made correctly.
+        pass
+
+    return result

@@ -7,6 +7,12 @@ backend/*.db
 # account and position data but do not match backend/*.db, so without this line
 # git sees them as ordinary untracked files.
 backend/*.db.bak*
+# The append-only decision evidence trail. Local and machine-specific: every
+# line is a decision this checkout actually made, so it is not shared state and
+# must never be committed. EVIDENCE_DIR overrides the location; run_all_tests.py
+# points it at a temp dir so a test run cannot contaminate a real trail.
+data/evidence/
+
 backend/market_data_cache/
 backend/sec_edgar_cache/
 tmp/

@@ -29,9 +29,12 @@ matters, run that file individually and show its output (see CLAUDE.md).
 from __future__ import annotations
 
 import argparse
+import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -60,7 +63,7 @@ def build_command(path: Path, source: str) -> tuple[list[str], str]:
     return [str(PYTHON), "-m", "pytest", str(path), "-q", "--no-header"], "pytest"
 
 
-def run_one(path: Path) -> dict:
+def run_one(path: Path, env: dict) -> dict:
     source = path.read_text(encoding="utf-8", errors="replace")
     command, mode = build_command(path, source)
     try:
@@ -70,6 +73,7 @@ def run_one(path: Path) -> dict:
             capture_output=True,
             text=True,
             timeout=PER_FILE_TIMEOUT_SECONDS,
+            env=env,
         )
     except subprocess.TimeoutExpired:
         return {"file": path.name, "mode": mode, "status": "TIMEOUT", "output": ""}
@@ -100,12 +104,21 @@ def main() -> int:
         print("No test files matched.")
         return 1
 
+    # Point the evidence trail at a throwaway directory for the whole run. The
+    # trail's only value is that every line in it actually happened, so a test
+    # run must never append to it. Set here rather than in each test file
+    # because all 84 of them go through agent_coordinator sooner or later.
+    evidence_sink = tempfile.mkdtemp(prefix="amanah-test-evidence-")
+    env = {**os.environ, "EVIDENCE_DIR": evidence_sink}
+
     results = []
     for path in paths:
-        result = run_one(path)
+        result = run_one(path, env)
         results.append(result)
         if args.verbose:
             print(f"{result['status']:<20} {result['mode']:<7} {result['file']}", flush=True)
+
+    shutil.rmtree(evidence_sink, ignore_errors=True)
 
     failures = [r for r in results if r["status"] != "PASS"]
 
