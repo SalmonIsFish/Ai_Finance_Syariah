@@ -60,12 +60,28 @@ function CompliancePanel({ compliance }) {
                 <div className="text-xs mt-1 opacity-90">
                   cost {h.cost_basis} · per {h.publication_id || "active publication"}
                 </div>
+                {/* The month, as a date rather than a sentence. Until the clock
+                    was persisted, a holding flagged a year ago looked exactly
+                    like one flagged this morning. */}
+                {h.disposal_deadline && (
+                  <div className="text-xs mt-1 font-bold">
+                    {h.overdue
+                      ? `OVERDUE — disposal was due ${h.disposal_deadline} (${Math.abs(h.days_remaining)} days ago)`
+                      : `Dispose by ${h.disposal_deadline} — ${h.days_remaining} days left`}
+                    <span className="block font-normal opacity-80">
+                      {h.deadline_basis === "publication_date"
+                        ? "counted from the publication date"
+                        : "counted from when this was first observed; the publication carried no date, so the real deadline may be earlier"}
+                    </span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
           <p className="text-xs text-[var(--color-muted)] mt-2">
             Disposal ruling: sell within one month, recover cost only; anything above cost goes to
-            baitulmal. Confirm against the SC paper — this reports, it does not decide.
+            baitulmal. Confirm against the SC paper — this reports, it does not decide. The
+            deadline counts from the SC's ruling, not from when this system noticed it.
           </p>
         </div>
       )}

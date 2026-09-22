@@ -217,6 +217,10 @@ def _report_holdings_after_activation(connection) -> None:
     print("Re-screening held Malaysian positions against the new publication...")
     try:
         screening = holdings_compliance.screen_holdings(connection, market="MY")
+        # Activation is when a reclassification becomes real, so it is when the
+        # disposal clock should start -- not whenever someone next happens to
+        # open the dashboard.
+        screening = holdings_compliance.apply_disposal_clock(connection, screening)
     except Exception as exc:
         print(f"  WARNING: the holdings sweep failed ({type(exc).__name__}: {exc}).")
         print("  The activation itself SUCCEEDED and is committed -- this is a reporting")
@@ -252,6 +256,18 @@ def _report_holdings_after_activation(connection) -> None:
                 f"    {h['symbol']:<8} qty {h['quantity']:<10} cost {h['cost_basis']:<12} "
                 f"per {h['publication_id']}"
             )
+            deadline = h.get("disposal_deadline")
+            if deadline:
+                days = h.get("days_remaining")
+                basis = (
+                    "from the publication date"
+                    if h.get("deadline_basis") == "publication_date"
+                    else "from when this was first observed -- the publication carried no date,"
+                    " so the real deadline may be earlier"
+                )
+                overdue = " *** OVERDUE ***" if h.get("overdue") else ""
+                print(f"             dispose by {deadline} ({days} days left){overdue}")
+                print(f"             counted {basis}")
         print()
         print("  Your ruling: dispose within one month, recover cost only; anything above")
         print("  cost goes to baitulmal. Confirm against the SC paper before acting --")

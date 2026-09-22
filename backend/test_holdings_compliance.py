@@ -11,6 +11,7 @@ every US-shaped case swaps the `evaluate` seam.
 """
 
 import sqlite3
+from datetime import datetime, timedelta, timezone
 
 import holdings_compliance
 import portfolio_store
@@ -322,6 +323,112 @@ def test_purification_ledger_reports_unpriced_rather_than_assuming_zero():
     print("PASS: purification_ledger_reports_unpriced_rather_than_assuming_zero")
 
 
+def _sweep(conn, verdicts):
+    screening = holdings_compliance.screen_holdings(conn, evaluate=_stub(verdicts))
+    return holdings_compliance.apply_disposal_clock(conn, screening)
+
+
+REJECT_VERDICT = {
+    "status": "REJECT",
+    "reason": "authoritative_non_compliant",
+    "publication_id": "sc-sac-my-2026-05-29",
+}
+
+
+def test_the_clock_starts_and_persists_across_sweeps():
+    """The first-flagged date must survive, or no deadline can ever be measured.
+
+    Before this, screen_holdings stamped `screened_at` on the response and
+    nothing on the holding, so every sweep looked like the first one: a position
+    flagged a year ago rendered identically to one flagged this morning.
+    """
+    conn = _conn()
+    _seed_position(conn, "0026")
+
+    first = _sweep(conn, {"0026": REJECT_VERDICT})
+    flagged = first["flagged"][0]
+    assert flagged["first_flagged_at"], flagged
+    assert flagged["disposal_deadline"], flagged
+    assert flagged["days_remaining"] is not None
+
+    original_flagged_at = flagged["first_flagged_at"]
+
+    # A later sweep must not restart the clock -- that would hand back a fresh
+    # month every time anyone opened the page, which is the permissive direction.
+    second = _sweep(conn, {"0026": REJECT_VERDICT})
+    assert second["flagged"][0]["first_flagged_at"] == original_flagged_at
+    print("PASS: the disposal clock starts once and survives later sweeps")
+
+
+def test_the_deadline_counts_from_the_publication_not_our_sweep():
+    """The SC's month runs from its ruling, not from when we happened to look.
+
+    Taking our own observation as the start silently extends a religious
+    deadline by however long the software was not running, always in the
+    permissive direction. A publication dated 40 days ago is already overdue.
+    """
+    conn = _conn()
+    _seed_position(conn, "0026")
+    long_ago = (datetime.now(timezone.utc) - timedelta(days=40)).date().isoformat()
+
+    screening = _sweep(
+        conn,
+        {"0026": {**REJECT_VERDICT, "publication_date": long_ago}},
+    )
+    flagged = screening["flagged"][0]
+
+    assert flagged["deadline_basis"] == "publication_date", flagged
+    assert flagged["days_remaining"] < 0, (
+        f"a 40-day-old ruling must already be overdue, got {flagged['days_remaining']}"
+    )
+    assert flagged["overdue"] is True
+    assert screening["overdue_count"] == 1
+    print("PASS: the deadline counts from the publication date, not from our sweep")
+
+
+def test_only_a_ruling_starts_a_clock():
+    """UNCONFIRMED is not a finding of ineligibility, so it owes no disposal.
+
+    Attaching a countdown to it would invent an obligation the authority never
+    stated -- the same conflation the three-state gate exists to prevent.
+    """
+    conn = _conn()
+    _seed_position(conn, "9999")
+    screening = _sweep(conn, {"9999": {"status": "UNKNOWN", "reason": "not_in_publication"}})
+
+    flagged = screening["flagged"][0]
+    assert flagged["alert"] == holdings_compliance.ALERT_UNCONFIRMED
+    assert flagged["disposal_deadline"] is None, flagged
+    assert flagged["days_remaining"] is None, flagged
+    # It is still tracked -- it needs attention, just not a divestment clock.
+    assert flagged["first_flagged_at"]
+    print("PASS: an unconfirmed holding is tracked but owes no disposal deadline")
+
+
+def test_a_cleared_flag_starts_a_fresh_month_if_it_returns():
+    """Sold, re-bought and reclassified again owes a new month, not a remainder."""
+    conn = _conn()
+    _seed_position(conn, "0026")
+
+    first = _sweep(conn, {"0026": REJECT_VERDICT})
+    first_flagged_at = first["flagged"][0]["first_flagged_at"]
+
+    # Reinstated by a later publication: the alert clears.
+    cleared = _sweep(conn, {"0026": {"status": "PASS", "reason": "authoritative_compliant"}})
+    assert cleared["flagged"] == []
+    row = conn.execute(
+        "SELECT cleared_at FROM holdings_compliance_flags WHERE symbol = '0026'"
+    ).fetchone()
+    assert row[0] is not None, "an alert that no longer applies must be cleared, not left open"
+
+    # Reclassified again later.
+    again = _sweep(conn, {"0026": REJECT_VERDICT})
+    assert again["flagged"][0]["first_flagged_at"] != first_flagged_at, (
+        "a re-raised alert must start a new clock, not resume the old one"
+    )
+    print("PASS: a cleared alert that returns starts a fresh disposal month")
+
+
 def main():
     test_compliant_holding_raises_no_alert()
     test_non_compliant_holding_is_flagged()
@@ -336,6 +443,10 @@ def main():
     test_purification_due_rejects_negative_inputs()
     test_purification_ledger_excludes_unconfirmed_holdings()
     test_purification_ledger_reports_unpriced_rather_than_assuming_zero()
+    test_the_clock_starts_and_persists_across_sweeps()
+    test_the_deadline_counts_from_the_publication_not_our_sweep()
+    test_only_a_ruling_starts_a_clock()
+    test_a_cleared_flag_starts_a_fresh_month_if_it_returns()
     print()
     print("All holdings-compliance tests passed.")
 

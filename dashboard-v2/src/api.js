@@ -81,3 +81,9 @@ export const fetchPublication = (publicationId) =>
  *  Not the raw log: that repeats a symbol once per screen (14,213 rows across
  *  16 symbols in production) and, being capped, omits symbols entirely. */
 export const fetchScreenedUS = () => fetchGet("/shariah/screens?latest_only=true");
+
+/** The append-only decision trail for one ticker: what each gate said, on which
+ *  authority and which prices, and what was decided. Owner-authenticated — it
+ *  records orders actually put through the gate chain, not just screening. */
+export const fetchEvidence = (ticker, limit = 20) =>
+  fetchGet(`/api/evidence/${encodeURIComponent(ticker)}?limit=${limit}`);

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import OfficerCard from "../components/OfficerCard";
+import EvidenceTrail from "../components/EvidenceTrail";
 import { fetchPreview, submitApproval, fetchRiskSnapshot } from "../api";
 import { verdictTextClass } from "../verdict";
 import { detectMarket, marketLabel, marketBadgeClass, marketAuthority, formatPrice } from "../market";
@@ -401,6 +402,23 @@ export default function TheDesk() {
           )}
         </div>
       )}
+
+      {/* The record of what this system has already decided about this security,
+          approvals and refusals alike. Shown after a preview rather than on an
+          empty ticket: before evaluating, the symbol in the box is a guess, and
+          fetching a trail for every keystroke would be noise. */}
+      {preview ? (
+        <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm p-6">
+          <h2 className="text-sm font-medium text-[var(--color-subtle)] uppercase tracking-wider mb-1">
+            Decision Trail
+          </h2>
+          <p className="text-xs text-[var(--color-muted)] mb-4">
+            Append-only. Each entry records which authority ruled, on which document, and on
+            which prices &mdash; so a verdict can be checked rather than taken on trust.
+          </p>
+          <EvidenceTrail ticker={(preview.symbol || symbol).toUpperCase()} />
+        </div>
+      ) : null}
     </div>
   );
 }

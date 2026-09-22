@@ -49,6 +49,7 @@ def build_decision_record(
     final_decision: str,
     decision_reason: str,
     market_data_snapshot: dict | None = None,
+    source: str = "unknown",
 ) -> dict:
     # shariah_result may be the raw sc_malaysia_store.check_eligibility() dict
     # or the agents/shariah_agent.py wrapper around it (which nests the raw
@@ -63,6 +64,12 @@ def build_decision_record(
         "decision_id": str(uuid.uuid4()),
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "ticker": ticker,
+        # What prompted this evaluation. A background watchlist scan runs
+        # evaluate_candidate for up to 30 symbols at a time, so without this the
+        # trail is mostly scan noise and "what happened to this order" means
+        # grepping for a needle. "preview" is a real order being considered by a
+        # human; "scan" is the system looking around on its own.
+        "source": source,
         "shariah": {
             "status": shariah_result.get("status"),
             "reason": shariah_result.get("reason"),

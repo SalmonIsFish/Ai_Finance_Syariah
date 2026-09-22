@@ -29,7 +29,11 @@ universe_path.write_text(
 )
 import pytest
 
-_ENV_ORIG = {k: os.environ.get(k) for k in ["SHARIAH_UNIVERSE_PATH", "TRADING_MODE", "PAPER_EXECUTION_ENABLED", "MOOMOO_MODE"]}
+_ENV_ORIG = {
+    k: os.environ.get(k)
+    for k in ["SHARIAH_UNIVERSE_PATH", "TRADING_MODE", "PAPER_EXECUTION_ENABLED", "MOOMOO_MODE"]
+}
+
 
 @pytest.fixture(autouse=True)
 def _restore_env():
@@ -43,6 +47,7 @@ def _restore_env():
             os.environ.pop(_k, None)
         else:
             os.environ[_k] = _ENV_ORIG[_k]
+
 
 os.environ["SHARIAH_UNIVERSE_PATH"] = str(universe_path)
 os.environ["TRADING_MODE"] = "approval"
@@ -304,7 +309,29 @@ def test_9_evidence_is_generated_and_retrievable():
             evidence.append_decision(record)
 
             client = TestClient(app)
-            response = client.get("/api/evidence/1155")
+
+            # The trail is owner-only as of 2026-09-22. It records orders that
+            # were actually put through the gate chain -- `source: "preview"` --
+            # which is a log of what someone is considering trading, not a
+            # screening lookup. Public eligibility questions are still public,
+            # via /api/shariah/{ticker} and /api/universe.
+            import auth
+            from local_api import get_owner_actor
+
+            unauthenticated = client.get("/api/evidence/1155")
+            assert unauthenticated.status_code in (401, 403), (
+                f"the decision trail must not be readable without credentials: "
+                f"{unauthenticated.status_code}"
+            )
+
+            app.dependency_overrides[get_owner_actor] = lambda: auth.Actor(
+                username="project_owner", role="admin"
+            )
+            try:
+                response = client.get("/api/evidence/1155")
+            finally:
+                app.dependency_overrides.pop(get_owner_actor, None)
+
             assert response.status_code == 200, response.text
             body = response.json()
             assert body["count"] == 1

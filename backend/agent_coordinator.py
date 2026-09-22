@@ -6,7 +6,7 @@ from agents.risk_engine import evaluate_risk
 from agents.shariah_agent import evaluate_shariah
 
 
-def _record_decision(result: dict) -> None:
+def _record_decision(result: dict, *, source: str = "scan") -> None:
     """Append this evaluation to the append-only evidence trail.
 
     The project's claim is that the gate chain *enforces and proves*: an order
@@ -44,6 +44,7 @@ def _record_decision(result: dict) -> None:
             "data_freshness": (summary.get("quant") or {}).get("data_freshness"),
             "as_of_date": (summary.get("quant") or {}).get("as_of_date"),
         },
+        source=source,
     )
     evidence.append_decision(record)
 
@@ -67,6 +68,7 @@ def evaluate_candidate(
     quant_override: dict | None = None,
     option_structure: dict | None = None,
     asset_class: str = "equity",
+    record_evidence: bool = True,
 ) -> dict:
     normalized_symbol = symbol.strip().upper()
     normalized_side = side.strip().upper()
@@ -157,11 +159,21 @@ def evaluate_candidate(
     # Record BLOCKED as well as READY_FOR_APPROVAL. A refusal is the decision
     # most worth proving later -- "your system let this through" and "your system
     # stopped this" are both claims that need evidence.
-    try:
-        record_decision(result)
-    except Exception:
-        # Deliberately silent. See _record_decision's docstring: a failed write
-        # must not change a decision that was already made correctly.
-        pass
+    #
+    # `record_evidence=False` is for callers that are not finished deciding.
+    # local_api.evaluate_preview_request runs apply_portfolio_risk_overlay after
+    # this returns, and that overlay can clear `only_buy_side_supported` and turn
+    # a BLOCKED sell into READY_FOR_APPROVAL. Recording here regardless meant an
+    # approved, executed SELL was preserved in the trail as BLOCKED -- the
+    # evidence contradicting what the system actually did, which for a project
+    # whose claim is "enforces and proves" is worse than having no trail, because
+    # it looks like proof. Those callers record the final decision themselves.
+    if record_evidence:
+        try:
+            record_decision(result)
+        except Exception:
+            # Deliberately silent. See _record_decision's docstring: a failed
+            # write must not change a decision that was already made correctly.
+            pass
 
     return result

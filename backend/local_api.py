@@ -13,6 +13,15 @@ from pydantic import BaseModel, Field, ValidationError
 import portfolio_metrics
 import copilot_api
 from agent_coordinator import evaluate_candidate
+
+# Imported as a module, not `from ... import record_decision`, so the swappable
+# seam stays swappable: tests replace agent_coordinator.record_decision, and a
+# from-import would bind the original here and ignore the swap.
+import agent_coordinator
+
+# Imported as a module, not `from ... import record_decision`, so the swappable
+# seam stays swappable: tests replace agent_coordinator.record_decision, and a
+# from-import would bind the original here and quietly ignore the swap.
 from agents.risk_engine import evaluate_risk
 from agents.shariah_agent import detect_market, evaluate_shariah
 from alpaca_market_data import fetch_news
@@ -1372,6 +1381,23 @@ def blocker_messages_for_evaluation(evaluation: dict) -> list[dict]:
     return messages
 
 
+def _record_preview_evidence(evaluation: dict) -> dict:
+    """Write the evidence record for a preview, after the decision is final.
+
+    evaluate_candidate deliberately does not record for this path: the overlay
+    below can turn a BLOCKED sell into READY_FOR_APPROVAL, and a trail that
+    disagrees with the order it describes is not evidence. Recorded here, once,
+    against whatever the answer actually turned out to be.
+    """
+    try:
+        agent_coordinator.record_decision(evaluation, source="preview")
+    except Exception:
+        # Same reasoning as the coordinator's own guard: bookkeeping must not
+        # turn a correctly-made decision into an error.
+        pass
+    return evaluation
+
+
 def evaluate_preview_request(request: PaperPreviewRequest) -> dict:
     evaluation = evaluate_candidate(
         symbol=request.symbol,
@@ -1384,6 +1410,7 @@ def evaluate_preview_request(request: PaperPreviewRequest) -> dict:
         daily_loss_pct=request.daily_loss_pct,
         orders_today=request.orders_today,
         asset_class=request.asset_class,
+        record_evidence=False,
         **paper_test_overrides(request),
     )
     if request.asset_class == "option":
@@ -1395,10 +1422,12 @@ def evaluate_preview_request(request: PaperPreviewRequest) -> dict:
         # at approval time via option_structure_gate/account_shariah_gate,
         # which don't have this unit mismatch.
         evaluation["blocker_messages"] = blocker_messages_for_evaluation(evaluation)
-        return evaluation
+        return _record_preview_evidence(evaluation)
     connection = db()
     try:
-        return apply_portfolio_risk_overlay(connection, request, evaluation)
+        return _record_preview_evidence(
+            apply_portfolio_risk_overlay(connection, request, evaluation)
+        )
     finally:
         connection.close()
 
@@ -2207,6 +2236,11 @@ def portfolio_compliance(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     connection = db()
     try:
         screening = holdings_compliance.screen_holdings(connection)
+        # Records when each alert was first raised and annotates the one-month
+        # disposal deadline. Separate from screening because this one writes:
+        # without a persisted first-flagged date, "dispose within one month" is
+        # prose rather than something that can be measured or breached.
+        screening = holdings_compliance.apply_disposal_clock(connection, screening)
         purification = holdings_compliance.purification_ledger(
             screening, price_lookup=compliance_price_lookup
         )
@@ -2330,7 +2364,24 @@ def api_risk() -> dict:
 
 
 @app.get("/api/evidence/{ticker}")
-def api_evidence_ticker(ticker: str, limit: int = 20) -> dict:
+def api_evidence_ticker(
+    ticker: str,
+    limit: int = 20,
+    actor: auth.Actor = Depends(get_owner_actor),
+) -> dict:
+    """The decision trail for one ticker. Owner-only, deliberately.
+
+    This was public, on the reasoning that it is "read-only screening evidence".
+    That was true when the trail was empty. It now records `source: "preview"`
+    -- orders the owner actually put through the gate chain -- alongside prices,
+    blockers and the verdicts reached. That is a log of what someone is
+    considering trading, which is account activity, not a screening lookup.
+
+    Public screening remains public and unchanged: /api/shariah/{ticker} and
+    /api/universe answer "is this security eligible" for anyone. This answers
+    "what did this operator do", which is a different question and belongs
+    behind the same door as /portfolio/compliance.
+    """
     return screening_api.evidence_for_ticker(ticker, limit=max(1, min(limit, 200)))
 
 

@@ -33,7 +33,6 @@ PUBLIC_ROUTES = {
     # The read-only screening surface. Deliberately public so the compliance
     # method can be inspected without an account -- it is the product's claim to
     # auditability. Guarded GET/HEAD-only by test_screening_api.py::test_10.
-    "/api/evidence/{ticker}": "Read-only screening evidence.",
     "/api/knowledge/note/{note_path:path}": "Read-only policy note; traversal-audited.",
     "/api/knowledge/search": "Read-only policy-note search.",
     "/api/quant/{ticker}": "Read-only quant signal.",

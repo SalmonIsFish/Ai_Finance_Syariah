@@ -148,11 +148,132 @@ def test_a_failed_write_never_changes_the_decision():
     print("PASS: a failed evidence write leaves the decision untouched")
 
 
+def test_the_trail_records_the_decision_that_was_actually_reached():
+    """A sell approved after the portfolio overlay must not be filed as BLOCKED.
+
+    The bug, live until 2026-09-22: `record_decision` fired inside
+    `evaluate_candidate`, but `local_api.apply_portfolio_risk_overlay` runs
+    *afterwards* and strips `only_buy_side_supported` / `quant_no_buy_signal`,
+    turning a BLOCKED sell into READY_FOR_APPROVAL. So an approved -- and
+    executable -- SELL was preserved in the evidence trail as
+    `BLOCKED / only_buy_side_supported`.
+
+    An audit trail that contradicts the order it describes is worse than no
+    trail, because it carries the authority of a record. This drives the real
+    preview path rather than the coordinator directly, since the bug lives in
+    the seam between the two and a coordinator-only test cannot see it.
+    """
+    trail = _isolated_trail()
+
+    import local_api
+    from portfolio_store import apply_fill_to_position, ensure_portfolio_tables
+
+    # A held position is what lets the overlay clear the sell. Without one the
+    # order stays BLOCKED on `portfolio_sell_without_position` and the flip this
+    # test exists to catch never happens -- the test would still pass, for the
+    # wrong reason, which is the failure mode CLAUDE.md warns about after a live
+    # option order passed a check only because incidental account state satisfied
+    # it.
+    original_db_path = local_api.DB_PATH
+    original_price_lookup = local_api.portfolio_price_lookup
+    db_dir = Path(tempfile.mkdtemp(prefix="amanah-evidence-db-"))
+    local_api.DB_PATH = db_dir / "paper_trading.db"
+    # Positions are marked to market, so without pinning this the overlay would
+    # fetch a live AAPL quote -- a network call, and a test whose verdict moves
+    # with the market. 10.0 keeps the position far inside the 5% position limit.
+    local_api.portfolio_price_lookup = lambda symbol: {"latest_close": 10.0, "source": "test"}
+    connection = local_api.db()
+    try:
+        ensure_portfolio_tables(connection)
+        apply_fill_to_position(
+            connection,
+            symbol="AAPL",
+            account_suffix="TEST",
+            account_type="CASH",
+            side="BUY",
+            quantity=5,
+            avg_price=10.0,
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    recorded = []
+    original = agent_coordinator.record_decision
+
+    def _capture(result, *, source="scan"):
+        recorded.append((dict(result), source))
+        return original(result, source=source)
+
+    agent_coordinator.record_decision = _capture
+    try:
+        evaluation = local_api.evaluate_preview_request(
+            local_api.PaperPreviewRequest(
+                symbol="AAPL",
+                side="SELL",
+                quantity=1,
+                price=10.0,
+                position_pct=1.0,
+                total_exposure_pct=1.0,
+                loss_per_trade_pct=0.1,
+                daily_loss_pct=0.1,
+                orders_today=0,
+                test_fixture=True,
+                shariah_status="PASS",
+            )
+        )
+    finally:
+        agent_coordinator.record_decision = original
+        local_api.DB_PATH = original_db_path
+        local_api.portfolio_price_lookup = original_price_lookup
+
+    # The scenario must actually be the one described, or the assertions below
+    # prove nothing: this sell has to have been approved.
+    assert evaluation["decision"] == "READY_FOR_APPROVAL", (
+        f"the fixture no longer produces an approved sell: {evaluation['decision']} "
+        f"{evaluation['blockers']}"
+    )
+
+    assert len(recorded) == 1, f"a preview must be recorded exactly once, got {len(recorded)}"
+    written, source = recorded[0]
+    assert source == "preview", f"a real order must not be filed as scan noise: {source}"
+
+    # The heart of it: what was written must be what the API returned.
+    assert written["decision"] == evaluation["decision"], (
+        f"trail says {written['decision']}, the system answered {evaluation['decision']}"
+    )
+    assert written["blockers"] == evaluation["blockers"], (
+        f"trail blockers {written['blockers']} vs actual {evaluation['blockers']}"
+    )
+
+    # And it reached disk in that state, not just the seam.
+    lines = [json.loads(line) for line in trail.read_text(encoding="utf-8").splitlines() if line]
+    assert len(lines) == 1, lines
+    assert lines[0]["decision"] == evaluation["decision"], lines[0]
+    assert lines[0]["source"] == "preview", lines[0]
+    print("PASS: the trail records the decision the system actually reached")
+
+
+def test_a_scan_is_distinguishable_from_an_order():
+    """Background scans run evaluate_candidate for up to 30 symbols at a time.
+
+    Without a source field the trail is mostly scan noise and there is no way to
+    ask what happened to a particular order.
+    """
+    trail = _isolated_trail()
+    _evaluate(symbol="MSFT")
+    record = json.loads(trail.read_text(encoding="utf-8").splitlines()[0])
+    assert record["source"] == "scan", record
+    print("PASS: a scan is recorded as a scan, not as an order")
+
+
 def main():
     test_an_approved_decision_is_recorded_with_provenance()
     test_a_refusal_is_recorded_too()
     test_the_trail_is_append_only()
     test_a_failed_write_never_changes_the_decision()
+    test_the_trail_records_the_decision_that_was_actually_reached()
+    test_a_scan_is_distinguishable_from_an_order()
     print()
     print("All decision-evidence tests passed.")
 
