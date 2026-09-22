@@ -351,12 +351,23 @@ def main() -> None:
     # never updated to match.
     #
     # Asserting BUY here is the stronger test anyway: Shariah is UNKNOWN while
-    # quant is bullish and risk passes, so the single remaining blocker proves
-    # the Shariah gate is decisive on its own rather than merely contributing
-    # one of two reasons to an already-doomed order.
+    # quant is bullish and risk passes, so the Shariah blocker proves the gate is
+    # decisive on its own rather than merely contributing one reason to an
+    # already-doomed order.
     assert evaluation["agent_summary"]["quant"]["signal"] == "BUY"
     assert evaluation["decision"] == "BLOCKED"
-    assert evaluation["blockers"] == ["shariah_rejected"]
+
+    # Two blockers, and the second one is the point. This fixture DB has no
+    # Alpaca credentials, so the quant leg falls back to fixture_prices() and
+    # reports data_freshness "fixture". That label used to be reported and
+    # ignored -- a market-data outage could produce a BUY computed from test data
+    # that cleared every gate. It now blocks.
+    #
+    # Note what this test is really demonstrating: the BUY above was computed
+    # from synthetic prices all along. The signal was never evidence of anything
+    # about the market; it was evidence about a fixture file.
+    assert evaluation["agent_summary"]["quant"]["data_freshness"] == "fixture"
+    assert evaluation["blockers"] == ["shariah_rejected", "synthetic_market_data"]
 
     ready_candidate = evaluate_candidate(
         symbol="0001",
@@ -585,12 +596,16 @@ def main() -> None:
     assert preview_payload["preview"]["broker_submission"] is False
     # No SC publication is approved/activated in this fixture DB (see the
     # earlier /agent/evaluate assertions above for why this is UNKNOWN, not
-    # PASS). Quant and risk both pass on the fixture data, so Shariah is the
-    # sole blocker -- which is the point worth asserting: the compliance gate
-    # rejects this order entirely on its own authority.
+    # PASS), and the quant leg runs on fixture prices because this fixture has no
+    # Alpaca credentials. Two independent grounds for refusal, each sufficient on
+    # its own: the compliance gate rejects on its own authority, and synthetic
+    # market data is refused regardless of what any other gate says.
     assert preview_payload["preview"]["agent_summary"]["shariah"]["status"] == "UNKNOWN"
     assert preview_payload["preview"]["agent_summary"]["risk"]["status"] == "PASS"
-    assert preview_payload["preview"]["blockers"] == ["shariah_rejected"]
+    assert preview_payload["preview"]["blockers"] == [
+        "shariah_rejected",
+        "synthetic_market_data",
+    ]
 
     approval = client.post(
         "/paper/approval",

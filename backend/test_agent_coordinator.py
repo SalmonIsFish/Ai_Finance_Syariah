@@ -47,6 +47,60 @@ def option_candidate(*, side, quant, shariah=SHARIAH_PASS, structure=None):
     )
 
 
+def check_synthetic_market_data_blocks() -> None:
+    """Fabricated prices must never clear a gate, for any asset class.
+
+    alpaca_market_data falls back to fixture_prices() when Alpaca errors and
+    labels the result "fixture_after_alpaca_error"; quant_agent turns that into
+    data_freshness "fixture". Nothing read that label, so a market-data outage
+    could produce a BUY computed entirely from test data that passed every gate
+    while truthfully reporting where it came from.
+
+    Deliberately NOT exempt for options, unlike the BUY-signal rule. A covered
+    call written against a fabricated price is as wrong as an equity entry.
+    """
+    base = dict(
+        symbol="AAPL",
+        side="BUY",
+        quantity=1,
+        price=100.0,
+        position_pct=1.0,
+        total_exposure_pct=1.0,
+        loss_per_trade_pct=0.1,
+        daily_loss_pct=0.1,
+        orders_today=0,
+        shariah_override=SHARIAH_PASS,
+    )
+
+    live = evaluate_candidate(**base, quant_override={**QUANT_BUY, "data_freshness": "live"})
+    assert "synthetic_market_data" not in live["blockers"], live["blockers"]
+    assert live["decision"] == "READY_FOR_APPROVAL", live
+
+    # Real Alpaca data inside its TTL. Permitted -- the age is reported, and
+    # refusing every cached bar would make the system unusable whenever the
+    # market is closed.
+    cached = evaluate_candidate(**base, quant_override={**QUANT_BUY, "data_freshness": "cached"})
+    assert "synthetic_market_data" not in cached["blockers"], cached["blockers"]
+
+    fixture = evaluate_candidate(**base, quant_override={**QUANT_BUY, "data_freshness": "fixture"})
+    assert "synthetic_market_data" in fixture["blockers"], fixture["blockers"]
+    assert fixture["decision"] == "BLOCKED", fixture
+
+    # Provenance that cannot be established is not provenance.
+    unknown = evaluate_candidate(**base, quant_override={**QUANT_BUY, "data_freshness": "unknown"})
+    assert "synthetic_market_data" in unknown["blockers"], unknown["blockers"]
+
+    # The option path gets no exemption.
+    option_fixture = option_candidate(
+        side="SELL",
+        quant={**QUANT_BUY, "data_freshness": "fixture"},
+        structure={"structure": "covered_call", "shares_held": 100, "contracts": 1},
+    )
+    assert "synthetic_market_data" in option_fixture["blockers"], option_fixture["blockers"]
+
+    print("PASS: synthetic market data blocks every asset class; live and cached do not.")
+
+
 def main() -> None:
     # Existing equity-only behavior must be unaffected when no option_structure
     # is supplied: no "option_structure" key appears in agent_summary at all.
@@ -226,6 +280,7 @@ def main() -> None:
     assert non_compliant_with_no_signal["decision"] == "BLOCKED"
 
     print("PASS: agent_coordinator composes the option-structure gate additively.")
+    check_synthetic_market_data_blocks()
 
 
 if __name__ == "__main__":

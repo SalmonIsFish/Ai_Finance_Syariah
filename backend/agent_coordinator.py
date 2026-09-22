@@ -66,6 +66,20 @@ def evaluate_candidate(
     # blocker.
     if asset_class != "option" and quant.get("signal") != "BUY":
         blockers.append("quant_no_buy_signal")
+    # Synthetic prices must never reach a gate decision. alpaca_market_data
+    # falls back to fixture_prices() when Alpaca errors, labels the result
+    # "fixture_after_alpaca_error", and until now nothing read that label -- so a
+    # market-data outage could produce a BUY computed from test data that passed
+    # every gate while truthfully reporting `data_freshness: "fixture"`.
+    #
+    # Unlike the BUY-signal rule above, this is NOT equity-specific: fabricated
+    # prices are wrong for any asset class, so no option exemption.
+    #
+    # "cached" is allowed -- that is real Alpaca data inside its TTL, and the
+    # age is reported. "unknown" blocks, because provenance that cannot be
+    # established is not provenance.
+    if quant.get("data_freshness") in ("fixture", "unknown"):
+        blockers.append("synthetic_market_data")
     if risk["status"] != "PASS":
         blockers.append("risk_rejected")
     if selected_price is None or selected_price <= 0:
