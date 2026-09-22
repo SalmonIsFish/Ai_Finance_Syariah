@@ -13,6 +13,7 @@ here so these stay about the CLI's own behaviour -- the dry-run gate, the
 immutability check, and the statuses it is allowed to write.
 """
 
+import json
 import sqlite3
 import sys
 import tempfile
@@ -186,11 +187,127 @@ def test_ingesting_twice_does_not_duplicate():
     print("PASS: re-ingesting is a no-op rather than a duplicate")
 
 
+def _payload(status="pending", pub_id=PUB_ID, version=None):
+    return {
+        "status": "parsed",
+        "payload_version": (version if version is not None else sc_malaysia_import.PAYLOAD_VERSION),
+        "publication": {
+            "id": pub_id,
+            "publication_date": "2026-05-29",
+            "effective_date": "2026-05-29",
+            "source_url": None,
+            "source_document_hash": "deadbeef",
+            "official_record_count": 1,
+            "extractable_record_count": 1,
+            "parsed_record_count": 1,
+            "parser_version": "test",
+            "human_review_status": status,
+            "human_review_notes": None,
+        },
+        "securities": [
+            {
+                "ticker": "5225",
+                "issuer_name": "IHH Healthcare Bhd",
+                "shariah_status": "COMPLIANT",
+                "board": "MAIN",
+                "sector": "HEALTH CARE",
+            }
+        ],
+        "reconciliation_report": {
+            "official_stated_total": 1,
+            "unique_ticker_count": 1,
+            "parsed_record_count": 1,
+            "unresolved_discrepancy": 0,
+        },
+        "table2_conflicts_skipped": [],
+    }
+
+
+def _run_export(db_path, payload_path, *extra):
+    original_argv = sys.argv
+    sys.argv = [
+        "sc_ingest_cli.py",
+        "--from-export",
+        str(payload_path),
+        "--publication-date",
+        "2026-05-29",
+        "--db",
+        str(db_path),
+        *extra,
+    ]
+    try:
+        return sc_ingest_cli.main()
+    finally:
+        sys.argv = original_argv
+
+
+def test_an_exported_payload_ingests_without_a_pdf_parser():
+    """The whole point of the export route: no pdfplumber on the target host."""
+    with tempfile.TemporaryDirectory() as tmp:
+        db = Path(tmp) / "sc.db"
+        path = Path(tmp) / "p.json"
+        path.write_text(json.dumps(_payload()), encoding="utf-8")
+
+        assert _run_export(db, path, "--apply") == 0
+        pub = _publication(db)
+        assert pub is not None
+        assert pub["human_review_status"] == "pending"
+        assert pub["source_document_hash"] == "deadbeef", (
+            "provenance must stay the PDF's, not the intermediate file's"
+        )
+    print("PASS: an exported payload ingests with no PDF parser, preserving provenance")
+
+
+def test_a_needs_reconciliation_payload_is_not_laundered():
+    """Moving a parse between machines must not upgrade its status.
+
+    This is the attack the payload route would otherwise open: parse somewhere,
+    get needs_reconciliation, carry the file over and have it land as pending
+    -- which IS activatable. ingest_payload recomputes nothing for exactly this
+    reason, and this test is why that matters.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        db = Path(tmp) / "sc.db"
+        path = Path(tmp) / "p.json"
+        path.write_text(json.dumps(_payload(status="needs_reconciliation")), encoding="utf-8")
+
+        assert _run_export(db, path, "--apply") == 0
+        assert _publication(db)["human_review_status"] == "needs_reconciliation"
+    print("PASS: a needs_reconciliation payload stays needs_reconciliation")
+
+
+def test_a_payload_for_another_date_is_refused():
+    """Otherwise one publication's securities file under another's date."""
+    with tempfile.TemporaryDirectory() as tmp:
+        db = Path(tmp) / "sc.db"
+        path = Path(tmp) / "p.json"
+        path.write_text(json.dumps(_payload(pub_id="sc-sac-my-2025-11-28")), encoding="utf-8")
+
+        assert _run_export(db, path, "--apply") == 1, "a mismatched payload was accepted"
+        assert _publication(db) is None
+    print("PASS: a payload naming another publication date is refused")
+
+
+def test_an_unknown_payload_version_is_refused():
+    with tempfile.TemporaryDirectory() as tmp:
+        db = Path(tmp) / "sc.db"
+        path = Path(tmp) / "p.json"
+        path.write_text(json.dumps(_payload(version="sc-pdf-payload-v99")), encoding="utf-8")
+
+        assert _run_export(db, path, "--apply") == 1, "an unknown payload version was accepted"
+        assert _publication(db) is None
+    print("PASS: an unrecognised payload version is refused rather than guessed at")
+
+
 def main():
     test_a_dry_run_writes_nothing()
     test_apply_stages_as_pending_and_never_activates()
     test_a_staged_publication_screens_nothing()
     test_ingesting_twice_does_not_duplicate()
+    test_an_exported_payload_ingests_without_a_pdf_parser()
+    test_a_needs_reconciliation_payload_is_not_laundered()
+    test_a_payload_for_another_date_is_refused()
+    test_an_unknown_payload_version_is_refused()
     print()
     print("All SC ingest CLI tests passed.")
 

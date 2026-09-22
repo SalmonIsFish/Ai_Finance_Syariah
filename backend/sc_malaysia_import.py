@@ -18,6 +18,11 @@ import sc_pdf_parser
 
 PARSER_VERSION = "json-import-v1"
 
+# Bumped whenever the shape of a build_pdf_payload() export changes. ingest_payload
+# refuses anything else rather than guessing: a payload is the parse of an
+# authoritative document, and a half-understood one must not reach the store.
+PAYLOAD_VERSION = "sc-pdf-payload-v1"
+
 
 def _compute_file_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -100,8 +105,7 @@ def ingest_universe_json(
     }
 
 
-def ingest_pdf_publication(
-    connection: sqlite3.Connection,
+def build_pdf_payload(
     pdf_path: str | Path,
     *,
     publication_date: str,
@@ -109,20 +113,18 @@ def ingest_pdf_publication(
     effective_date: str | None = None,
     human_review_status: str = "pending",
 ) -> dict:
-    """Parse the official SC Malaysia PDF (sc_pdf_parser) and stage it as a publication.
+    """Parse the PDF into the exact rows that would be staged, writing nothing.
 
-    ``publication_date`` must be supplied explicitly (e.g. "2026-05-29") rather
-    than inferred from the PDF, since the PDF's own "As at 21 May 2026" text is
-    the securities list's as-of date, not necessarily the publication's release
-    date -- conflating the two would be exactly the kind of metadata guess this
-    system must not make.
+    Split out of ``ingest_pdf_publication`` so the parse can be carried to
+    another machine as data. The production host has no PDF parser installed,
+    and re-parsing there would mean the publication that gets activated is not
+    the one that was reviewed -- a different pdfplumber version could in
+    principle extract differently and nothing downstream would detect it. The
+    payload this returns is serialisable, carries ``source_document_hash`` so
+    provenance remains the PDF's rather than the intermediate file's, and is
+    inserted verbatim by ``ingest_payload``.
 
-    The publication is marked 'needs_reconciliation' instead of the requested
-    ``human_review_status`` whenever sc_pdf_parser.reconcile() reports any
-    unresolved discrepancy, duplicate, invalid record, or numbering anomaly --
-    a publication in that state cannot be activated (sc_malaysia_store enforces
-    this). A clean reconciliation still only reaches 'pending': it makes the
-    publication ready for human review, never approved or active on its own.
+    It is pure: no connection, no writes, no clock.
     """
     pdf_path = Path(pdf_path)
     if not pdf_path.exists():
@@ -163,11 +165,6 @@ def ingest_pdf_publication(
         "human_review_status": effective_status,
         "human_review_notes": reconciliation_notes,
     }
-
-    try:
-        sc_malaysia_store.insert_publication(connection, pub)
-    except sqlite3.IntegrityError:
-        return {"status": "error", "reason": "publication_already_exists", "publication_id": pub_id}
 
     seen_tickers: set[str] = set()
     securities: list[dict] = []
@@ -216,15 +213,84 @@ def ingest_pdf_publication(
         )
         seen_tickers.add(r.ticker)
 
-    sc_malaysia_store.insert_securities(connection, pub_id, securities)
+    return {
+        "status": "parsed",
+        "payload_version": PAYLOAD_VERSION,
+        "publication": pub,
+        "securities": securities,
+        "reconciliation_report": report,
+        "table2_conflicts_skipped": skipped_conflicts,
+    }
+
+
+def ingest_payload(connection: sqlite3.Connection, payload: dict) -> dict:
+    """Stage a payload from ``build_pdf_payload``. Needs no PDF parser.
+
+    Every field is taken from the payload as parsed. Nothing is recomputed and
+    nothing is upgraded: in particular a 'needs_reconciliation' payload stays
+    needs_reconciliation, so carrying a parse between machines can never launder
+    a failed reconciliation into a stageable one.
+    """
+    if payload.get("payload_version") != PAYLOAD_VERSION:
+        return {
+            "status": "error",
+            "reason": "unsupported_payload_version",
+            "found": payload.get("payload_version"),
+            "expected": PAYLOAD_VERSION,
+        }
+
+    pub = payload["publication"]
+    pub_id = pub["id"]
+    try:
+        sc_malaysia_store.insert_publication(connection, pub)
+    except sqlite3.IntegrityError:
+        return {"status": "error", "reason": "publication_already_exists", "publication_id": pub_id}
+
+    inserted = sc_malaysia_store.insert_securities(connection, pub_id, payload["securities"])
 
     return {
         "status": "ingested",
         "publication_id": pub_id,
-        "publication_date": publication_date,
-        "human_review_status": effective_status,
-        "reconciliation_notes": reconciliation_notes,
-        "reconciliation_report": report,
-        "securities_inserted": len(securities),
-        "table2_conflicts_skipped": skipped_conflicts,
+        "publication_date": pub["publication_date"],
+        "human_review_status": pub["human_review_status"],
+        "reconciliation_notes": pub["human_review_notes"],
+        "reconciliation_report": payload["reconciliation_report"],
+        "securities_inserted": inserted["inserted"],
+        "table2_conflicts_skipped": payload["table2_conflicts_skipped"],
     }
+
+
+def ingest_pdf_publication(
+    connection: sqlite3.Connection,
+    pdf_path: str | Path,
+    *,
+    publication_date: str,
+    source_url: str | None = None,
+    effective_date: str | None = None,
+    human_review_status: str = "pending",
+) -> dict:
+    """Parse the official SC Malaysia PDF (sc_pdf_parser) and stage it as a publication.
+
+    ``publication_date`` must be supplied explicitly (e.g. "2026-05-29") rather
+    than inferred from the PDF, since the PDF's own "As at 21 May 2026" text is
+    the securities list's as-of date, not necessarily the publication's release
+    date -- conflating the two would be exactly the kind of metadata guess this
+    system must not make.
+
+    The publication is marked 'needs_reconciliation' instead of the requested
+    ``human_review_status`` whenever sc_pdf_parser.reconcile() reports any
+    unresolved discrepancy, duplicate, invalid record, or numbering anomaly --
+    a publication in that state cannot be activated (sc_malaysia_store enforces
+    this). A clean reconciliation still only reaches 'pending': it makes the
+    publication ready for human review, never approved or active on its own.
+    """
+    payload = build_pdf_payload(
+        pdf_path,
+        publication_date=publication_date,
+        source_url=source_url,
+        effective_date=effective_date,
+        human_review_status=human_review_status,
+    )
+    if payload["status"] != "parsed":
+        return payload
+    return ingest_payload(connection, payload)
