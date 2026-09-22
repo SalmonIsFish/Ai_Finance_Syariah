@@ -29,6 +29,7 @@ export default defineConfig({
       '/paper/risk-snapshot': 'http://127.0.0.1:8000',
       '/news': 'http://127.0.0.1:8000',
       '/stock': 'http://127.0.0.1:8000',
+      '/shariah': 'http://127.0.0.1:8000',
       '/api': 'http://127.0.0.1:8000',
     }
   }

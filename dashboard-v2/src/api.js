@@ -64,3 +64,20 @@ export const fetchApprovals = () => fetchGet("/approvals");
  *  estimated purification owed on any holding it finds non-compliant. */
 export const fetchCompliance = () => fetchGet("/portfolio/compliance");
 export const fetchAuditEvents = () => fetchGet("/audit");
+
+/** The active SC Malaysia publication's securities. `limit` is server-capped at
+ *  1000 and the list is 905, so this is deliberately one call rather than
+ *  pagination -- the whole authority list fits. `status` is PASS | REJECT | ALL. */
+export const fetchUniverse = (status = "ALL") =>
+  fetchGet(`/api/universe?shariah_status=${status}&limit=1000`);
+
+/** Publication provenance: source_document_hash, parser version, who approved
+ *  and activated it. Deliberately a second call -- `active_publication` on the
+ *  universe response carries only id/date/activated_at, not the hash. */
+export const fetchPublication = (publicationId) =>
+  fetchGet(`/api/shariah/publication/${encodeURIComponent(publicationId)}`);
+
+/** The current US verdict for each symbol ever screened -- one row per company.
+ *  Not the raw log: that repeats a symbol once per screen (14,213 rows across
+ *  16 symbols in production) and, being capped, omits symbols entirely. */
+export const fetchScreenedUS = () => fetchGet("/shariah/screens?latest_only=true");

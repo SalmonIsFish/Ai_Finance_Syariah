@@ -127,28 +127,17 @@ def record_shariah_screen(connection: sqlite3.Connection, verdict: dict) -> dict
     }
 
 
-def list_shariah_screens(
-    connection: sqlite3.Connection, *, symbol: str | None = None, limit: int = 100
-) -> list[dict]:
-    """Recent screens, newest first. Optionally narrowed to one symbol."""
-    ensure_shariah_screen_tables(connection)
-    capped_limit = max(1, min(2000, limit))
-    columns = (
-        "id, screened_at, symbol, status, screen, report_date, "
-        "debt_ratio_pct, cash_ratio_pct, limit_pct, provider, reason, "
-        "previous_status, payload"
-    )
-    if symbol:
-        rows = connection.execute(
-            f"SELECT {columns} FROM shariah_screens WHERE symbol = ? ORDER BY id DESC LIMIT ?",
-            (str(symbol).strip().upper(), capped_limit),
-        ).fetchall()
-    else:
-        rows = connection.execute(
-            f"SELECT {columns} FROM shariah_screens ORDER BY id DESC LIMIT ?",
-            (capped_limit,),
-        ).fetchall()
+SCREEN_COLUMNS = (
+    "id, screened_at, symbol, status, screen, report_date, "
+    "debt_ratio_pct, cash_ratio_pct, limit_pct, provider, reason, "
+    "previous_status, payload"
+)
 
+
+def _hydrate(rows) -> list[dict]:
+    """Rows -> dicts with `payload` parsed. Shared so every listing function
+    returns the identical row shape; a caller must not have to care which query
+    produced a row."""
     screens = []
     for row in rows:
         screen = dict(row)
@@ -158,6 +147,53 @@ def list_shariah_screens(
             screen["payload"] = {}
         screens.append(screen)
     return screens
+
+
+def list_shariah_screens(
+    connection: sqlite3.Connection, *, symbol: str | None = None, limit: int = 100
+) -> list[dict]:
+    """Recent screens, newest first. Optionally narrowed to one symbol."""
+    ensure_shariah_screen_tables(connection)
+    capped_limit = max(1, min(2000, limit))
+    if symbol:
+        rows = connection.execute(
+            f"SELECT {SCREEN_COLUMNS} FROM shariah_screens "
+            "WHERE symbol = ? ORDER BY id DESC LIMIT ?",
+            (str(symbol).strip().upper(), capped_limit),
+        ).fetchall()
+    else:
+        rows = connection.execute(
+            f"SELECT {SCREEN_COLUMNS} FROM shariah_screens ORDER BY id DESC LIMIT ?",
+            (capped_limit,),
+        ).fetchall()
+    return _hydrate(rows)
+
+
+def latest_screen_per_symbol(connection: sqlite3.Connection) -> list[dict]:
+    """The current verdict for every symbol ever screened -- one row each.
+
+    This table is an append-only log, and it is far more append than log: in
+    production on 2026-09-22 it held 14,213 rows for 16 distinct symbols, AAPL
+    alone appearing 1,301 times. Listing it raw answers "what did we screen
+    recently", which is a question about *activity*. This answers "what do we
+    currently believe about each company", which is a question about *state* --
+    and it is the only one of the two a reader can mistake for a roster.
+
+    That distinction is why this exists rather than the UI de-duplicating
+    client-side: a capped log cannot be de-duplicated after the fact without
+    silently dropping symbols whose latest screen fell outside the cap. There
+    is deliberately no limit parameter -- the result is bounded by the number
+    of companies, not by traffic.
+
+    Ordered by symbol, not by recency: this is a roster to look things up in.
+    """
+    ensure_shariah_screen_tables(connection)
+    rows = connection.execute(
+        f"SELECT {SCREEN_COLUMNS} FROM shariah_screens "
+        "WHERE id IN (SELECT MAX(id) FROM shariah_screens GROUP BY symbol) "
+        "ORDER BY symbol ASC"
+    ).fetchall()
+    return _hydrate(rows)
 
 
 def record_screen_to_default_db(verdict: dict) -> dict:

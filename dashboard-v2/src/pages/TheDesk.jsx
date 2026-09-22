@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import OfficerCard from "../components/OfficerCard";
 import { fetchPreview, submitApproval, fetchRiskSnapshot } from "../api";
 import { verdictTextClass } from "../verdict";
+import { detectMarket, marketLabel, marketBadgeClass, marketAuthority, formatPrice } from "../market";
 
 export default function TheDesk() {
   // Market & Screening links here as /dashboard?symbol=AMD&price=606.46 so a
@@ -25,6 +26,11 @@ export default function TheDesk() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [preview, setPreview] = useState(null);
+
+  // The gate's own answer once a preview exists; until then, a guess from the
+  // symbol's shape. Never the other way round -- the authority decides which
+  // market a symbol belongs to, this is only a pre-flight hint.
+  const ticketMarket = preview?.agent_summary?.shariah?.market ?? detectMarket(symbol);
 
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewPreview, setReviewPreview] = useState(null);
@@ -141,13 +147,30 @@ export default function TheDesk() {
             it. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm text-[var(--color-muted)] mb-1">Symbol</label>
-            <input 
-              type="text" 
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm text-[var(--color-muted)]">Symbol</label>
+              {/* Which authority will screen this ticket. Before a preview runs
+                  this is a local guess from the symbol's shape (see
+                  src/market.js); once a preview exists the gate's own answer
+                  replaces it. Styled neutrally on purpose -- the verdict
+                  palette means permitted/refused, and "this is a Malaysian
+                  stock" is neither. */}
+              <span
+                title={marketAuthority(ticketMarket)}
+                className={`px-2 py-0.5 rounded text-xs font-bold ${marketBadgeClass()}`}
+              >
+                {marketLabel(ticketMarket)}
+              </span>
+            </div>
+            <input
+              type="text"
               value={symbol}
               onChange={(e) => setSymbol(e.target.value)}
               className="w-full bg-[var(--color-bg)] border border-[var(--color-border-strong)] rounded px-3 py-2 text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)] uppercase tabular-nums"
             />
+            <p className="mt-1 text-xs text-[var(--color-muted)]">
+              {marketAuthority(ticketMarket)}
+            </p>
           </div>
           <div>
             <label className="block text-sm text-[var(--color-muted)] mb-1">Side</label>
@@ -209,7 +232,7 @@ export default function TheDesk() {
             
             <OfficerCard 
               role="Quant Manager"
-              title={`Ruling on ${preview.symbol} • ${preview.side} ${preview.quantity} @ $${preview.price}`}
+              title={`Ruling on ${preview.symbol} • ${preview.side} ${preview.quantity} @ ${formatPrice(preview.price, ticketMarket)}`}
               verdict={preview.agent_summary?.quant?.signal === 'BUY' ? 'PASS' : preview.agent_summary?.quant?.signal === 'NO_SIGNAL' ? 'UNKNOWN' : 'REJECT'}
               verdictLabel={preview.agent_summary?.quant?.signal || 'N/A'}
               details={[
@@ -242,7 +265,7 @@ export default function TheDesk() {
 
             <OfficerCard 
               role="Risk Manager"
-              title={`Ruling on ${preview.symbol} • ${preview.side} ${preview.quantity} @ $${preview.price}`}
+              title={`Ruling on ${preview.symbol} • ${preview.side} ${preview.quantity} @ ${formatPrice(preview.price, ticketMarket)}`}
               verdict={preview.agent_summary?.risk?.status || 'UNKNOWN'}
               details={[
                 { label: "Position Size", value: `${(preview.notional || 0)}` },

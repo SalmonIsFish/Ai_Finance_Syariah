@@ -12,6 +12,7 @@ import sqlite3
 
 from shariah_screen_store import (
     ensure_shariah_screen_tables,
+    latest_screen_per_symbol,
     latest_shariah_screen,
     list_shariah_screens,
     record_shariah_screen,
@@ -202,6 +203,61 @@ def main() -> None:
     assert messy_connection.execute("SELECT COUNT(*) FROM shariah_screens").fetchone()[0] == 1
 
     print("PASS: shariah screening verdicts append with their ratios and detect change.")
+    test_latest_screen_per_symbol_is_a_roster_not_a_log()
+
+
+def test_latest_screen_per_symbol_is_a_roster_not_a_log():
+    """One current row per symbol -- and crucially, no symbol left out.
+
+    The failure this guards is specific and was observed in production on
+    2026-09-22: the log held 14,213 rows across 16 symbols, AAPL alone 1,301 of
+    them. Anything reading the log's newest N rows to build a list of companies
+    sees the same few symbols repeatedly and silently omits the rest. A UI built
+    on that would under-report which companies had been screened, while looking
+    entirely plausible.
+
+    So the load below is deliberately lopsided: one symbol screened many times,
+    another screened once and long ago. A naive `ORDER BY id DESC LIMIT n` drops
+    the quiet one, which is exactly the bug.
+    """
+    connection = make_connection()
+
+    record_shariah_screen(connection, compliant_verdict(symbol="QUIET"))
+    for _ in range(12):
+        record_shariah_screen(connection, compliant_verdict(symbol="NOISY", debt=8.5))
+    # NOISY's verdict changes on its final screen. The roster must show the new
+    # one -- a stale verdict is worse than no verdict, since it reads as current.
+    record_shariah_screen(
+        connection,
+        {
+            "symbol": "NOISY",
+            "status": "NON_COMPLIANT",
+            "reason": "debt 41.0% over 33%",
+            "ratios": {"debt_ratio_pct": 41.0, "cash_ratio_pct": 3.0, "limit_pct": 33.0},
+        },
+    )
+    # A third symbol whose verdict is UNKNOWN, to prove the three states survive
+    # a roster read. Collapsing UNKNOWN into NON_COMPLIANT here would invent a
+    # divestment duty the screen never asserted.
+    record_shariah_screen(connection, {"symbol": "MURKY", "status": "UNKNOWN"})
+
+    roster = latest_screen_per_symbol(connection)
+
+    assert [row["symbol"] for row in roster] == ["MURKY", "NOISY", "QUIET"], roster
+    by_symbol = {row["symbol"]: row for row in roster}
+    assert by_symbol["NOISY"]["status"] == "NON_COMPLIANT", "roster served a stale verdict"
+    assert by_symbol["NOISY"]["debt_ratio_pct"] == 41.0
+    assert by_symbol["QUIET"]["status"] == "COMPLIANT", "the quiet symbol was dropped"
+    assert by_symbol["MURKY"]["status"] == "UNKNOWN", "UNKNOWN must survive as UNKNOWN"
+
+    # The log itself is untouched: the roster is a view, not a compaction.
+    assert connection.execute("SELECT COUNT(*) FROM shariah_screens").fetchone()[0] == 15
+
+    # Same row shape as the log, so one renderer can serve both.
+    assert set(roster[0]) == set(list_shariah_screens(connection, limit=1)[0])
+    assert isinstance(by_symbol["NOISY"]["payload"], dict), "payload must arrive parsed"
+
+    print("PASS: latest_screen_per_symbol returns one current row per symbol, omitting none.")
 
 
 if __name__ == "__main__":

@@ -14,7 +14,17 @@ from watchlist_store import save_opportunity_scan, save_watchlist_settings
 fixture_dir = tempfile.TemporaryDirectory()
 import pytest
 
-_ENV_ORIG = {k: os.environ.get(k) for k in ["TRADING_MODE", "PAPER_EXECUTION_ENABLED", "PAPER_EXECUTION_ADAPTER", "MOOMOO_MODE", "PAPER_ACCOUNT_EQUITY"]}
+_ENV_ORIG = {
+    k: os.environ.get(k)
+    for k in [
+        "TRADING_MODE",
+        "PAPER_EXECUTION_ENABLED",
+        "PAPER_EXECUTION_ADAPTER",
+        "MOOMOO_MODE",
+        "PAPER_ACCOUNT_EQUITY",
+    ]
+}
+
 
 @pytest.fixture(autouse=True)
 def _restore_env():
@@ -30,6 +40,7 @@ def _restore_env():
         else:
             os.environ[_k] = _ENV_ORIG[_k]
 
+
 os.environ["TRADING_MODE"] = "approval"
 os.environ["PAPER_EXECUTION_ENABLED"] = "false"
 os.environ["PAPER_EXECUTION_ADAPTER"] = "disabled"
@@ -41,7 +52,9 @@ def seed_market_overview_data() -> None:
     local_api.DB_PATH = Path(fixture_dir.name) / "paper_trading.db"
     connection = local_api.db()
     try:
-        save_watchlist_settings(connection, symbols=["AAPL", "MSFT", "TSLA", "NVDA"], alert_threshold_pct=2.5)
+        save_watchlist_settings(
+            connection, symbols=["AAPL", "MSFT", "TSLA", "NVDA", "5225"], alert_threshold_pct=2.5
+        )
         ensure_portfolio_tables(connection)
         apply_fill_to_position(
             connection,
@@ -115,6 +128,29 @@ def seed_market_overview_data() -> None:
                         "cache_age_hours": None,
                         "bars": 0,
                     },
+                    {
+                        # A Bursa row. The market label is the gate's own
+                        # routing result carried through the scan payload, not
+                        # something re-derived downstream.
+                        "symbol": "5225",
+                        "decision": "READY_FOR_APPROVAL",
+                        "ready_for_approval": True,
+                        "blockers": [],
+                        "price": 6.5,
+                        "trigger_price": 6.4,
+                        "breakout_gap_pct": 1.5625,
+                        "distance_to_trigger": -0.1,
+                        "shariah_status": "PASS",
+                        "shariah_market": "MY",
+                        "quant_signal": "BUY",
+                        "risk_status": "PASS",
+                        "watch_status": "READY",
+                        "alert_status": "TRIGGERED",
+                        "price_source": "tiingo",
+                        "data_freshness": "live",
+                        "cache_age_hours": None,
+                        "bars": 220,
+                    },
                 ]
             },
         )
@@ -146,20 +182,20 @@ def main() -> None:
     assert payload["status"] == "OK"
     assert payload["trading_mode"] == "approval"
     assert payload["broker_submission"] is False
-    assert payload["watchlist"]["symbols"] == ["AAPL", "MSFT", "TSLA", "NVDA"]
-    assert payload["watchlist"]["count"] == 4
+    assert payload["watchlist"]["symbols"] == ["AAPL", "MSFT", "TSLA", "NVDA", "5225"]
+    assert payload["watchlist"]["count"] == 5
     assert payload["watchlist"]["unscanned_symbols"] == ["NVDA"]
     assert payload["latest_scan"]["scanned_at"] == "2026-07-25T00:00:00+00:00"
-    assert payload["latest_scan"]["scanned_count"] == 3
-    assert payload["latest_scan"]["coverage_pct"] == 75.0
-    assert payload["counts"]["ready"] == 1
+    assert payload["latest_scan"]["scanned_count"] == 4
+    assert payload["latest_scan"]["coverage_pct"] == 80.0
+    assert payload["counts"]["ready"] == 2
     assert payload["counts"]["alerts"] == 1
     assert payload["counts"]["near_breakout"] == 1
     assert payload["counts"]["data_errors"] == 1
-    assert payload["data_health"]["freshness_counts"]["live"] == 1
+    assert payload["data_health"]["freshness_counts"]["live"] == 2
     assert payload["data_health"]["freshness_counts"]["cached"] == 1
     assert payload["data_health"]["freshness_counts"]["unavailable"] == 1
-    assert payload["data_health"]["source_counts"]["tiingo"] == 1
+    assert payload["data_health"]["source_counts"]["tiingo"] == 2
     assert payload["data_health"]["stale_cache_symbols"] == ["MSFT"]
     assert payload["portfolio"]["open_positions"] == 1
     assert payload["portfolio"]["total_exposure"] == 110.0
@@ -167,18 +203,45 @@ def main() -> None:
     assert payload["alert_candidates"][0]["symbol"] == "MSFT"
     assert payload["data_error_candidates"][0]["symbol"] == "TSLA"
     assert payload["recent_alert_events"]
+
+    # --------------------------------------------------- market, per candidate
+    # The label is carried through from the scan payload, never re-derived. A
+    # row scanned before the field existed carries None, and None must stay
+    # None: silently defaulting it to "US" would label a Bursa stock American
+    # on the strength of a missing key.
+    by_symbol = {row["symbol"]: row for row in payload["ready_candidates"]}
+    assert by_symbol["5225"]["market"] == "MY", by_symbol["5225"]
+    assert by_symbol["AAPL"]["market"] is None, (
+        "a scan row without shariah_market must report None, not a guessed market"
+    )
+
+    # ------------------------------------------- counts are computed pre-slice
+    # ready_candidates is truncated to 10 before it is serialized. A client that
+    # split that slice by market would under-report without knowing it, so the
+    # counts below are taken over every candidate and are what let the UI say
+    # "showing N of M".
+    assert payload["by_market"]["scanned"]["MY"] == 1
+    assert payload["by_market"]["scanned"]["unknown"] == 3, payload["by_market"]
+    assert payload["by_market"]["ready"]["MY"] == 1
+    assert payload["by_market"]["ready_total"] == 2
+    assert payload["by_market"]["ready_total"] >= len(payload["ready_candidates"])
+
     print("PASS: market overview contract summarizes watchlist health and scan freshness.")
 
 
 if __name__ == "__main__":
     import auth
+
     try:
         from local_api import app as _my_app, get_owner_actor as _get_owner_actor
     except ImportError:
         import local_api
+
         _my_app = local_api.app
         _get_owner_actor = local_api.get_owner_actor
-    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(username='project_owner', role='admin')
+    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(
+        username="project_owner", role="admin"
+    )
     try:
         main()
     finally:

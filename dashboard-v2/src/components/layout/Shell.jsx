@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { Moon, Sun, Briefcase, Activity, BarChart2, BookOpen } from "lucide-react";
+import { Moon, Sun, Briefcase, Activity, BarChart2, BookOpen, ListChecks } from "lucide-react";
 import { useState, useEffect } from "react";
 import ErrorBoundary from "../ErrorBoundary";
 
@@ -20,6 +20,7 @@ export default function Shell() {
     { name: "The Desk", to: "/", icon: Briefcase },
     { name: "Portfolio & Risk", to: "/risk", icon: Activity },
     { name: "Market & Screening", to: "/market", icon: BarChart2 },
+    { name: "Shariah Universe", to: "/securities", icon: ListChecks },
     { name: "The Ledger", to: "/ledger", icon: BookOpen },
   ];
 

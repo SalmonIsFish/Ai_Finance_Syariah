@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { fetchMarketOverview, fetchNews, fetchStockProfile } from "../api";
 import { verdictTextClass } from "../verdict";
+import { formatPrice, marketLabel, marketBadgeClass, detectMarket } from "../market";
 
 /**
  * `/news` returns ai_summary as an OBJECT -- {text, model, shariah_status,
@@ -25,6 +26,8 @@ export default function MarketScreening() {
   const [news, setNews] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [marketFilter, setMarketFilter] = useState("ALL");
 
   const [searchSymbol, setSearchSymbol] = useState("");
   const [profileData, setProfileData] = useState(null);
@@ -74,6 +77,32 @@ export default function MarketScreening() {
     load();
   }, []);
 
+  /**
+   * Counts come from the server, which computes them over every scanned
+   * candidate. `ready_candidates` is truncated to 10 before it is sent, so
+   * counting the rows we happen to have been given would under-report: "2
+   * Malaysian" could quietly mean five exist. Falling back to the local count
+   * only when an older backend omits by_market.
+   */
+  const readyByMarket = useMemo(
+    () => data?.by_market?.ready ?? {},
+    [data]
+  );
+
+  const visibleCandidates = useMemo(() => {
+    const rows = data?.ready_candidates ?? [];
+    if (marketFilter === "ALL") return rows;
+    // A row with no market (scanned before the field existed) is never assumed
+    // to be US -- it simply does not match a specific market filter.
+    return rows.filter((cand) => cand.market === marketFilter);
+  }, [data, marketFilter]);
+
+  const readyTotal = data?.by_market?.ready_total ?? (data?.ready_candidates?.length ?? 0);
+
+  /** The profile endpoint reports the market it actually routed to; prefer that
+   *  over the local guess, which is only a fallback for an older payload. */
+  const profileMarket = profileData?.market ?? detectMarket(searchSymbol);
+
   if (loading) return <div className="text-[var(--color-muted)] animate-pulse">Loading Market & Screening...</div>;
   if (error) return <div className="text-[var(--color-bad)] p-4 bg-[var(--color-bad-bg)] rounded">{error}</div>;
 
@@ -100,12 +129,32 @@ export default function MarketScreening() {
       </section>
 
       <section>
-        <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Opportunities (Ready)</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 className="text-lg font-bold text-[var(--color-text)]">Opportunities (Ready)</h2>
+          <div className="flex gap-1">
+            {["ALL", "MY", "US"].map((value) => (
+              <button
+                key={value}
+                onClick={() => setMarketFilter(value)}
+                className={
+                  marketFilter === value
+                    ? "px-3 py-1.5 text-xs font-bold rounded bg-[var(--color-accent)] text-[var(--color-bg)]"
+                    : "px-3 py-1.5 text-xs font-bold rounded bg-[var(--color-panel-2)] text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors"
+                }
+              >
+                {value === "ALL" ? "All markets" : null}
+                {value === "MY" ? `Malaysia ${readyByMarket.MY ?? 0}` : null}
+                {value === "US" ? `US ${readyByMarket.US ?? 0}` : null}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-[var(--color-panel-2)] border-b border-[var(--color-border)] text-[var(--color-subtle)] text-xs uppercase tracking-wider">
               <tr>
                 <th className="px-4 py-3 font-bold">Symbol</th>
+                <th className="px-4 py-3 font-bold">Market</th>
                 <th className="px-4 py-3 font-bold">Price</th>
                 <th className="px-4 py-3 font-bold">Signal</th>
                 <th className="px-4 py-3 font-bold">Shariah</th>
@@ -114,15 +163,28 @@ export default function MarketScreening() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
-              {!data?.ready_candidates?.length ? (
+              {!visibleCandidates.length ? (
                 <tr>
-                  <td colSpan="6" className="px-4 py-4 text-center text-[var(--color-muted)]">No ready opportunities right now.</td>
+                  <td colSpan="7" className="px-4 py-4 text-center text-[var(--color-muted)]">
+                    {/* A Malaysia filter that finds nothing is almost always a
+                        watchlist fact, not a market fact -- the scanner's
+                        default universe is entirely US. Saying "no ready
+                        opportunities" there would read as a broken feature. */}
+                    {marketFilter === "MY" && !(readyByMarket.MY ?? 0)
+                      ? "No Malaysian symbols are in the current watchlist, so none were scanned."
+                      : "No ready opportunities right now."}
+                  </td>
                 </tr>
               ) : (
-                data.ready_candidates.map(cand => (
+                visibleCandidates.map(cand => (
                   <tr key={cand.symbol} className="hover:bg-[var(--color-bg-soft)] transition-colors">
                     <td className="px-4 py-3 font-bold">{cand.symbol}</td>
-                    <td className="px-4 py-3 font-mono tabular-nums">${Number(cand.price).toFixed(2)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${marketBadgeClass()}`}>
+                        {marketLabel(cand.market)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono tabular-nums">{formatPrice(cand.price, cand.market)}</td>
                     <td className="px-4 py-3 font-bold text-[var(--color-ok)]">{cand.quant_signal}</td>
                     <td className={`px-4 py-3 font-bold ${verdictTextClass(cand.shariah_status)}`}>{cand.shariah_status}</td>
                     <td className={`px-4 py-3 font-bold ${verdictTextClass(cand.risk_status)}`}>{cand.risk_status}</td>
@@ -161,6 +223,13 @@ export default function MarketScreening() {
             </tbody>
           </table>
         </div>
+        <p className="mt-2 text-xs text-[var(--color-muted)]">
+          Showing {visibleCandidates.length} of {readyTotal} ready candidates
+          {readyTotal > (data?.ready_candidates?.length ?? 0)
+            ? " (the server sends at most 10)"
+            : null}
+          .
+        </p>
         <p className="mt-2 text-xs text-[var(--color-muted)]">
           These verdicts come from the last watchlist scan. <span className="text-[var(--color-text)]">Buy</span> opens
           a pre-filled ticket on The Desk — it does not place an order. Every gate is
@@ -208,7 +277,7 @@ export default function MarketScreening() {
               <div className="border border-[var(--color-border)] rounded p-4 bg-[var(--color-panel-2)]">
                 <span className="block text-[var(--color-subtle)] uppercase tracking-wider text-xs font-bold mb-1">Market Data</span>
                 <div className="text-lg font-mono tabular-nums text-[var(--color-text)]">
-                  ${Number(profileData.market_data?.latest_close || 0).toFixed(2)}
+                  {formatPrice(profileData.market_data?.latest_close, profileMarket)}
                 </div>
                 <div className="text-xs text-[var(--color-muted)] mt-1">{profileData.market_data?.bars || 0} bars • {profileData.market_data?.source || 'N/A'}</div>
               </div>
@@ -218,7 +287,7 @@ export default function MarketScreening() {
                 <div className="text-lg font-bold text-[var(--color-text)]">
                   {profileData.latest_opportunity?.watch_status || 'NONE'}
                 </div>
-                <div className="text-xs text-[var(--color-muted)] mt-1 font-mono tabular-nums">Trigger: ${Number(profileData.latest_opportunity?.trigger_price || 0).toFixed(2)}</div>
+                <div className="text-xs text-[var(--color-muted)] mt-1 font-mono tabular-nums">Trigger: {formatPrice(profileData.latest_opportunity?.trigger_price, profileMarket)}</div>
               </div>
 
               <div className="border border-[var(--color-border)] rounded p-4 bg-[var(--color-panel-2)]">

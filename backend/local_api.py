@@ -49,6 +49,7 @@ from portfolio_store import (
 from shariah_candidate import build_shariah_candidate
 from shariah_screen_store import (
     ensure_shariah_screen_tables,
+    latest_screen_per_symbol,
     list_shariah_screens,
 )
 from shariah_explain import explain_symbol
@@ -665,6 +666,12 @@ def compact_market_candidate(row: dict) -> dict:
         if row.get("breakout_gap_pct") is not None
         else item.get("breakout_gap_pct"),
         "distance_to_trigger": item.get("distance_to_trigger"),
+        # The market the Shariah gate actually routed this symbol to, straight
+        # from the scan payload -- i.e. the authoritative detect_market() result
+        # rather than a rule re-implemented in the client. Stays None for rows
+        # scanned before this field existed; a consumer must render that as
+        # unknown, never default it to US.
+        "market": item.get("shariah_market"),
         "shariah_status": item.get("shariah_status"),
         "quant_signal": item.get("quant_signal"),
         "risk_status": item.get("risk_status"),
@@ -703,8 +710,17 @@ def market_overview_snapshot(
         "not_ready": 0,
     }
     stale_cache_symbols = []
+    # Counted over every candidate, deliberately before the [:10] slices below.
+    # A client that splits the *sliced* ready_candidates by market would report
+    # "2 Malaysian" when five exist, with nothing on screen to reveal the
+    # truncation. These counts are what let the UI say "showing N of M".
+    market_counts = {}
+    ready_market_counts = {}
     for candidate in candidates:
         watch_status = candidate.get("watch_status")
+        increment_count(market_counts, candidate.get("market"))
+        if candidate.get("ready_for_approval"):
+            increment_count(ready_market_counts, candidate.get("market"))
         if candidate.get("ready_for_approval"):
             status_counts["ready"] += 1
         if candidate.get("alert_status") == "ALERT":
@@ -757,6 +773,11 @@ def market_overview_snapshot(
             "coverage_pct": round((len(candidates) / len(symbols)) * 100, 4) if symbols else 0,
         },
         "counts": status_counts,
+        "by_market": {
+            "scanned": market_counts,
+            "ready": ready_market_counts,
+            "ready_total": len(ready_candidates),
+        },
         "data_health": {
             "freshness_counts": freshness_counts,
             "source_counts": source_counts,
@@ -1865,15 +1886,26 @@ def opportunity_alerts(limit: int = 50, actor: auth.Actor = Depends(get_owner_ac
 
 
 @app.get("/shariah/screens")
-def shariah_screens(symbol: str | None = None, limit: int = 50) -> list[dict]:
+def shariah_screens(
+    symbol: str | None = None, limit: int = 50, latest_only: bool = False
+) -> list[dict]:
     """The append-only record of every US screen that actually ran.
 
     Read-only and derived: nothing here decides anything, it reports what the
     screen already decided and when. The verdict a caller should act on is the
     one /paper/preview returns now, not the newest row in this log.
+
+    `latest_only=true` returns the current verdict for each distinct symbol
+    instead of recent activity -- one row per company, ordered by symbol. Use
+    it for anything that reads as a list of companies; the default log repeats
+    a symbol once per screen (14,213 rows across 16 symbols in production) and,
+    being capped, can omit a symbol entirely. `symbol` and `limit` do not apply
+    to it: the result is bounded by how many companies exist, not by traffic.
     """
     connection = db()
     try:
+        if latest_only:
+            return latest_screen_per_symbol(connection)
         return list_shariah_screens(connection, symbol=symbol, limit=max(1, min(200, limit)))
     finally:
         connection.close()
