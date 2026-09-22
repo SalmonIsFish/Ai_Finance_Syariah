@@ -45,6 +45,9 @@ def test_dashboard_endpoints_require_owner_auth(auth_client):
         # locked down because only the "live" variants were on the list.
         "/positions",
         "/portfolio/history",
+        # Not account data, but every call fans out into several OpenRouter
+        # requests. Anonymous access was uncapped spend on the owner's account.
+        "/news",
         "/investment-committee",
         "/market-overview",
         "/execution-audit",

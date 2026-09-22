@@ -1652,7 +1652,11 @@ def market_overview(
 
 
 @app.get("/news")
-def news(symbols: str | None = None, limit: int = 20) -> dict:
+def news(
+    symbols: str | None = None,
+    limit: int = 20,
+    actor: auth.Actor = Depends(get_owner_actor),
+) -> dict:
     """Recent articles for the requested symbols, with optional AI summaries.
 
     The response is fetch_news's raw Alpaca pass-through, plus an `ai_summary`

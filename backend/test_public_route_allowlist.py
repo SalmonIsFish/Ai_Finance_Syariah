@@ -55,7 +55,15 @@ PUBLIC_ROUTES = {
     "/audit": "GET is the public execution-audit view; POST needs the operator key at nginx.",
     "/market-data/{symbol}": "Market prices. Not account data.",
     "/moomoo/status": "Legacy gateway reachability. Booleans only.",
-    "/news": "Market news. Not account data.",
+    # /news is NOT here any more. It was, with the reason "Market news. Not
+    # account data." -- which was true and beside the point. Each request makes
+    # up to NEWS_AI_SUMMARY_MAX_ARTICLES (5) OpenRouter calls, so an anonymous
+    # caller could bill the owner's LLM account at the nginx rate limit: roughly
+    # 20 calls/second, on the order of $850/day, with no spend cap anywhere in
+    # the codebase. Gated 2026-09-22.
+    #
+    # The lesson for anything added below: "does this disclose data?" is only
+    # half the question. The other half is "does calling this cost us money?"
     "/shariah/screens": "Append-only screening verdict log. Method, not holdings.",
     "/stock/{symbol}/explain": "Explanation of a screening verdict.",
     "/stock/{symbol}/option-strategy": "Proposes a contract. Approves nothing.",
@@ -132,11 +140,56 @@ def test_account_and_position_routes_are_never_public():
     )
 
 
+# Routes whose handlers reach a metered external service, so that calling them
+# costs real money. Kept as an explicit list because a static check cannot
+# reliably follow the call graph into news_summarizer / copilot_api. Add to this
+# list whenever a route starts spending.
+COST_INCURRING_ROUTES = [
+    "/news",  # up to NEWS_AI_SUMMARY_MAX_ARTICLES OpenRouter calls per request
+    "/copilot/explain",  # one OpenRouter call, large prompt
+    "/copilot/research",  # one OpenRouter call, larger prompt
+]
+
+
+def test_routes_that_spend_money_are_authenticated():
+    """Data disclosure is only half of why a route needs auth.
+
+    `/news` sat on the public allowlist with the reason "Market news. Not
+    account data." That was accurate and irrelevant: each request fans out into
+    several OpenRouter calls, so an anonymous caller could bill the owner's LLM
+    account as fast as nginx would let them through -- on the order of $850/day
+    at the existing rate limit, with no spend cap anywhere in the codebase.
+
+    There is still no spend cap. Until there is, authentication is the only
+    thing standing between a stranger and the bill.
+    """
+    by_path = {}
+    for route in app.routes:
+        path = getattr(route, "path", "")
+        if path:
+            by_path.setdefault(path, getattr(route, "endpoint", None))
+
+    ungated = []
+    for path in COST_INCURRING_ROUTES:
+        endpoint = by_path.get(path)
+        assert endpoint is not None, f"{path} is listed as cost-incurring but does not exist"
+        if not _requires_an_actor(endpoint):
+            ungated.append(path)
+
+    assert not ungated, (
+        "These routes spend money on every call and are reachable without credentials:\n"
+        + "\n".join(f"  {p}" for p in ungated)
+        + "\n\nThere is no spend cap in this codebase. Auth is the only control."
+    )
+
+
 def main():
     test_every_route_is_authenticated_or_explicitly_public()
     print(f"PASS: every route is authenticated or one of {len(PUBLIC_ROUTES)} declared public")
     test_account_and_position_routes_are_never_public()
     print("PASS: no account or position route is publicly readable")
+    test_routes_that_spend_money_are_authenticated()
+    print(f"PASS: all {len(COST_INCURRING_ROUTES)} cost-incurring routes require credentials")
 
 
 if __name__ == "__main__":
