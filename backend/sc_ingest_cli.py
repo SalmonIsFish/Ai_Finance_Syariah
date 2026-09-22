@@ -95,12 +95,40 @@ def _report(pub: dict, report: dict, security_count: int) -> None:
     print(f"  unresolved discrep.: {report['unresolved_discrepancy']}")
 
 
+def _admin_username() -> str:
+    """The configured admin username, so next-steps commands are runnable as printed.
+
+    This used to print a literal `--username <you>`, and on 2026-09-22 the owner
+    copied it verbatim and had to stop and ask what to substitute. A next-steps
+    hint that cannot be run as printed is a worse hint than none.
+
+    Usernames are not secrets -- the password is, and is never read here. Fails
+    soft to the placeholder: this is a printed suggestion, and an unreadable
+    auth config must not take down an ingest that already succeeded.
+    """
+    try:
+        import auth
+
+        admins = [
+            name for name, rec in auth._load_configured_users().items() if rec["role"] == "admin"
+        ]
+        if len(admins) == 1:
+            return admins[0]
+        if admins:
+            return f"<{'|'.join(sorted(admins))}>"
+    except Exception:
+        pass
+    return "<your-admin-username>"
+
+
 def _next_steps(pub_id: str) -> None:
+    user = _admin_username()
     print("Next, as an authenticated admin (this tool cannot do it):")
     print(f"  python backend/sc_admin_cli.py show {pub_id}")
     print(f"  python backend/sc_admin_cli.py securities {pub_id} --ticker 5225")
-    print(f"  python backend/sc_admin_cli.py approve {pub_id} --username <you> --apply")
-    print(f"  python backend/sc_admin_cli.py activate {pub_id} --username <you> --apply")
+    print(f"  python backend/sc_admin_cli.py approve {pub_id} --username {user} --apply")
+    print(f"  python backend/sc_admin_cli.py activate {pub_id} --username {user} --apply")
+    print("  (approve first -- activate refuses an unapproved publication)")
 
 
 def main() -> int:

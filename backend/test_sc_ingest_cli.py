@@ -299,6 +299,36 @@ def test_an_unknown_payload_version_is_refused():
     print("PASS: an unrecognised payload version is refused rather than guessed at")
 
 
+def test_the_next_steps_hint_names_a_real_admin():
+    """A hint that cannot be run as printed is worse than no hint.
+
+    This printed `--username <you>` until 2026-09-22, when the owner copied it
+    verbatim mid-activation and had to stop and ask what to substitute.
+    """
+    import auth
+
+    original = auth._load_configured_users
+    try:
+        auth._load_configured_users = lambda: {
+            "project_owner": {"role": "admin", "password_hash": "x"},
+            "a_reviewer": {"role": "reviewer", "password_hash": "x"},
+        }
+        assert sc_ingest_cli._admin_username() == "project_owner", (
+            "must pick the admin, not a reviewer"
+        )
+
+        # Fails soft: an unreadable auth config must not take down an ingest
+        # that already succeeded. The placeholder is the acceptable outcome.
+        def _boom():
+            raise RuntimeError("unparseable SC_ADMIN_AUTH_USERS")
+
+        auth._load_configured_users = _boom
+        assert sc_ingest_cli._admin_username() == "<your-admin-username>"
+    finally:
+        auth._load_configured_users = original
+    print("PASS: the next-steps hint names the configured admin and fails soft")
+
+
 def main():
     test_a_dry_run_writes_nothing()
     test_apply_stages_as_pending_and_never_activates()
@@ -308,6 +338,7 @@ def main():
     test_a_needs_reconciliation_payload_is_not_laundered()
     test_a_payload_for_another_date_is_refused()
     test_an_unknown_payload_version_is_refused()
+    test_the_next_steps_hint_names_a_real_admin()
     print()
     print("All SC ingest CLI tests passed.")
 
