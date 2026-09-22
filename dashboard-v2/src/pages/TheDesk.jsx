@@ -223,7 +223,13 @@ export default function TheDesk() {
 
             <OfficerCard 
               role="Shariah Compliance Officer"
-              title={`Ruling on ${preview.symbol} • ${preview.side} ${preview.quantity} @ $${preview.price}`}
+              /* Deliberately NOT "Ruling on AAPL - BUY 1 @ $150" like the quant and
+                 risk cards. Those do evaluate this specific ticket; the Shariah
+                 screen classifies the SECURITY. A Shariah reviewer was explicit
+                 that the classification of a security must not be presented as
+                 permissibility of a trading strategy, and a verdict captioned with
+                 a side, quantity and price reads exactly like the latter. */
+              title={`Classification of ${preview.symbol} as a security — not of this trade`}
               verdict={preview.agent_summary?.shariah?.status || 'UNKNOWN'}
               details={[
                 { label: "Market", value: preview.agent_summary?.shariah?.market || 'N/A' },
@@ -309,7 +315,7 @@ export default function TheDesk() {
                 </div>
                 
                 <div className="border border-[var(--color-border)] rounded p-4 bg-[var(--color-bg)]">
-                  <span className="block text-[var(--color-subtle)] uppercase tracking-wider text-xs font-bold mb-1">Shariah Verdict <span className="text-[var(--color-accent)] ml-2">(recomputed just now)</span></span>
+                  <span className="block text-[var(--color-subtle)] uppercase tracking-wider text-xs font-bold mb-1">Security Shariah Classification <span className="text-[var(--color-accent)] ml-2">(recomputed just now)</span></span>
                   <div className="text-[var(--color-text)]">
                     <span className={`font-bold ${verdictTextClass(reviewPreview.agent_summary?.shariah?.status)}`}>
                       {reviewPreview.agent_summary?.shariah?.status}
@@ -317,6 +323,13 @@ export default function TheDesk() {
                     <span className="mx-2">—</span>
                     <span className="text-sm">{reviewPreview.agent_summary?.shariah?.provider}</span>
                   </div>
+                  {/* Stated at the point of approval, where the confusion would
+                      actually cost something. The authority classifies the
+                      security; it certifies neither this trade nor this system. */}
+                  <p className="text-xs text-[var(--color-muted)] mt-2 leading-snug">
+                    Classifies the security only. Not a ruling on this trade, this
+                    strategy, or this system.
+                  </p>
                 </div>
 
                 <div className="border border-[var(--color-border)] rounded p-4 bg-[var(--color-bg)]">

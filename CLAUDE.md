@@ -2,7 +2,7 @@
 
 ## What this is
 
-A local-first, Shariah-compliant paper-trading control system. Deterministic Python agents
+A local-first paper-trading control system for Shariah screening. Deterministic Python agents
 screen every order for Shariah compliance, option-structure permissibility, account-level Riba
 exposure, and risk limits **before** it can enter the approval queue, and a human must type a
 confirmation phrase before anything reaches the broker.
@@ -10,6 +10,34 @@ confirmation phrase before anything reaches the broker.
 The point is not the screening — plenty of products screen stocks. The point is that the gate
 chain **enforces** and **proves**: an order that fails any gate cannot be submitted, and every
 decision is recorded with its evidence.
+
+### How to describe this system, precisely
+
+**Do not call the system "Shariah-compliant."** It has not been validated by any qualified
+Shariah scholar, and no such claim should appear in code, docs, UI or writing about it. What it
+does is *apply* an authority's determination and prove that application: for Malaysian equities
+the Securities Commission Malaysia SAC list; for US equities a self-built ratio screen that
+`sec_edgar_screen.py`'s own docstring calls "not a certified screening service".
+
+Three corrections from a Shariah-expert reviewer, to be kept in every description:
+
+1. **Being on the SC's Shariah-compliant list does not certify this system.** The list settles
+   the *security*. It says nothing about the trading strategy, the execution mechanism, or the
+   system as a whole.
+2. **Classification of a security ≠ permissibility of a trading strategy.** Keep these visibly
+   separate, including in the UI.
+3. **Never write that algorithmic trading is compliant because it is systematic.** The
+   defensible form, verbatim: *"the use of a systematic or algorithmic trading strategy does
+   not, by itself, constitute maysir; Shariah compliance depends on the underlying securities,
+   transaction structure, trading mechanism and applicable Shariah principles."*
+
+Also: **"Shariah-aware" is not an established term** in Islamic finance. Do not coin it. The
+established concept is Shariah compliance.
+
+The same reviewer confirmed that a deterministic rule-based system does **not** need XAI
+(SHAP/LIME); the requirements are rule transparency, parameter control, auditability and human
+oversight. That is an argument for the existing architecture, not for adding interpretability
+tooling.
 
 Broker: **Alpaca**, paper only.
 

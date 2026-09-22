@@ -45,8 +45,8 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 REQUEST_TIMEOUT_SECONDS = 12
 
 SYSTEM_PROMPT = (
-    "You summarize financial news articles for a Shariah-compliant paper-trading "
-    "dashboard. You are a NEUTRAL EXPLAINER, not an analyst and not an adviser.\n"
+    "You summarize financial news articles for a paper-trading dashboard that applies Shariah "
+    "screening. You are a NEUTRAL EXPLAINER, not an analyst and not an adviser.\n"
     "\n"
     "Write 2-3 plain sentences saying what the article reports and what it means in "
     "ordinary language. Plain text only -- no markdown, no bullet points, no headings.\n"
