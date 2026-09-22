@@ -1,4 +1,29 @@
-"""Paper execution adapter boundary for Moomoo submissions."""
+"""Paper execution adapter boundary for Moomoo submissions.
+
+Malaysia (Bursa) was enabled here on 2026-09-22 at the owner's direction. Until
+then this module carried a "superseded by Alpaca, do not extend" note, because
+Alpaca is the US path -- but Alpaca has no Bursa access of any kind, so Moomoo
+is the only route to a Malaysian order. That makes this module the Malaysian
+execution path rather than legacy, and it is held to the same test discipline
+as the Alpaca adapter.
+
+WHAT IS AND IS NOT PROVEN FOR MY
+--------------------------------
+The mapping below is verified against the installed SDK's own enums
+(`TrdMarket.MY`, `Market.MY` exist in moomoo 10.09.6908) and against the tests
+in `test_moomoo_paper_adapter.py`, which assert the request that gets built.
+
+**No Malaysian order has ever reached a broker.** OpenD was not running when
+this was written, so the `MY.` code format and the MY account lookup are
+unverified against a live gateway. Do not describe Bursa execution as working
+until a real order has filled and reconciled, the way the US path was proven
+twice. See CLAUDE.md "Known limitations".
+
+Everything here submits with `TrdEnv.SIMULATE`, hardcoded at every call site
+with no env var able to flip it, and `paper_execution.py` independently refuses
+any submission whose environment is not SIMULATE/PAPER. Enabling a market here
+therefore cannot put real money on an exchange.
+"""
 
 import json
 from datetime import datetime, timezone
@@ -6,7 +31,13 @@ from datetime import datetime, timezone
 from config import load_settings
 
 
-SUPPORTED_REAL_MARKETS = {"US"}
+SUPPORTED_REAL_MARKETS = {"US", "MY"}
+
+# OpenD addresses instruments as "<market>.<code>", e.g. US.AAPL, MY.5225.
+# Kept as data next to SUPPORTED_REAL_MARKETS so the two cannot drift: a market
+# listed as supported but missing a prefix yields no code, and the order is
+# refused rather than sent somewhere unintended.
+MARKET_CODE_PREFIXES = {"US": "US", "MY": "MY"}
 
 
 def submit_paper_order(approval: dict, moomoo: dict) -> dict:
@@ -88,23 +119,55 @@ def submit_moomoo_paper_order(*, approval: dict) -> dict:
     quantity = approval.get("quantity")
     price = approval.get("price")
     if code is None:
-        return {"status": "INVALID_SYMBOL", "adapter": "moomoo", "broker_submission": False, "reason": "symbol_required"}
+        return {
+            "status": "INVALID_SYMBOL",
+            "adapter": "moomoo",
+            "broker_submission": False,
+            "reason": "symbol_required",
+        }
     if side not in {"BUY", "SELL"}:
-        return {"status": "INVALID_SIDE", "adapter": "moomoo", "broker_submission": False, "reason": "side_must_be_BUY_or_SELL"}
+        return {
+            "status": "INVALID_SIDE",
+            "adapter": "moomoo",
+            "broker_submission": False,
+            "reason": "side_must_be_BUY_or_SELL",
+        }
     if not isinstance(quantity, int) or quantity <= 0:
-        return {"status": "INVALID_QUANTITY", "adapter": "moomoo", "broker_submission": False, "reason": "positive_integer_quantity_required"}
+        return {
+            "status": "INVALID_QUANTITY",
+            "adapter": "moomoo",
+            "broker_submission": False,
+            "reason": "positive_integer_quantity_required",
+        }
     if not isinstance(price, (int, float)) or price <= 0:
-        return {"status": "INVALID_PRICE", "adapter": "moomoo", "broker_submission": False, "reason": "positive_price_required"}
+        return {
+            "status": "INVALID_PRICE",
+            "adapter": "moomoo",
+            "broker_submission": False,
+            "reason": "positive_price_required",
+        }
 
     try:
         sdk = load_moomoo_sdk()
     except ModuleNotFoundError:
-        return {"status": "SDK_NOT_INSTALLED", "adapter": "moomoo", "broker_submission": False, "reason": "moomoo_sdk_missing"}
+        return {
+            "status": "SDK_NOT_INSTALLED",
+            "adapter": "moomoo",
+            "broker_submission": False,
+            "reason": "moomoo_sdk_missing",
+        }
     except Exception as exc:
-        return {"status": "SDK_UNAVAILABLE", "adapter": "moomoo", "broker_submission": False, "reason": type(exc).__name__}
+        return {
+            "status": "SDK_UNAVAILABLE",
+            "adapter": "moomoo",
+            "broker_submission": False,
+            "reason": type(exc).__name__,
+        }
 
     trd_market = market_to_trd_market(sdk, market)
-    account_context = sdk["OpenSecTradeContext"](filter_trdmarket=trd_market, host=settings.moomoo_host, port=settings.moomoo_port)
+    account_context = sdk["OpenSecTradeContext"](
+        filter_trdmarket=trd_market, host=settings.moomoo_host, port=settings.moomoo_port
+    )
     try:
         ret, accounts = account_context.get_acc_list()
         if ret != sdk["RET_OK"]:
@@ -126,11 +189,18 @@ def submit_moomoo_paper_order(*, approval: dict) -> dict:
         account_id = int(account["acc_id"])
         account_type = str(account.get("acc_type", "UNKNOWN"))
     except Exception as exc:
-        return {"status": "BROKER_ERROR", "adapter": "moomoo", "broker_submission": False, "reason": type(exc).__name__}
+        return {
+            "status": "BROKER_ERROR",
+            "adapter": "moomoo",
+            "broker_submission": False,
+            "reason": type(exc).__name__,
+        }
     finally:
         account_context.close()
 
-    context = sdk["OpenSecTradeContext"](filter_trdmarket=trd_market, host=settings.moomoo_host, port=settings.moomoo_port)
+    context = sdk["OpenSecTradeContext"](
+        filter_trdmarket=trd_market, host=settings.moomoo_host, port=settings.moomoo_port
+    )
     try:
         ret, order_data = context.place_order(
             price=float(price),
@@ -175,7 +245,12 @@ def submit_moomoo_paper_order(*, approval: dict) -> dict:
             "order_status": extract_first_value(order_data, "order_status"),
         }
     except Exception as exc:
-        return {"status": "BROKER_ERROR", "adapter": "moomoo", "broker_submission": False, "reason": type(exc).__name__}
+        return {
+            "status": "BROKER_ERROR",
+            "adapter": "moomoo",
+            "broker_submission": False,
+            "reason": type(exc).__name__,
+        }
     finally:
         context.close()
 
@@ -194,34 +269,73 @@ def reconcile_moomoo_paper_order(*, approval: dict, broker_submission: dict) -> 
     broker_order_id = broker_submission.get("broker_order_id")
     code = broker_submission.get("broker_code") or normalize_order_code(approval)
     if not broker_order_id:
-        return {"status": "BROKER_ORDER_ID_MISSING", "adapter": "moomoo", "broker_submission": True, "reason": "broker_order_id_missing"}
+        return {
+            "status": "BROKER_ORDER_ID_MISSING",
+            "adapter": "moomoo",
+            "broker_submission": True,
+            "reason": "broker_order_id_missing",
+        }
     if not code:
-        return {"status": "INVALID_SYMBOL", "adapter": "moomoo", "broker_submission": True, "reason": "symbol_required"}
+        return {
+            "status": "INVALID_SYMBOL",
+            "adapter": "moomoo",
+            "broker_submission": True,
+            "reason": "symbol_required",
+        }
 
     try:
         sdk = load_moomoo_sdk()
     except ModuleNotFoundError:
-        return {"status": "SDK_NOT_INSTALLED", "adapter": "moomoo", "broker_submission": True, "reason": "moomoo_sdk_missing"}
+        return {
+            "status": "SDK_NOT_INSTALLED",
+            "adapter": "moomoo",
+            "broker_submission": True,
+            "reason": "moomoo_sdk_missing",
+        }
     except Exception as exc:
-        return {"status": "SDK_UNAVAILABLE", "adapter": "moomoo", "broker_submission": True, "reason": type(exc).__name__}
+        return {
+            "status": "SDK_UNAVAILABLE",
+            "adapter": "moomoo",
+            "broker_submission": True,
+            "reason": type(exc).__name__,
+        }
 
     trd_market = market_to_trd_market(sdk, market)
-    account_context = sdk["OpenSecTradeContext"](filter_trdmarket=trd_market, host=settings.moomoo_host, port=settings.moomoo_port)
+    account_context = sdk["OpenSecTradeContext"](
+        filter_trdmarket=trd_market, host=settings.moomoo_host, port=settings.moomoo_port
+    )
     try:
         ret, accounts = account_context.get_acc_list()
         if ret != sdk["RET_OK"]:
-            return {"status": "MOOMOO_ACCOUNT_QUERY_FAILED", "adapter": "moomoo", "broker_submission": True, "reason": str(accounts)}
+            return {
+                "status": "MOOMOO_ACCOUNT_QUERY_FAILED",
+                "adapter": "moomoo",
+                "broker_submission": True,
+                "reason": str(accounts),
+            }
         account = find_active_simulate_account(accounts)
         if account is None:
-            return {"status": "MOOMOO_PAPER_ACCOUNT_MISSING", "adapter": "moomoo", "broker_submission": True, "reason": "active_simulate_account_not_found"}
+            return {
+                "status": "MOOMOO_PAPER_ACCOUNT_MISSING",
+                "adapter": "moomoo",
+                "broker_submission": True,
+                "reason": "active_simulate_account_not_found",
+            }
         account_id = int(account["acc_id"])
         account_type = str(account.get("acc_type", "UNKNOWN"))
     except Exception as exc:
-        return {"status": "BROKER_RECONCILE_ERROR", "adapter": "moomoo", "broker_submission": True, "reason": type(exc).__name__}
+        return {
+            "status": "BROKER_RECONCILE_ERROR",
+            "adapter": "moomoo",
+            "broker_submission": True,
+            "reason": type(exc).__name__,
+        }
     finally:
         account_context.close()
 
-    context = sdk["OpenSecTradeContext"](filter_trdmarket=trd_market, host=settings.moomoo_host, port=settings.moomoo_port)
+    context = sdk["OpenSecTradeContext"](
+        filter_trdmarket=trd_market, host=settings.moomoo_host, port=settings.moomoo_port
+    )
     try:
         ret, order_data = context.order_list_query(
             order_id=str(broker_order_id),
@@ -232,7 +346,12 @@ def reconcile_moomoo_paper_order(*, approval: dict, broker_submission: dict) -> 
             order_market=trd_market,
         )
         if ret != sdk["RET_OK"]:
-            return {"status": "BROKER_RECONCILE_ERROR", "adapter": "moomoo", "broker_submission": True, "reason": str(order_data)}
+            return {
+                "status": "BROKER_RECONCILE_ERROR",
+                "adapter": "moomoo",
+                "broker_submission": True,
+                "reason": str(order_data),
+            }
 
         row = find_order_row(order_data, broker_order_id)
         source = "open_orders"
@@ -244,7 +363,12 @@ def reconcile_moomoo_paper_order(*, approval: dict, broker_submission: dict) -> 
                 order_market=trd_market,
             )
             if ret != sdk["RET_OK"]:
-                return {"status": "BROKER_RECONCILE_ERROR", "adapter": "moomoo", "broker_submission": True, "reason": str(history_data)}
+                return {
+                    "status": "BROKER_RECONCILE_ERROR",
+                    "adapter": "moomoo",
+                    "broker_submission": True,
+                    "reason": str(history_data),
+                }
             row = find_order_row(history_data, broker_order_id)
             source = "history_orders"
 
@@ -287,7 +411,12 @@ def reconcile_moomoo_paper_order(*, approval: dict, broker_submission: dict) -> 
             "raw_order": row,
         }
     except Exception as exc:
-        return {"status": "BROKER_RECONCILE_ERROR", "adapter": "moomoo", "broker_submission": True, "reason": type(exc).__name__}
+        return {
+            "status": "BROKER_RECONCILE_ERROR",
+            "adapter": "moomoo",
+            "broker_submission": True,
+            "reason": type(exc).__name__,
+        }
     finally:
         context.close()
 
@@ -316,7 +445,8 @@ def fake_reconcile_paper_order(*, approval: dict, broker_submission: dict) -> di
         "status": "BROKER_SUBMITTED",
         "adapter": "fake",
         "broker_submission": True,
-        "broker_order_id": broker_submission.get("broker_order_id") or f"FAKE-PAPER-{approval['id']}",
+        "broker_order_id": broker_submission.get("broker_order_id")
+        or f"FAKE-PAPER-{approval['id']}",
         "broker_code": broker_submission.get("broker_code") or approval.get("symbol"),
         "order_status": broker_submission.get("order_status", "SUBMITTED"),
         "environment": broker_submission.get("environment", "SIMULATE"),
@@ -328,20 +458,35 @@ def fake_reconcile_paper_order(*, approval: dict, broker_submission: dict) -> di
 
 
 def normalize_order_code(approval: dict) -> str | None:
+    """Build the OpenD instrument code, e.g. 'US.AAPL' or 'MY.5225'.
+
+    Returns None for a market this adapter has no code format for, which the
+    callers treat as UNSUPPORTED_MARKET. Guessing a prefix would produce an
+    order for whatever instrument that code happened to name on some other
+    exchange, so an unknown market must fail rather than improvise.
+    """
     symbol = (approval.get("symbol") or "").strip().upper()
     if not symbol:
         return None
     if "." in symbol:
         return symbol
     market = (approval.get("shariah_market") or "").upper()
-    if market == "US":
-        return f"US.{symbol}"
+    if market in MARKET_CODE_PREFIXES:
+        return f"{MARKET_CODE_PREFIXES[market]}.{symbol}"
     return None
 
 
 def market_to_trd_market(sdk: dict, market: str):
+    """Map our market label to the SDK's TrdMarket enum.
+
+    Falls through to NONE rather than raising: NONE is not a tradeable market,
+    so a market that slips past the SUPPORTED_REAL_MARKETS check still cannot
+    place an order by accident.
+    """
     if market == "US":
         return sdk["TrdMarket"].US
+    if market == "MY":
+        return sdk["TrdMarket"].MY
     return sdk["TrdMarket"].NONE
 
 
@@ -411,7 +556,14 @@ def lifecycle_status(order_status: str) -> str:
         return "BROKER_FILLED"
     if normalized in {"FILLED_PART", "FILLED PART", "PARTIAL_FILLED", "PARTIAL FILLED"}:
         return "BROKER_PARTIAL_FILL"
-    if normalized in {"CANCELLED_ALL", "CANCELLED ALL", "CANCELLED_PART", "CANCELLED PART", "FILL_CANCELLED", "FILL CANCELLED"}:
+    if normalized in {
+        "CANCELLED_ALL",
+        "CANCELLED ALL",
+        "CANCELLED_PART",
+        "CANCELLED PART",
+        "FILL_CANCELLED",
+        "FILL CANCELLED",
+    }:
         return "BROKER_CANCELLED"
     if normalized in {"SUBMIT_FAILED", "SUBMIT FAILED", "FAILED", "DISABLED", "DELETED"}:
         return "BROKER_REJECTED"

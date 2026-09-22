@@ -97,7 +97,7 @@ Reconcile        POST /paper/reconcile/{queue_id}
 | Orchestration | `local_api.py`, `paper_execution.py`, `approval_workflow.py`, `agent_coordinator.py` |
 | State | `approval_queue.py`, `portfolio_store.py`, `watchlist_store.py`, `shariah_screen_store.py` |
 | Reporting | `portfolio_metrics.py` — risk-adjusted return from the broker equity curve; reports, never decides |
-| Legacy | `moomoo_*.py` — superseded by Alpaca, retained for history. Do not extend. |
+| Malaysian execution | `moomoo_*.py` — **no longer legacy as of 2026-09-22.** Alpaca has no Bursa access, so Moomoo is the only Malaysian route. See Known limitations 5. |
 
 **`shariah_candidate.build_shariah_candidate()` is the only surface a broker adapter talks to.**
 Adapters never import a gate module directly. If something a gate needs isn't reaching it, fix
@@ -387,6 +387,34 @@ no Moomoo gateway running.
    Scenario 5 narrows the fixture to the Shariah verdict only and swaps
    `agent_coordinator.evaluate_quant` for a real `NO_SIGNAL` shape, asserting both that the option
    is approved and that a plain equity BUY on the same underlying is still blocked.
+
+5. **Malaysian execution is wired but has never placed an order — and cannot yet.**
+   On 2026-09-22 `moomoo_paper_adapter.py` was extended to Bursa at the owner's direction,
+   reversing this file's former "do not extend" note on the `moomoo_*` family. The reason is
+   simple: Alpaca has no Bursa access of any kind, so Moomoo is the only possible Malaysian
+   route. `SUPPORTED_REAL_MARKETS = {"US", "MY"}`, `MARKET_CODE_PREFIXES` builds `MY.5225`,
+   and `market_to_trd_market` returns `TrdMarket.MY` — all verified against the installed
+   SDK's own enums (moomoo 10.09.6908 has `TrdMarket.MY` and `Market.MY`) and asserted in
+   `test_moomoo_paper_adapter.py`, which checks the request that gets *built*.
+
+   **Nothing has been verified against a live gateway.** OpenD was not running. The `MY.`
+   code format and the MY account lookup are unproven, and Bursa execution must not be
+   described as working until a real order has filled and reconciled the way the US path was
+   proven twice above.
+
+   **A Malaysian order still cannot complete preview → approval, and the blocker is upstream
+   of the adapter.** `market_data.fetch_eod_prices` routes only to Alpaca or Tiingo, both
+   US-only. A Bursa symbol therefore falls through `_bars_fallback` to `fixture` /
+   `fixture_after_alpaca_error`, and `agent_coordinator` then refuses the order with
+   `synthetic_market_data`. That is the gate working exactly as intended — a price nobody can
+   source must not produce a tradeable signal — but it means **a Malaysian price source is
+   the real remaining blocker, not the broker adapter.** Wiring the adapter without one buys
+   nothing on its own.
+
+   Lot sizing is deliberately *not* enforced in the adapter. Bursa's board lot is 100 shares
+   and `p3_decision_engine` already rounds to it, but Bursa also has an odd-lot market, so a
+   local "must be a multiple of 100" rule could wrongly refuse a legitimate order. Sizing
+   belongs to the decision engine; the adapter submits what it is given.
 
 ## Style
 

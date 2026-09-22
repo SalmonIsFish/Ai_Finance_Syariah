@@ -14,6 +14,7 @@ class FakeConstants:
     DAY = "DAY"
     SIMULATE = "SIMULATE"
     US = "US"
+    MY = "MY"
     NONE_MARKET = "NONE"
 
 
@@ -29,7 +30,12 @@ class FakeTradeContext:
     def get_acc_list(self):
         return 0, [
             {"acc_id": 101, "trd_env": "REAL", "acc_type": "CASH", "acc_status": "ACTIVE"},
-            {"acc_id": 987654321, "trd_env": "SIMULATE", "acc_type": "MARGIN", "acc_status": "ACTIVE"},
+            {
+                "acc_id": 987654321,
+                "trd_env": "SIMULATE",
+                "acc_type": "MARGIN",
+                "acc_status": "ACTIVE",
+            },
         ]
 
     def place_order(self, **kwargs):
@@ -131,14 +137,43 @@ def main() -> None:
         assert sell_call["trd_side"] == "SELL"
         assert sell_call["remark"] == "Amanah queue 44"
 
-        unsupported = moomoo_paper_adapter.submit_paper_order(
+        # Malaysia. This case previously asserted UNSUPPORTED_MARKET; Bursa was
+        # enabled on 2026-09-22 because Alpaca has no Bursa access at all, so
+        # Moomoo is the only possible Malaysian route. Assert the request that
+        # gets built, not merely that it was accepted -- a MY order carrying a
+        # US code would be an order for a different instrument entirely.
+        my_result = moomoo_paper_adapter.submit_paper_order(
             {
                 "id": 43,
-                "symbol": "0001",
+                "symbol": "5225",
+                "side": "BUY",
+                "quantity": 100,
+                "price": 6.5,
+                "shariah_market": "MY",
+            },
+            moomoo={},
+        )
+        assert my_result["status"] == "BROKER_SUBMITTED"
+        assert my_result["broker_code"] == "MY.5225"
+
+        my_context = FakeTradeContext.instances[-1]
+        assert my_context.kwargs["filter_trdmarket"] == "MY"
+        my_call = my_context.place_order_calls[0]
+        assert my_call["code"] == "MY.5225", "a Bursa order must not carry a US code"
+        assert my_call["trd_side"] == "BUY"
+        assert my_call["trd_env"] == "SIMULATE", "Bursa must never reach a REAL account"
+        assert my_call["remark"] == "Amanah queue 43"
+
+        # A market with no code prefix must still be refused. Enabling MY must
+        # not turn the adapter into one that improvises a prefix for anything.
+        unsupported = moomoo_paper_adapter.submit_paper_order(
+            {
+                "id": 45,
+                "symbol": "0700",
                 "side": "BUY",
                 "quantity": 1,
                 "price": 1.0,
-                "shariah_market": "MY",
+                "shariah_market": "HK",
             },
             moomoo={},
         )
