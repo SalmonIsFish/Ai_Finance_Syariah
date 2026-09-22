@@ -316,20 +316,42 @@ def main() -> None:
     assert opportunity_alerts.status_code == 200, opportunity_alerts.text
     assert isinstance(opportunity_alerts.json(), list)
 
-    agent_evaluation = client.post(
-        "/agent/evaluate",
-        json={
-            "symbol": "0001",
-            "side": "BUY",
-            "quantity": 2,
-            "price": 50.0,
-            "position_pct": 1.0,
-            "total_exposure_pct": 5.0,
-            "loss_per_trade_pct": 0.2,
-            "daily_loss_pct": 0.3,
-            "orders_today": 0,
-        },
-    )
+    # `0001` is a real Bursa ticker, and since market data routes per market it
+    # now resolves through Yahoo -- which would make this a live network call.
+    # This assertion block is about the *gate chain*, not about a vendor, so the
+    # seam is swapped exactly as the testing conventions require.
+    #
+    # It also used to pass for the wrong reason: the synthetic_market_data
+    # blocker asserted below appeared only because Alpaca happened to fail on a
+    # Malaysian ticker. A test that depends on a provider erroring is a test that
+    # changes meaning the moment the provider starts working. Returning fixture
+    # bars explicitly makes the blocker a consequence of the fixture, which is
+    # what the assertion claims.
+    import market_data as _market_data
+    from tiingo_prices import _fixture_prices as _fixture
+
+    _original_fetch = _market_data.fetch_eod_prices
+    try:
+        _market_data.fetch_eod_prices = lambda symbol, start, end, **kwargs: (
+            _fixture(symbol),
+            "fixture",
+        )
+        agent_evaluation = client.post(
+            "/agent/evaluate",
+            json={
+                "symbol": "0001",
+                "side": "BUY",
+                "quantity": 2,
+                "price": 50.0,
+                "position_pct": 1.0,
+                "total_exposure_pct": 5.0,
+                "loss_per_trade_pct": 0.2,
+                "daily_loss_pct": 0.3,
+                "orders_today": 0,
+            },
+        )
+    finally:
+        _market_data.fetch_eod_prices = _original_fetch
     assert agent_evaluation.status_code == 200, agent_evaluation.text
     evaluation_payload = agent_evaluation.json()
     assert evaluation_payload["broker_submission"] is False
@@ -575,20 +597,31 @@ def main() -> None:
     assert locked_execution_payload["paper_execution_enabled"] is False
     assert locked_execution_payload["broker_submission"] is False
 
-    preview = client.post(
-        "/paper/preview",
-        json={
-            "symbol": "0001",
-            "side": "BUY",
-            "quantity": 2,
-            "price": 50.0,
-            "position_pct": 1.0,
-            "total_exposure_pct": 5.0,
-            "loss_per_trade_pct": 0.2,
-            "daily_loss_pct": 0.3,
-            "orders_today": 0,
-        },
-    )
+    # Fixture prices supplied explicitly, for the reason given at the
+    # /agent/evaluate block above: `0001` is a real Bursa ticker that now prices
+    # through Yahoo, and this assertion is about the gate chain, not a vendor.
+    _original_fetch = _market_data.fetch_eod_prices
+    try:
+        _market_data.fetch_eod_prices = lambda symbol, start, end, **kwargs: (
+            _fixture(symbol),
+            "fixture",
+        )
+        preview = client.post(
+            "/paper/preview",
+            json={
+                "symbol": "0001",
+                "side": "BUY",
+                "quantity": 2,
+                "price": 50.0,
+                "position_pct": 1.0,
+                "total_exposure_pct": 5.0,
+                "loss_per_trade_pct": 0.2,
+                "daily_loss_pct": 0.3,
+                "orders_today": 0,
+            },
+        )
+    finally:
+        _market_data.fetch_eod_prices = _original_fetch
     assert preview.status_code == 200, preview.text
     preview_payload = preview.json()
     assert preview_payload["broker_submission"] is False
@@ -596,10 +629,10 @@ def main() -> None:
     assert preview_payload["preview"]["broker_submission"] is False
     # No SC publication is approved/activated in this fixture DB (see the
     # earlier /agent/evaluate assertions above for why this is UNKNOWN, not
-    # PASS), and the quant leg runs on fixture prices because this fixture has no
-    # Alpaca credentials. Two independent grounds for refusal, each sufficient on
-    # its own: the compliance gate rejects on its own authority, and synthetic
-    # market data is refused regardless of what any other gate says.
+    # PASS), and the quant leg runs on fixture prices because this block supplies
+    # them. Two independent grounds for refusal, each sufficient on its own: the
+    # compliance gate rejects on its own authority, and synthetic market data is
+    # refused regardless of what any other gate says.
     assert preview_payload["preview"]["agent_summary"]["shariah"]["status"] == "UNKNOWN"
     assert preview_payload["preview"]["agent_summary"]["risk"]["status"] == "PASS"
     assert preview_payload["preview"]["blockers"] == [

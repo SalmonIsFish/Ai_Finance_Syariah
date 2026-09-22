@@ -9,7 +9,7 @@ Yahoo Finance data is market data only — it NEVER determines Shariah eligibili
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 from config import BACKEND_DIR
@@ -34,27 +34,24 @@ def _bursa_ticker(symbol: str) -> str:
 
 
 def _fixture_prices(symbol: str) -> list[dict]:
-    today = date.today()
-    return [
-        {
-            "symbol": symbol,
-            "date": (today - timedelta(days=2)).isoformat(),
-            "open": 10.00,
-            "high": 10.20,
-            "low": 9.90,
-            "close": 10.10,
-            "volume": 5000000,
-        },
-        {
-            "symbol": symbol,
-            "date": (today - timedelta(days=1)).isoformat(),
-            "open": 10.10,
-            "high": 10.30,
-            "low": 10.00,
-            "close": 10.20,
-            "volume": 5500000,
-        },
-    ]
+    """Shared with tiingo and alpaca, so all three providers fail the same way.
+
+    This used to be a hand-written two-bar series. Two bars is below MIN_BARS, so
+    a Malaysian symbol on fallback failed as `insufficient_history` while a US
+    symbol on the same fallback got tiingo's 205-bar series and produced a real
+    signal -- the same outage reported as two different faults depending on the
+    market, and only the US one exercised the quant agent at all.
+
+    `alpaca_market_data` already reuses tiingo's fixture for this reason
+    (see its import). Following that keeps one definition of "synthetic bars".
+
+    Either way these bars are labelled `fixture` and refused by
+    agent_coordinator's synthetic-data blocker, so this changes what a failure
+    *looks like*, never what is permitted.
+    """
+    from tiingo_prices import _fixture_prices as shared_fixture_prices
+
+    return shared_fixture_prices(symbol)
 
 
 def _cache_path(symbol: str) -> Path:
@@ -77,6 +74,22 @@ def _write_cache(symbol: str, start_date: str, end_date: str, bars: list[dict]) 
         ),
         encoding="utf-8",
     )
+
+
+def read_cache_metadata(symbol: str) -> dict:
+    """The cache envelope (including `cached_at`), or {} if nothing is cached.
+
+    Mirrors tiingo_prices.read_cache_metadata so the quant agent can report a
+    Bursa price's age. Yahoo caches under its own `yahoo_` prefix, so this is not
+    interchangeable with tiingo's -- see quant_agent._cache_metadata_for.
+    """
+    path = _cache_path(symbol)
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
 
 
 def _read_cache(symbol: str) -> list[dict]:

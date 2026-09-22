@@ -27,7 +27,12 @@ def test_bursa_ticker_suffix():
 def test_bar_shape():
     required_keys = {"symbol", "date", "open", "high", "low", "close", "volume"}
     bars = yahoo_finance._fixture_prices("1155")
-    assert len(bars) == 2
+    # Shared with tiingo and alpaca so every provider's fallback behaves the same.
+    # It was two bars, which is under MIN_BARS: a Malaysian symbol on fallback
+    # then failed as `insufficient_history` while a US symbol on the identical
+    # fallback produced a real signal off tiingo's 205-bar series. One outage,
+    # two different reported faults, depending only on the market.
+    assert len(bars) >= 200, f"fixture must exercise the quant agent, got {len(bars)}"
     for bar in bars:
         assert set(bar.keys()) == required_keys, f"Bad bar keys: {set(bar.keys())}"
         assert isinstance(bar["open"], float)

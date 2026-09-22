@@ -4,9 +4,10 @@ from datetime import date, datetime, timezone, timedelta
 
 # Route through the provider switch rather than a single vendor: pinning the quant
 # agent to tiingo let a tiingo outage blank the signal while the configured provider
-# (MARKET_DATA_PROVIDER, alpaca by default) was healthy. The on-disk cache is shared
-# by both providers, so cache metadata still comes from tiingo_prices.
+# (MARKET_DATA_PROVIDER, alpaca by default) was healthy.
 import market_data
+import yahoo_finance
+from agents.shariah_agent import detect_market
 from config import load_settings
 from tiingo_prices import read_cache_metadata
 
@@ -248,7 +249,13 @@ def evaluate_quant(
     symbol: str, *, allow_fallback: bool = True, allow_stale_cache: bool = False
 ) -> dict:
     end_date = date.today()
-    start_date = end_date - timedelta(days=320)
+    # 320 days yields ~218 Bursa sessions against MIN_BARS of 200 -- 18 bars of
+    # headroom, which one holiday cluster erases, and the symbol then fails as
+    # insufficient_history rather than for any real reason. Bursa closes for more
+    # public holidays than the US, so Malaysian symbols get a wider window.
+    # Over-fetching is free: the strategies slice the tail they need.
+    lookback_days = 460 if detect_market(symbol) == "MY" else 320
+    start_date = end_date - timedelta(days=lookback_days)
     bars, source = market_data.fetch_eod_prices(
         symbol,
         start_date.isoformat(),
@@ -281,7 +288,33 @@ def evaluate_quant(
     }
 
 
-LIVE_SOURCES = {"tiingo", "alpaca", "alpaca_iex"}
+# Sources whose bars are real market data, as opposed to cache or fixture.
+#
+# "yahoo" was missing until 2026-09-22, and the omission was expensive: Bursa
+# prices arrive only from Yahoo, so every Malaysian symbol returned real bars
+# that were then classified `unknown` and refused by agent_coordinator's
+# synthetic-data blocker. Real data, labelled synthetic, blocked. Measured on
+# 5225: 217 bars at 7.62, freshness "unknown".
+#
+# Yahoo is an unofficial source with no SLA, which is a reason to record the
+# provenance -- every decision keeps price_source and as_of_date -- not a reason
+# to call live data synthetic. "fixture" means we invented the numbers; that is
+# a different claim entirely and the blocker exists for it alone.
+LIVE_SOURCES = {"tiingo", "alpaca", "alpaca_iex", "yahoo"}
+
+
+def _cache_metadata_for(symbol: str, source: str) -> dict:
+    """Cache metadata from the provider that actually wrote the cache.
+
+    Each provider owns its own cache file -- tiingo/alpaca share
+    `market_data_cache/{SYMBOL}.json`, Yahoo writes `yahoo_{SYMBOL}.json`. Asking
+    tiingo for a Yahoo-cached symbol silently returns {}, so a stale Bursa price
+    reported `cache_age_hours: None` and looked indistinguishable from a fresh
+    one. Staleness you cannot see is worse than staleness you can.
+    """
+    if source.startswith("yahoo"):
+        return yahoo_finance.read_cache_metadata(symbol)
+    return read_cache_metadata(symbol)
 
 
 def data_freshness(symbol: str, source: str) -> dict:
@@ -293,7 +326,7 @@ def data_freshness(symbol: str, source: str) -> dict:
             "cache_cached_at": None,
             "cache_age_hours": None,
         }
-    metadata = read_cache_metadata(symbol)
+    metadata = _cache_metadata_for(symbol, source)
     cached_at = metadata.get("cached_at")
     age_hours = None
     if cached_at:

@@ -402,14 +402,32 @@ no Moomoo gateway running.
    described as working until a real order has filled and reconciled the way the US path was
    proven twice above.
 
-   **A Malaysian order still cannot complete preview → approval, and the blocker is upstream
-   of the adapter.** `market_data.fetch_eod_prices` routes only to Alpaca or Tiingo, both
-   US-only. A Bursa symbol therefore falls through `_bars_fallback` to `fixture` /
-   `fixture_after_alpaca_error`, and `agent_coordinator` then refuses the order with
-   `synthetic_market_data`. That is the gate working exactly as intended — a price nobody can
-   source must not produce a tradeable signal — but it means **a Malaysian price source is
-   the real remaining blocker, not the broker adapter.** Wiring the adapter without one buys
-   nothing on its own.
+   **A Malaysian order now completes preview → approval on real prices.** Verified
+   2026-09-22 against live data: `4197` (Sime Darby) reached `READY_FOR_APPROVAL` with **no
+   blockers** — Shariah PASS from `sc-sac-my-2026-05-29`, quant BUY on 312 live Bursa bars
+   at RM 2.46 from `yahoo`, risk PASS — and the evidence record carries the SC document hash
+   alongside `price_source: yahoo` and `as_of_date`.
+
+   Bursa prices come from `yahoo_finance.py` via `market_data.provider_for()`, which routes
+   **per market**: MY always uses Yahoo, US follows `MARKET_DATA_PROVIDER`. Alpaca and
+   Tiingo carry no Bursa data at all, so the two markets would otherwise be mutually
+   exclusive. Malaysian symbols also request a wider history window — 320 days leaves only
+   ~18 bars of headroom over `MIN_BARS` on a market with more public holidays.
+
+   **An earlier version of this section claimed the opposite** — that routing was
+   Alpaca/Tiingo only and no Malaysian price source existed. That was written on
+   2026-09-22 from a truncated grep that showed only the Alpaca import, and was wrong:
+   `yahoo_finance.py` had been present and wired since `651d1ef`. The real defect was one
+   line — `"yahoo"` missing from `quant_agent.LIVE_SOURCES` — so genuine Bursa bars were
+   classified `unknown` and refused as `synthetic_market_data`. **Real data labelled
+   synthetic is a worse failure than missing data, because the stated reason is untrue.**
+   Recorded because a confident wrong entry in this file is more costly than a gap in it.
+
+   Yahoo is an unofficial source with no SLA, and `yfinance` is imported lazily
+   (`yahoo_finance._fetch_yfinance`) so a missing install degrades Malaysian pricing rather
+   than failing app startup. That is a reason to keep recording provenance on every
+   decision, not a reason to call live data synthetic — `fixture` means *we invented the
+   numbers*, which is a different claim, and the blocker exists for that alone.
 
    Lot sizing is deliberately *not* enforced in the adapter. Bursa's board lot is 100 shares
    and `p3_decision_engine` already rounds to it, but Bursa also has an odd-lot market, so a

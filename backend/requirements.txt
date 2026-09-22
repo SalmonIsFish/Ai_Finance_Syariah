@@ -1,2 +1,7 @@
 fastapi
 uvicorn
+# Bursa Malaysia EOD bars. Alpaca and Tiingo carry no Bursa data, so this is the
+# only Malaysian price source -- see backend/yahoo_finance.py. Imported lazily
+# (yahoo_finance._fetch_yfinance) so a missing install degrades Malaysian pricing
+# rather than failing app startup, which is why the service ran without it.
+yfinance
