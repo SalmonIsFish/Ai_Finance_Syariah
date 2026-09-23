@@ -48,7 +48,7 @@ from urllib.request import Request, urlopen
 from bridge import proposals
 from bridge.client import STATUS_OK, STATUS_UNAVAILABLE, STATUS_UNKNOWN
 from bridge.format import render_blockers, render_shariah, render_shariah_us
-from bridge.markets import MARKET_MY, detect_market
+from bridge.markets import detect_market
 
 # The phrase POST /paper/execute requires. Deliberately only here.
 EXECUTE_PHRASE = "EXECUTE PAPER"
@@ -61,14 +61,13 @@ ACTION_APPROVE = "a1"
 ACTION_EXECUTE = "a2"
 ACTION_REJECT = "no"
 
-# Malaysian execution cannot work today: paper_execution.py picks the broker adapter
-# globally and production runs alpaca_mcp, which has no Bursa access. A Bursa order would
-# be misrouted to Alpaca. Preview and approval are genuinely fine, so tap 1 is offered and
-# tap 2 is not.
-MY_EXECUTION_NOTE = (
-    "Malaysian execution is not available. The broker adapter is global and production "
-    "runs Alpaca, which has no Bursa access, so no execute button is offered. The "
-    "approval above is real and recorded."
+# Whether a market can execute is the backend's decision, read from /paper/status rather
+# than restated here. An earlier version hardcoded "Malaysia cannot execute", which was
+# true and was still a second copy of a rule that lives in broker_routing.py -- and a
+# duplicated rule drifts the moment one copy changes.
+MARKET_EXECUTION_NOTE = (
+    "{market} execution is not available on this instance: {reason} "
+    "The approval above is real and recorded."
 )
 
 
@@ -125,6 +124,31 @@ class Relay:
     def can_execute(self) -> bool:
         """True only if this process actually holds the operator key."""
         return bool(getattr(self._client, "_config", None) and self._client._config.operator_key)
+
+    def market_execution(self, market: str) -> dict:
+        """What the backend says about executing in this market. Fails closed.
+
+        Read from /paper/status, which reports per-market routing, so the relay never
+        has to restate a rule that belongs to broker_routing.py. An unreachable backend
+        means "not enabled" -- a client that assumed yes would offer a button the gate
+        chain would then refuse.
+        """
+        result = self._client.call("paper_status")
+        if result["status"] != STATUS_OK:
+            return {
+                "enabled": False,
+                "reason": f"execution status unavailable ({result.get('reason')}).",
+            }
+        markets = (result["data"] or {}).get("execution_markets") or {}
+        entry = markets.get(str(market).upper())
+        if entry is None:
+            return {"enabled": False, "reason": f"the backend reports no routing for {market}."}
+        reason = entry.get("reason") or "execution is not enabled for this market."
+        return {
+            "enabled": bool(entry.get("enabled")),
+            "reason": reason,
+            "adapter": entry.get("adapter"),
+        }
 
     # --- outbound --------------------------------------------------------------------
 
@@ -284,8 +308,11 @@ class Relay:
         if trace:
             lines.append(f"  Trace         {trace}")
         lines.append("")
-        if record["market"] == MARKET_MY:
-            lines.append(MY_EXECUTION_NOTE)
+        capability = self.market_execution(record["market"])
+        if not capability["enabled"]:
+            lines.append(
+                MARKET_EXECUTION_NOTE.format(market=record["market"], reason=capability["reason"])
+            )
             return "\n".join(lines)
         lines.append(f"Tap 2 will POST /paper/execute/{approval_payload.get('queue_id')} with:")
         lines.append(f"  {json.dumps(body)}")
@@ -298,8 +325,8 @@ class Relay:
         return "\n".join(lines)
 
     def execute_buttons(self, record: dict) -> list:
-        """No execute button for a Malaysian order. Enforced here and tested."""
-        if record["market"] == MARKET_MY:
+        """No execute button for a market the backend will not execute. Asked, not assumed."""
+        if not self.market_execution(record["market"])["enabled"]:
             return []
         return [
             [
@@ -315,8 +342,16 @@ class Relay:
 
     def execute(self, record: dict) -> dict:
         """Tap 2: submit. Claims the right to do so first, so a double tap cannot double-send."""
-        if record["market"] == MARKET_MY:
-            return {"status": "REJECT", "reason": "malaysian_execution_unavailable"}
+        capability = self.market_execution(record["market"])
+        if not capability["enabled"]:
+            # Not offering a button is not the same as refusing the action -- a replayed
+            # callback must still be stopped here.
+            return {
+                "status": "REJECT",
+                "reason": "market_execution_unavailable",
+                "market": record["market"],
+                "detail": capability["reason"],
+            }
 
         claim = proposals.claim_execution(self._db, record["proposal_id"])
         if claim["status"] != "OK":

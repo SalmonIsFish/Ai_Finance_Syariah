@@ -203,10 +203,16 @@ send, and stops at a dry run recorded as `DRY_RUN` — never `EXECUTED`, because
 must not claim an order was submitted when none was. Add the key to
 `backend/bridge/.env` only when you want tap 2 to reach the broker.
 
-**Malaysian orders get no execute button at all**, and the message says why:
-`paper_execution.py:139` picks the adapter globally and production runs `alpaca_mcp`,
-which has no Bursa access. Tap 1 is real and recorded; tap 2 is not offered, and a
-replayed callback is still refused.
+**The relay asks the backend which markets it will execute** — it reads
+`execution_markets` from `GET /paper/status` rather than restating the rule. A market that
+is not enabled gets no execute button, the payload is not shown (showing it invites
+sending it by hand), and a replayed callback is still refused at the method. Tap 1 stays
+real and recorded either way.
+
+Malaysian execution is off until `PAPER_EXECUTION_ADAPTER_MY=moomoo` is set on the
+backend; set it and the button appears with no bridge change. That said, the routing was
+never the only obstacle: OpenD has no runbook for the droplet and no Moomoo order has ever
+reached a broker.
 
 ## Polling (Phase 3)
 

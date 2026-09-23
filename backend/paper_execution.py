@@ -16,6 +16,7 @@ from approval_queue import (
     record_broker_submission,
     update_execution_status,
 )
+from broker_routing import CODE_NO_ADAPTER, adapter_for
 from config import load_settings
 from moomoo_status import check_moomoo_status
 from moomoo_paper_adapter import (
@@ -134,14 +135,40 @@ def execute_paper_order(connection: sqlite3.Connection, queue_id: int) -> dict:
             "approval_audit": audit_gate,
         }
 
-    # `moomoo` holds whichever paper broker is configured; the key name is kept for
-    # the existing execute-response contract. PAPER environment == Alpaca paper account.
-    use_alpaca = settings.paper_execution_adapter in ALPACA_ADAPTERS
-    # Probe the market this order is actually for. check_moomoo_status used to be
-    # hardcoded to US while gating every order, so a Bursa order could be refused
-    # because no *US* simulate account existed -- a refusal for the wrong reason, which
-    # is worse than no check because the stated cause is untrue.
-    order_market = str(approval.get("shariah_market") or "US").strip().upper() or "US"
+    # Which broker submits this order is decided per market, not per process: Alpaca has
+    # no Malaysian access and Moomoo is the only Bursa route. See broker_routing.py,
+    # which is the execution twin of market_data.provider_for.
+    routing = adapter_for(approval, settings)
+    if routing["status"] != "PASS":
+        result = update_execution_status(
+            connection,
+            queue_id,
+            # The pre-existing status is kept for "execution is simply off", so the
+            # common case reads exactly as it always did. The new status is reserved
+            # for the genuinely new condition: configured, but not for this market.
+            status=(
+                "ADAPTER_NOT_CONFIGURED"
+                if routing.get("code") == CODE_NO_ADAPTER
+                else "ADAPTER_NOT_CONFIGURED_FOR_MARKET"
+            ),
+            message=routing["reason"],
+        )
+        return {
+            **result,
+            "status": result["execution_status"],
+            "queue_id": queue_id,
+            "broker_submission": False,
+            "routing": routing,
+        }
+
+    order_adapter = routing["adapter"]
+    order_market = routing["market"]
+    # `moomoo` holds whichever paper broker was chosen; the key name is kept for the
+    # existing execute-response contract. PAPER environment == Alpaca paper account.
+    # The probe must match the adapter that will actually submit -- gating a Bursa order
+    # on whether the *Alpaca* account is ready is a precondition with nothing to do with
+    # the order, and a refusal whose stated cause is not the real one is worse than none.
+    use_alpaca = order_adapter in ALPACA_ADAPTERS
     moomoo = check_alpaca_status() if use_alpaca else check_moomoo_status(order_market)
     if (
         not moomoo.get("paper_account_ready")
@@ -179,7 +206,8 @@ def execute_paper_order(connection: sqlite3.Connection, queue_id: int) -> dict:
             "portfolio_gate": sell_gate,
         }
 
-    broker_response = (submit_alpaca_order if use_alpaca else submit_paper_order)(approval, moomoo)
+    submit = submit_alpaca_order if use_alpaca else submit_paper_order
+    broker_response = submit(approval, moomoo, order_adapter)
     if not broker_response.get("broker_submission"):
         result = update_execution_status(
             connection,

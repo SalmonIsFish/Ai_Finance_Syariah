@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import os
 
+from broker_routing import DEFAULT_MY_ADAPTER
+
 BACKEND_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BACKEND_DIR.parent
 
@@ -48,6 +50,7 @@ class Settings:
     moomoo_port: int
     paper_execution_enabled: bool
     paper_execution_adapter: str
+    paper_execution_adapter_my: str
     paper_account_equity: float
     max_position_pct: float
     max_total_exposure_pct: float
@@ -176,6 +179,12 @@ def load_settings() -> Settings:
         moomoo_port=port,
         paper_execution_enabled=paper_execution_enabled,
         paper_execution_adapter=os.getenv("PAPER_EXECUTION_ADAPTER", "disabled").strip().lower(),
+        # Malaysian execution defaults OFF rather than to moomoo. No Moomoo order has
+        # ever reached a broker and OpenD has no runbook for the droplet, so routing
+        # Bursa orders there by default would enable an unproven path by implication.
+        paper_execution_adapter_my=os.getenv("PAPER_EXECUTION_ADAPTER_MY", DEFAULT_MY_ADAPTER)
+        .strip()
+        .lower(),
         paper_account_equity=paper_account_equity,
         max_position_pct=max_position_pct,
         max_total_exposure_pct=max_total_exposure_pct,

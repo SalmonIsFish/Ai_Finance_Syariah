@@ -42,9 +42,10 @@ class AlpacaMcpUnavailable(RuntimeError):
     """Raised when the Alpaca MCP server cannot be started or spoken to."""
 
 
-def submit_paper_order(approval: dict, alpaca: dict) -> dict:
+def submit_paper_order(approval: dict, alpaca: dict, adapter: str | None = None) -> dict:
+    """``adapter`` is the per-market choice from broker_routing; None keeps the global."""
     settings = load_settings()
-    adapter = settings.paper_execution_adapter
+    adapter = adapter or settings.paper_execution_adapter
     if adapter == "fake":
         return fake_submit_paper_order(approval=approval, alpaca=alpaca)
     if adapter == "alpaca":

@@ -55,9 +55,25 @@ class FakeClient:
         self._config = _Config()
         self._config.operator_key = operator_key
 
+    # The relay reads which markets are executable from /paper/status rather than
+    # restating the rule, so a client that cannot answer this makes it fail closed --
+    # which is correct, and would make every test below assert the same refusal.
+    EXECUTABLE = {
+        "status": "OK",
+        "route": "paper_status",
+        "data": {
+            "execution_markets": {
+                "US": {"adapter": "alpaca_mcp", "enabled": True, "reason": None},
+                "MY": {"adapter": "moomoo", "enabled": True, "reason": None},
+            }
+        },
+    }
+
     def call(self, route_name, *, path_params=None, query=None, body=None, bypass_cache=False):
         self.calls.append({"route": route_name, "path_params": path_params, "body": body})
         canned = self._responses.get(route_name)
+        if canned is None and route_name == "paper_status":
+            canned = self.EXECUTABLE
         if callable(canned):
             canned = canned()
         if canned is None:
@@ -65,7 +81,8 @@ class FakeClient:
         return canned
 
     def routes_called(self):
-        return [call["route"] for call in self.calls]
+        """Route names, minus the capability lookup, which is not an action."""
+        return [call["route"] for call in self.calls if call["route"] != "paper_status"]
 
 
 class FakeTelegram:

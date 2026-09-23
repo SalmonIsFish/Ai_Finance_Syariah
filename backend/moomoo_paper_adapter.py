@@ -61,9 +61,10 @@ SUPPORTED_REAL_MARKETS = {"US", "MY"}
 MARKET_CODE_PREFIXES = {"US": "US", "MY": "MY"}
 
 
-def submit_paper_order(approval: dict, moomoo: dict) -> dict:
+def submit_paper_order(approval: dict, moomoo: dict, adapter: str | None = None) -> dict:
+    """``adapter`` is the per-market choice from broker_routing; None keeps the global."""
     settings = load_settings()
-    adapter = settings.paper_execution_adapter
+    adapter = adapter or settings.paper_execution_adapter
     if adapter == "fake":
         return fake_submit_paper_order(approval=approval, moomoo=moomoo)
     if adapter == "moomoo":

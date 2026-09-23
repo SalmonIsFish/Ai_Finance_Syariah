@@ -152,7 +152,8 @@ See `backend/.env.example` for the full list. The ones that change behaviour mos
 |---|---|---|
 | `ALPACA_API_KEY_ID` / `ALPACA_SECRET_KEY` | — | Paper keys. User sets these; never ask for them in chat. |
 | `ALPACA_MODE` | `paper` | Any other value raises at startup. |
-| `PAPER_EXECUTION_ADAPTER` | `disabled` | `disabled` \| `fake` \| `alpaca` \| `alpaca_mcp` \| `moomoo` |
+| `PAPER_EXECUTION_ADAPTER` | `disabled` | US adapter, and the global switch on `fake`/`disabled`. `disabled` \| `fake` \| `alpaca` \| `alpaca_mcp` \| `moomoo` |
+| `PAPER_EXECUTION_ADAPTER_MY` | `disabled` | Bursa adapter. Off by design — see "Execution routing is per market". |
 | `PAPER_EXECUTION_ENABLED` | `false` | Master lock on broker submission. |
 | `MARKET_DATA_PROVIDER` | `alpaca` | `alpaca` \| `tiingo` |
 | `ZOYA_ENVIRONMENT` | `sandbox` | **Sandbox returns randomized data.** See Known limitations. |
@@ -162,6 +163,41 @@ See `backend/.env.example` for the full list. The ones that change behaviour mos
 `SHARIAH_UNIVERSE_PATH` and `SHARIAH_WIKI_PATH` default to committed in-repo copies
 (`data/shariah-universe/`, `docs/shariah-policy/`), so a fresh clone runs with no `.env` at all.
 Set them only to point at a larger private vault.
+
+## Execution routing is per market
+
+`broker_routing.adapter_for()` decides which broker submits an order, from the order's
+own market rather than from one process-wide setting. It is the execution twin of
+`market_data.provider_for`, and both route on the same `detect_market` the Shariah gate
+uses, so pricing, screening and submission cannot disagree about one symbol.
+
+- **US** → `PAPER_EXECUTION_ADAPTER` (production: `alpaca_mcp`).
+- **MY** → `PAPER_EXECUTION_ADAPTER_MY`, **default `disabled`**.
+- `fake` and `disabled` on the primary setting are a test mode and an off switch, so they
+  answer for every market at once. Splitting them would let a test configure `fake` and
+  still reach a real adapter for the other market.
+
+Malaysian execution is off by default on purpose: no Moomoo order has ever reached a
+broker and OpenD has no runbook for the droplet, so routing Bursa orders there by default
+would enable an unproven path by implication rather than by decision.
+
+**A correction to an earlier claim in this file.** It previously said a Malaysian order
+"would be submitted to Alpaca, which has no Bursa access". That was wrong.
+`alpaca_paper_adapter.SUPPORTED_REAL_MARKETS` is `{"US"}` and a non-US approval was
+refused with `UNSUPPORTED_MARKET` before anything was built, so the outcome was always
+safe. Two things genuinely were wrong, and both are fixed: the **status probe** was picked
+by the same global flag, so a Bursa order was gated on whether the *Alpaca* account was
+ready; and the refusal's stated reason described Alpaca's limits rather than the system's
+decision. `test_broker_routing.py` pins the old behaviour as a fact so the record stays
+honest.
+
+`reconcile_for_approval` needed no change — it already dispatches on the `adapter`
+recorded on the submission rather than the current setting, which is what makes a
+configuration change mid-flight safe.
+
+`GET /paper/status` reports `execution_markets`, so a client does not have to restate the
+rule. The bridge relay reads it instead of hardcoding "Malaysia cannot execute", which it
+used to and which was a second copy of a decision owned here.
 
 ## Alpaca integration
 
@@ -217,7 +253,7 @@ exactly like a failure and is not one. Dispatch on whether a file has collectabl
 functions, **not** on whether it has a `__main__` guard. A one-off runner that got this
 backwards on 2026-09-21 manufactured two false failures before the mistake was caught.
 
-**101 `test_*.py` files on disk. 100 run and all 100 pass; `test_moomoo.py` is the one excluded**
+**103 `test_*.py` files on disk. 102 run and all 102 pass; `test_moomoo.py` is the one excluded**
 (full census, 2026-09-23). Treat that number as a measurement with a date on it, not a fact —
 and do not trust a hardcoded list in this file. The list that used to sit here enumerated 42
 files and asserted "All 42 of those pass" while the suite had grown past 80, so a fresh reader
@@ -437,7 +473,13 @@ no Moomoo gateway running.
    `agent_coordinator.evaluate_quant` for a real `NO_SIGNAL` shape, asserting both that the option
    is approved and that a plain equity BUY on the same underlying is still blocked.
 
-5. **Malaysian execution is wired but has never placed an order — and cannot yet.**
+5. **Malaysian execution is wired and routable, and has still never placed an order.**
+   *(Updated 2026-09-23: execution now routes per market, so a Bursa order reaches the
+   Moomoo adapter once `PAPER_EXECUTION_ADAPTER_MY=moomoo` is set. That removes the
+   routing obstacle and none of the real ones — OpenD has no runbook for the droplet, the
+   `MY.` code format is unverified against a live gateway, and Moomoo has no
+   `client_order_id` equivalent for broker-side idempotency. Do not describe Bursa
+   execution as working until an order has filled and reconciled.)*
    On 2026-09-22 `moomoo_paper_adapter.py` was extended to Bursa at the owner's direction,
    reversing this file's former "do not extend" note on the `moomoo_*` family. The reason is
    simple: Alpaca has no Bursa access of any kind, so Moomoo is the only possible Malaysian
