@@ -536,7 +536,17 @@ no Moomoo gateway running.
 
    MY appears in their quota tables marked entirely unsupported. So this is not an
    inference from a missing account — it is the vendor's own statement, and the empirical
-   result above is what it looks like from the client side. Do not re-investigate.
+   result above is what it looks like from the client side.
+
+   Moomoo's own in-app assistant, asked directly and citing support material, gave a
+   broader reason still: *"Moomoo MY currently does not support API functionality or
+   quantitative trading."* It named the exact thing that made this confusing — in-app
+   paper trading and the OpenAPI are separate systems, so placing an order in the app
+   creates no API permission — and reported no roadmap for adding it. Attributed rather
+   than asserted, since that quote was relayed by an assistant and not read directly; but
+   it agrees with the permissions table and with four independent experiments.
+
+   **Three independent sources now agree. Do not re-investigate.**
 
    **A consequence worth noting, because it closes a second idea.** Earlier notes floated
    using moomoo's `OpenQuoteContext` to replace `yahoo_finance` for Bursa prices, on the
