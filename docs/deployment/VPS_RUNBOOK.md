@@ -86,7 +86,24 @@ GitHub redirects it to `Ai_Finance_Syariah.git`, and `git ls-remote` on both ret
 refs, so pulls and pushes work — it is confusing, not broken. Worth re-pointing next time
 someone is on the box, so nobody concludes the droplet tracks a different repository.
 
-### The pending deploy: 30799f0 -> df31318 (options, the bridge, per-market routing)
+### Deployed 2026-09-23: 30799f0 -> 85e744e (options, the bridge, per-market routing)
+
+**Done and verified in production.** Pushed, pulled, restarted, and checked live:
+
+| check | result |
+|---|---|
+| `GET /api/shariah/4197` | PASS, publication `sc-sac-my-2026-05-29`, hash `d6592a55...` |
+| `GET /stock/AAPL/option-strategy` | the determination, not a contract |
+| `GET /api/quant/AAPL` | BUY, 218 bars, `alpaca_iex` |
+| `GET /paper/status` (owner) | `execution_markets`: `US.enabled true` / `MY.enabled false` |
+
+That last one is the one that mattered: it is the key the OpenClaw relay reads, and the
+bug fixed in `85e744e` was that this route never returned it. `US.reason` reads
+`"US orders are submitted through 'alpaca_mcp'"` — an affirmative reason, not the `None`
+that made an enabled market render as disabled. `broker_submission` is now `true`, which
+it always should have been.
+
+The notes below are kept as the record of what this deploy changed and how it was judged.
 
 Audited before deploying. **Low risk**: no new packages (`requirements.txt` unchanged), no
 required new environment variable, no import cycle (`import local_api` verified end to
@@ -460,7 +477,28 @@ when you need to drive a demo trade.
 
 ## Moomoo OpenD on the droplet (Bursa execution)
 
-**Not installed. This is the plan, not a record of something done.**
+**Not installed, and currently BLOCKED — do not build this yet.**
+
+**Verified 2026-09-23 against a live OpenD gateway on the laptop: there is no Malaysian
+simulate account on the owner's moomoo login.** `get_acc_list()` was enumerated under
+every `TrdMarket` filter and returned three accounts: a REAL MARGIN account authorised for
+HK/US/SG/MY, a SIMULATE CASH account authorised for **HK only**, and a SIMULATE MARGIN
+account authorised for **US only**. Filtering by `TrdMarket.MY` returns the REAL account
+and nothing else.
+
+Moomoo provisions a separate simulated account per market, and Malaysia is not provisioned
+here. The RM1,000,000 Malaysian paper trading in the moomoo app is evidently a different
+object from an OpenAPI simulate account. `unlock_trade` does not change it — that governs
+order placement, not enumeration, and the list was identical before and after unlocking.
+
+So **putting OpenD on this droplet would achieve nothing today**: the adapter would connect,
+find no MY simulate account, and refuse with `active_my_simulate_account_not_found` exactly
+as it does on the laptop. The prerequisite is an account question for moomoo — can a
+Malaysian simulate account be exposed to OpenAPI at all? — not a server build.
+
+Everything below stays as the plan for **if and when** that is answered yes.
+
+
 
 Alpaca has no Bursa access, so Moomoo is the only Malaysian route, and the Moomoo SDK
 talks to OpenD -- a logged-in gateway process. It has to run somewhere the backend can

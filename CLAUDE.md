@@ -473,13 +473,49 @@ no Moomoo gateway running.
    `agent_coordinator.evaluate_quant` for a real `NO_SIGNAL` shape, asserting both that the option
    is approved and that a plain equity BUY on the same underlying is still blocked.
 
-5. **Malaysian execution is wired and routable, and has still never placed an order.**
-   *(Updated 2026-09-23: execution now routes per market, so a Bursa order reaches the
-   Moomoo adapter once `PAPER_EXECUTION_ADAPTER_MY=moomoo` is set. That removes the
-   routing obstacle and none of the real ones — OpenD has no runbook for the droplet, the
-   `MY.` code format is unverified against a live gateway, and Moomoo has no
-   `client_order_id` equivalent for broker-side idempotency. Do not describe Bursa
-   execution as working until an order has filled and reconciled.)*
+5. **Malaysian execution is blocked by the moomoo ACCOUNT, not by this code.** Verified
+   against a live OpenD gateway on 2026-09-23 — the first time anything here has been.
+
+   `get_acc_list()` was enumerated under every `TrdMarket` filter. The login has exactly
+   three accounts:
+
+   | acc_id | env | type | trdmarket_auth |
+   |---|---|---|---|
+   | `286260078297602112` | **REAL** | MARGIN | HK, US, SG, MY, MYFUND, USFUND |
+   | `2713262` | SIMULATE | CASH | **HK only** |
+   | `1721740` | SIMULATE | **MARGIN** | **US only** |
+
+   **There is no MY simulate account.** Filtering by `TrdMarket.MY` returns the REAL
+   account and nothing else. Moomoo provisions a separate simulated account per market,
+   and Malaysia has not been provisioned on this login — the RM1,000,000 Malaysian paper
+   trading in the moomoo app is evidently not the same object as an OpenAPI simulate
+   account. Unlocking trade does not change this: `unlock_trade` governs order placement,
+   not account enumeration, and the list was identical before and after.
+
+   So the `MY.5225` code format remains untested — **the account lookup fails first, and
+   nothing reaches the code that builds a symbol.** That is a more useful fact than the
+   open question it replaces.
+
+   Two independent refusals sit behind it, both working as designed. The only MY-authorised
+   account is `REAL`, and `TrdEnv.SIMULATE` is hardcoded at every call site so it can never
+   be selected. And it is `MARGIN`, which `account_shariah_gate.check_account` refuses with
+   `margin_account_not_permitted` — the same refusal `docs/live-trade-evidence/before-CVX.json`
+   records on the Alpaca path before that account was switched to CASH. The US simulate
+   account is margin too, so it would be refused on Riba grounds even for a US order.
+
+   **The market-aware probe is what surfaced this.** Before `check_moomoo_status` took a
+   market (fixed 2026-09-23), a Bursa order was gated on whether the *US* account was ready;
+   it would have reported `paper_account_ready` and failed confusingly deeper in. It now
+   returns `active_my_simulate_account_not_found`, which is the true reason.
+
+   Next step is a question for moomoo, not a code change: can a Malaysian simulate account
+   be exposed to OpenAPI at all? If not, Bursa paper execution is unavailable by this route
+   and the OpenD-on-droplet plan in `VPS_RUNBOOK.md` should not be built.
+
+   *(Routing itself is solved: a Bursa order reaches the Moomoo adapter once
+   `PAPER_EXECUTION_ADAPTER_MY=moomoo` is set. Moomoo also has no `client_order_id`
+   equivalent for broker-side idempotency — only a free-text `remark`. Do not describe
+   Bursa execution as working until an order has filled and reconciled.)*
    On 2026-09-22 `moomoo_paper_adapter.py` was extended to Bursa at the owner's direction,
    reversing this file's former "do not extend" note on the `moomoo_*` family. The reason is
    simple: Alpaca has no Bursa access of any kind, so Moomoo is the only possible Malaysian
@@ -488,10 +524,10 @@ no Moomoo gateway running.
    SDK's own enums (moomoo 10.09.6908 has `TrdMarket.MY` and `Market.MY`) and asserted in
    `test_moomoo_paper_adapter.py`, which checks the request that gets *built*.
 
-   **Nothing has been verified against a live gateway.** OpenD was not running. The `MY.`
-   code format and the MY account lookup are unproven, and Bursa execution must not be
-   described as working until a real order has filled and reconciled the way the US path was
-   proven twice above.
+   *(That paragraph was written when nothing had been verified against a live gateway. It
+   has now been — see the account table above. The `MY.` code format is still unproven, but
+   for a more specific reason than "untested": the account lookup fails before a symbol is
+   ever built.)*
 
    **A Malaysian order now completes preview → approval on real prices.** Verified
    2026-09-22 against live data: `4197` (Sime Darby) reached `READY_FOR_APPROVAL` with **no
