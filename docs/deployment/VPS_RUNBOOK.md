@@ -477,7 +477,17 @@ when you need to drive a demo trade.
 
 ## Moomoo OpenD on the droplet (Bursa execution)
 
-**Not installed, and currently BLOCKED — do not build this yet.**
+**Do not build this. It would achieve nothing.**
+
+Moomoo's Malaysian paper trading is an app product and is **not exposed to the OpenAPI** --
+established by elimination on 2026-09-23 and recorded in full in CLAUDE.md limitation 5.
+The MY paper account was opened in the app, OpenD was fully restarted, and a real Bursa
+paper order was placed and left resting; `get_acc_list` still shows only an HK and a US
+simulate account, across 8 SecurityFirm values and 6 TrdMarket values.
+
+So OpenD on this droplet would connect successfully and then refuse every Malaysian order
+with `active_my_simulate_account_not_found`, exactly as it does on the laptop. The daemon
+was never the blocker. **This section is kept as a record of why, not as work to do.**
 
 **Verified 2026-09-23 against a live OpenD gateway on the laptop: there is no Malaysian
 simulate account on the owner's moomoo login.** `get_acc_list()` was enumerated under

@@ -515,15 +515,36 @@ no Moomoo gateway running.
    it would have reported `paper_account_ready` and failed confusingly deeper in. It now
    returns `active_my_simulate_account_not_found`, which is the true reason.
 
-   **The unblock condition is exact:** a simulate account with `MY` in `trdmarket_auth`.
-   `check_moomoo_status("MY")` reports it the moment one exists, and its refusal now names
-   the accounts that do exist — `active_my_simulate_account_not_found (simulate accounts on
-   this login: HK/STOCK, US/STOCK_AND_OPTION)` — so the reader can tell "not provisioned"
-   from "misconfigured" without re-running any of this.
+   **This question is CLOSED, not open.** Moomoo's Malaysian paper trading is an app
+   product and is **not exposed to the OpenAPI**. Established by elimination on
+   2026-09-23, in this order:
 
-   Open experiment: the HK and US paper accounts exist because they were used, so opening
-   Bursa paper trading in the moomoo app and placing one trade may provision one. Re-run
-   the check afterwards; that is how we will know.
+   1. Opened MY Market Paper Trade in the app — RM 1,000,000, visibly active. API list
+      unchanged.
+   2. Fully restarted OpenD, in case the account list was cached from before it existed.
+      Unchanged.
+   3. Placed a real Malaysian paper order — `4197.MY` (SIME), BUY, limit 2.51, resting.
+      **Still unchanged**: `get_acc_list` shows the same two simulate accounts.
+   4. Re-enumerated 8 `SecurityFirm` × 6 `TrdMarket`. Still HK and US only.
+
+   Consistent with moomoo's own docs, which list simulated trading for HK, US and CN and
+   place MY only in live-trading contexts. Do not re-investigate this; the experiment that
+   would settle it has already been run, and it settled it.
+
+   **So Malaysian execution is structurally unavailable, not merely unbuilt.** There is no
+   broker route: Alpaca has no Bursa access at all, and Moomoo exposes only a REAL account
+   for MY — which is `MARGIN`, so `account_shariah_gate` would refuse it on Riba grounds
+   even if `TrdEnv.SIMULATE` were not hardcoded at every call site.
+
+   That is narrower than it sounds. Everything Malaysian this project actually claims still
+   works: SC screening, the eligible universe, the disposal clock, live Bursa pricing, and
+   preview → approval on real prices. Only the final submission has nowhere to go.
+
+   One observation recorded without a conclusion: the moomoo app displays the symbol as
+   `4197.MY`, while this adapter builds `MY.4197` and the API docs use a market prefix
+   (`US.AAPL`, `HK.00700`). Probably a display convention rather than a contradiction —
+   but it is untested and will stay that way, since nothing can reach the code that builds
+   it.
 
    **One unverified risk was closed from moomoo's own reference code.** Their open-source
    agent skill (`MoomooOpen/moomoo-agent-hub`, `scripts/trade/place_order.py`) builds
