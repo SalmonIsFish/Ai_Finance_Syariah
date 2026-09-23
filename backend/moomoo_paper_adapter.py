@@ -106,6 +106,7 @@ def load_moomoo_sdk():
         RET_OK,
         OpenSecTradeContext,
         OrderType,
+        SecurityFirm,
         Session,
         TimeInForce,
         TrdEnv,
@@ -117,6 +118,7 @@ def load_moomoo_sdk():
         "RET_OK": RET_OK,
         "OpenSecTradeContext": OpenSecTradeContext,
         "OrderType": OrderType,
+        "SecurityFirm": SecurityFirm,
         "Session": Session,
         "TimeInForce": TimeInForce,
         "TrdEnv": TrdEnv,
@@ -187,8 +189,12 @@ def submit_moomoo_paper_order(*, approval: dict) -> dict:
         }
 
     trd_market = market_to_trd_market(sdk, market)
+    security_firm = security_firm_for(sdk, market)
     account_context = sdk["OpenSecTradeContext"](
-        filter_trdmarket=trd_market, host=settings.moomoo_host, port=settings.moomoo_port
+        filter_trdmarket=trd_market,
+        host=settings.moomoo_host,
+        port=settings.moomoo_port,
+        security_firm=security_firm,
     )
     try:
         ret, accounts = account_context.get_acc_list()
@@ -199,13 +205,16 @@ def submit_moomoo_paper_order(*, approval: dict) -> dict:
                 "broker_submission": False,
                 "reason": str(accounts),
             }
-        account = find_active_simulate_account(accounts)
+        account = find_active_simulate_account(accounts, market)
         if account is None:
             return {
                 "status": "MOOMOO_PAPER_ACCOUNT_MISSING",
                 "adapter": "moomoo",
                 "broker_submission": False,
-                "reason": "active_simulate_account_not_found",
+                "reason": (
+                    f"no SIMULATE account authorised for {market} "
+                    f"(found: {describe_simulate_accounts(accounts)})"
+                ),
             }
 
         account_id = int(account["acc_id"])
@@ -512,6 +521,29 @@ def market_to_trd_market(sdk: dict, market: str):
     return sdk["TrdMarket"].NONE
 
 
+def security_firm_for(sdk: dict, market: str):
+    """Which moomoo legal entity holds this market's accounts.
+
+    Moomoo Securities Malaysia is a separate entity from the Hong Kong one, and the SDK
+    has a `SecurityFirm` value for each. Neither call site used to pass it, so both took
+    the default.
+
+    Account *discovery* happens to work either way -- enumerating 8 firms against 6
+    markets on 2026-09-23 showed the same two simulate accounts under every firm. Order
+    placement against a Malaysian account is a different call, and querying the wrong
+    legal entity for it is not something to leave to luck.
+
+    Unknown markets get the default rather than an invented entity, the same fail-safe
+    habit as market_to_trd_market falling through to TrdMarket.NONE.
+    """
+    firms = sdk["SecurityFirm"]
+    if market == "MY":
+        return firms.FUTUMY
+    if market == "US":
+        return firms.FUTUINC
+    return firms.FUTUSECURITIES
+
+
 def side_to_trd_side(sdk: dict, side: str):
     if side == "SELL":
         return sdk["TrdSide"].SELL
@@ -534,11 +566,46 @@ def find_order_row(table, broker_order_id: str | int) -> dict | None:
     return None
 
 
-def find_active_simulate_account(accounts) -> dict | None:
+def find_active_simulate_account(accounts, market: str | None = None) -> dict | None:
+    """The ACTIVE simulate account that actually serves `market`.
+
+    Moomoo provisions a simulated account *per market* -- verified 2026-09-23, where one
+    login carried an HK account (CASH, sim_acc_type STOCK) and a US one (MARGIN,
+    STOCK_AND_OPTION) and no Malaysian one at all. So "the first SIMULATE row" is not a
+    safe answer once more than one exists: the two on that login differ in `acc_type`,
+    and picking the wrong one silently changes whether account_shariah_gate refuses the
+    order for margin.
+
+    The caller's `filter_trdmarket` already pre-filters the list, so this was not biting.
+    That made it a single point of failure, which is exactly the kind of thing worth a
+    second check rather than a comment.
+
+    `market` is optional so existing callers keep their previous behaviour.
+    """
     for row in rows_from_table(accounts):
-        if row.get("trd_env") == "SIMULATE" and row.get("acc_status") == "ACTIVE":
+        if row.get("trd_env") != "SIMULATE" or row.get("acc_status") != "ACTIVE":
+            continue
+        if market is None:
+            return row
+        auth = row.get("trdmarket_auth") or []
+        if market in list(auth):
             return row
     return None
+
+
+def describe_simulate_accounts(accounts) -> str:
+    """What simulate accounts DO exist, for an error message worth acting on.
+
+    "active_simulate_account_not_found" is true and tells the reader nothing. Naming the
+    accounts that exist turns it into a diagnosis.
+    """
+    found = []
+    for row in rows_from_table(accounts):
+        if row.get("trd_env") != "SIMULATE":
+            continue
+        markets = ",".join(str(m) for m in (row.get("trdmarket_auth") or [])) or "no markets"
+        found.append(f"{markets}/{row.get('sim_acc_type') or row.get('acc_type')}")
+    return ", ".join(found) if found else "none"
 
 
 def extract_first_value(data, *columns: str) -> str | None:

@@ -496,7 +496,18 @@ find no MY simulate account, and refuse with `active_my_simulate_account_not_fou
 as it does on the laptop. The prerequisite is an account question for moomoo — can a
 Malaysian simulate account be exposed to OpenAPI at all? — not a server build.
 
-Everything below stays as the plan for **if and when** that is answered yes.
+**The unblock condition is exact**: a simulate account with `MY` in `trdmarket_auth`.
+Run this with OpenD up, and it reports the moment one exists:
+
+```powershell
+.\.venv\Scripts\python.exe -c "import sys;sys.path.insert(0,'backend');from moomoo_status import check_moomoo_status;print(check_moomoo_status('MY'))"
+```
+
+Today it returns `active_my_simulate_account_not_found (simulate accounts on this login:
+HK/STOCK, US/STOCK_AND_OPTION)` -- which distinguishes "not provisioned" from
+"misconfigured" without re-investigating anything.
+
+Everything below stays as the plan for **if and when** that changes.
 
 
 

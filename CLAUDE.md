@@ -481,9 +481,16 @@ no Moomoo gateway running.
 
    | acc_id | env | type | trdmarket_auth |
    |---|---|---|---|
-   | `286260078297602112` | **REAL** | MARGIN | HK, US, SG, MY, MYFUND, USFUND |
-   | `2713262` | SIMULATE | CASH | **HK only** |
-   | `1721740` | SIMULATE | **MARGIN** | **US only** |
+   | acc_id | env | type | sim_acc_type | trdmarket_auth |
+   |---|---|---|---|---|
+   | `286260078297602112` | **REAL** | MARGIN | — | HK, US, SG, MY, MYFUND, USFUND |
+   | `2713262` | SIMULATE | CASH | `STOCK` | **HK only** |
+   | `1721740` | SIMULATE | **MARGIN** | `STOCK_AND_OPTION` | **US only** |
+
+   Checked exhaustively: **8 `SecurityFirm` values × 6 `TrdMarket` values**, 48 queries.
+   Exactly those two simulate accounts appear, under every firm. So `security_firm` makes
+   no difference to *discovery* — do not re-test that. Moomoo's own API docs list
+   simulated trading for HK, US and CN; MY appears only in live-trading contexts.
 
    **There is no MY simulate account.** Filtering by `TrdMarket.MY` returns the REAL
    account and nothing else. Moomoo provisions a separate simulated account per market,
@@ -508,9 +515,24 @@ no Moomoo gateway running.
    it would have reported `paper_account_ready` and failed confusingly deeper in. It now
    returns `active_my_simulate_account_not_found`, which is the true reason.
 
-   Next step is a question for moomoo, not a code change: can a Malaysian simulate account
-   be exposed to OpenAPI at all? If not, Bursa paper execution is unavailable by this route
-   and the OpenD-on-droplet plan in `VPS_RUNBOOK.md` should not be built.
+   **The unblock condition is exact:** a simulate account with `MY` in `trdmarket_auth`.
+   `check_moomoo_status("MY")` reports it the moment one exists, and its refusal now names
+   the accounts that do exist — `active_my_simulate_account_not_found (simulate accounts on
+   this login: HK/STOCK, US/STOCK_AND_OPTION)` — so the reader can tell "not provisioned"
+   from "misconfigured" without re-running any of this.
+
+   Open experiment: the HK and US paper accounts exist because they were used, so opening
+   Bursa paper trading in the moomoo app and placing one trade may provision one. Re-run
+   the check afterwards; that is how we will know.
+
+   Two hardening fixes went in alongside this (2026-09-23), neither of which unblocks
+   anything today. `security_firm` is now passed per market — `FUTUMY` for Bursa, since
+   Moomoo Securities Malaysia is a separate legal entity — because order placement is a
+   different call from discovery and querying the wrong entity for it was left to luck.
+   And `find_active_simulate_account` now checks `trdmarket_auth` rather than returning
+   the first SIMULATE row: the context filter was the only thing preventing a wrong-account
+   submission, and the two accounts above differ in `acc_type`, so picking the wrong one
+   silently changes whether the Riba gate refuses the order.
 
    *(Routing itself is solved: a Bursa order reaches the Moomoo adapter once
    `PAPER_EXECUTION_ADAPTER_MY=moomoo` is set. Moomoo also has no `client_order_id`
