@@ -10,8 +10,8 @@ not depend on a model cooperating:
 
 * what a bot can reach at all       -> ROLE_TOOLS in tools.py
 * what it can never reach           -> the absence of those routes from routes.ROUTES
-* whether its prose survives        -> filters.py (Phase 2)
-* whether facts outrank it          -> compose.py (Phase 2)
+* whether its prose survives        -> filters.py
+* whether facts outrank it          -> compose.py
 
 If a role's instruction and its tool set ever disagree, the tool set wins, because the
 tool set is the one a model cannot talk its way around.
@@ -163,6 +163,9 @@ ROSTER: dict[str, Bot] = {
             "information the owner needs, not noise to smooth over.",
             "You have no data access of your own. Everything you present came from a "
             "specialist, and you may not add a fact to it.",
+            "You have no tools at all, deliberately. Assembly is done in Python by the "
+            "relay, which fetched the blocks itself -- see compose.py on why a tool "
+            "taking block text from you would let a fabricated block print as fact.",
         ),
     ),
 }

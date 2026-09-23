@@ -131,12 +131,36 @@ the two disagree.
 - **Option contracts.** Blocked system-wide pending a scholarly ruling; see
   `docs/shariah-policy/option-contracts-determination.md`.
 
+## Narration is filtered (Phase 2)
+
+`filters.py` decides whether a model's narration may be attached, in three layers, each
+catching what the others cannot:
+
+1. **Vocabulary** — advisory and authority-claiming words. One narrow exemption: an
+   UPPERCASE token that actually appears in the rendered facts is the system's own word
+   quoted, so `Signal BUY` may be restated while "a good time to buy" may not. That
+   exemption was found by running the bridge against the live deployment, not by
+   reasoning — a blanket ban left the quant bot unable to report the one thing it is for.
+2. **Polarity faithfulness** — the narration must name the right ticker and carry the
+   right verdict polarity. This catches a fluent fabrication that uses no banned word.
+3. **Numeric containment** — every number in the narration must appear in the facts. The
+   strongest layer here, because these numbers are actionable: a hallucinated queue id,
+   strike, deadline or loss percentage is a different kind of wrong from an adjective.
+
+`compose.py` puts the facts first and the narration in one trailing slot labelled
+*"explanatory only — the lines above are authoritative"*, and only if the filter passes.
+Otherwise the slot is dropped and the message says something was withheld, so a silently
+shorter message never hides a refused claim.
+
+Disagreeing blocks — a PASS verdict beside a BLOCKING risk snapshot — are both printed in
+full under a header saying they disagree. Nothing reconciles them.
+
+**There is no `assemble(blocks)` tool, deliberately.** Blocks arriving as strings from a
+model would print above the authoritative line, so a fabricated block would render as
+fact with the filter inspecting only the narration below it. Composition therefore
+belongs to the relay, which fetches its own blocks. See the reasoning in `compose.py`.
+
 ## Not built yet
 
-`filters.py` and `compose.py` (Phase 2 — the prose admission filter and the rule that
-facts outrank narration), and `proposals.py`, `relay.py`, `schedules.py` (Phase 3 — the
-Telegram two-tap flow and the polling jobs, including the daily disposal-clock refresh).
-
-Until Phase 2, a model's narration is not filtered by anything in this repo. Phase 1 is
-safe because every tool returns a rendered block the model cannot alter, and because no
-tool can write — not because the model has been told to behave.
+`proposals.py`, `relay.py`, `schedules.py` (Phase 3 — the Telegram two-tap flow and the
+polling jobs, including the daily disposal-clock refresh).
