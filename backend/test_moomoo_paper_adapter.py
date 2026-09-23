@@ -253,8 +253,12 @@ def main() -> None:
         assert call["acc_id"] == 987654321
         assert call["remark"] == "Amanah queue 42"
         assert call["time_in_force"] == "DAY"
-        assert call["fill_outside_rth"] is False
-        assert call["session"] == "NONE"
+        # Both are ABSENT, not False/NONE. moomoo's own place_order.py builds kwargs
+        # conditionally and omits them at their defaults, and both are US-market concepts
+        # that CLAUDE.md flagged as an untested risk for Bursa. Asserting absence rather
+        # than a default value is the point: sending them is what we are avoiding.
+        assert "fill_outside_rth" not in call, call
+        assert "session" not in call, call
 
         sell_result = moomoo_paper_adapter.submit_paper_order(
             {

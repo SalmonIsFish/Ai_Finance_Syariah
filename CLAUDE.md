@@ -525,6 +525,29 @@ no Moomoo gateway running.
    Bursa paper trading in the moomoo app and placing one trade may provision one. Re-run
    the check afterwards; that is how we will know.
 
+   **One unverified risk was closed from moomoo's own reference code.** Their open-source
+   agent skill (`MoomooOpen/moomoo-agent-hub`, `scripts/trade/place_order.py`) builds
+   order kwargs conditionally:
+
+   ```python
+   if fill_outside_rth: order_kwargs["fill_outside_rth"] = True
+   if session != Session.NONE: order_kwargs["session"] = session
+   ```
+
+   It **omits** both at their defaults. This adapter sent them unconditionally, and this
+   file had flagged exactly that pair as a possible Bursa rejection — both are US-market
+   concepts. They are now omitted, matching the vendor, which costs nothing: every order
+   this system places is a regular-hours day order, so both were always at their defaults.
+   `test_moomoo_paper_adapter.py` asserts their **absence**, not a default value.
+
+   That skill is worth knowing about for a second reason: it gives a language model a
+   `place_order` tool. It is a legitimate product for someone without a compliance gate,
+   and it is the inverse of this architecture — an order placed through it would bypass
+   the gate chain, the evidence trail and the two-tap approval, because it never touches
+   this backend. Fair to it: its live path enforces a two-step `--confirmed` workflow it
+   calls a hard constraint, which is the same shape as the relay's two taps. Read its
+   scripts as reference; do not wire its trading tool into an agent.
+
    Two hardening fixes went in alongside this (2026-09-23), neither of which unblocks
    anything today. `security_firm` is now passed per market — `FUTUMY` for Bursa, since
    Moomoo Securities Malaysia is a separate legal entity — because order placement is a

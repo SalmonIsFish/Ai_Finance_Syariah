@@ -233,19 +233,29 @@ def submit_moomoo_paper_order(*, approval: dict) -> dict:
         filter_trdmarket=trd_market, host=settings.moomoo_host, port=settings.moomoo_port
     )
     try:
-        ret, order_data = context.place_order(
-            price=float(price),
-            qty=float(quantity),
-            code=code,
-            trd_side=side_to_trd_side(sdk, side),
-            order_type=sdk["OrderType"].NORMAL,
-            trd_env=sdk["TrdEnv"].SIMULATE,
-            acc_id=account_id,
-            remark=f"Amanah queue {approval['id']}",
-            time_in_force=sdk["TimeInForce"].DAY,
-            fill_outside_rth=False,
-            session=sdk["Session"].NONE,
-        )
+        # `fill_outside_rth` and `session` are omitted rather than sent at their defaults,
+        # matching moomoo's own reference implementation, whose place_order.py builds
+        # kwargs conditionally:
+        #
+        #     if fill_outside_rth: order_kwargs["fill_outside_rth"] = True
+        #     if session != Session.NONE: order_kwargs["session"] = session
+        #
+        # Both are US-market concepts. CLAUDE.md flagged sending them unconditionally as
+        # an untested risk for Bursa; the vendor's own code says not to, which is better
+        # evidence than a guess and costs nothing, since every order this system places is
+        # a regular-hours day order and both would always be at their defaults anyway.
+        order_kwargs = {
+            "price": float(price),
+            "qty": float(quantity),
+            "code": code,
+            "trd_side": side_to_trd_side(sdk, side),
+            "order_type": sdk["OrderType"].NORMAL,
+            "trd_env": sdk["TrdEnv"].SIMULATE,
+            "acc_id": account_id,
+            "remark": f"Amanah queue {approval['id']}",
+            "time_in_force": sdk["TimeInForce"].DAY,
+        }
+        ret, order_data = context.place_order(**order_kwargs)
         if ret != sdk["RET_OK"]:
             return {
                 "status": "BROKER_REJECTED",
