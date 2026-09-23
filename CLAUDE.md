@@ -527,9 +527,23 @@ no Moomoo gateway running.
       **Still unchanged**: `get_acc_list` shows the same two simulate accounts.
    4. Re-enumerated 8 `SecurityFirm` × 6 `TrdMarket`. Still HK and US only.
 
-   Consistent with moomoo's own docs, which list simulated trading for HK, US and CN and
-   place MY only in live-trading contexts. Do not re-investigate this; the experiment that
-   would settle it has already been run, and it settled it.
+   **And moomoo says so directly.** Their API permissions page
+   (`openapi.moomoo.com/moomoo-api-doc/en/intro/authority.html`) lists the Malaysian
+   market as **Unsupported**, verbatim:
+
+   > Malaysian Market | Securities (including Stocks, ETFs, Warrants, REITs) |
+   > Unsupported. | Futures | Unsupported.
+
+   MY appears in their quota tables marked entirely unsupported. So this is not an
+   inference from a missing account — it is the vendor's own statement, and the empirical
+   result above is what it looks like from the client side. Do not re-investigate.
+
+   **A consequence worth noting, because it closes a second idea.** Earlier notes floated
+   using moomoo's `OpenQuoteContext` to replace `yahoo_finance` for Bursa prices, on the
+   grounds that Yahoo is unofficial with no SLA. That is not available either: the same
+   table marks Malaysian *securities data* unsupported. Yahoo remains the only Bursa price
+   source this project has, which raises the value of `market_data.provider_for` routing
+   per market and of recording `price_source` on every decision.
 
    **So Malaysian execution is structurally unavailable, not merely unbuilt.** There is no
    broker route: Alpaca has no Bursa access at all, and Moomoo exposes only a REAL account
