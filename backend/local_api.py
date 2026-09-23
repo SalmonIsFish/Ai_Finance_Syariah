@@ -1,6 +1,7 @@
 """Minimal local API for the paper-trading dashboard."""
 
 import json
+import math
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -560,10 +561,26 @@ def portfolio_price_lookup(symbol: str) -> dict:
 
 
 def exposure_value(position: dict) -> float:
+    """A position's exposure, falling back to cost basis when it cannot be valued.
+
+    The `is None` check used to be the only guard, and it does not catch NaN -- which is
+    what `market_value` becomes when the price lookup fails. `float(nan or 0)` is nan,
+    because nan is truthy, so the fallback to cost_basis never ran and the nan propagated
+    into every risk percentage. `nan > limit` is False in Python, so a price outage turned
+    the position and total-exposure limits from fail-closed into fail-open.
+
+    Found on 2026-09-24: Yahoo returned no price for a Bursa symbol and a position worth
+    5.40% of equity was approved against a 5% cap. Cost basis is the conservative answer
+    and a number we actually know -- the shares were bought at a real price.
+    """
     value = position.get("market_value")
-    if value is None:
+    if value is None or not math.isfinite(float(value)):
         value = position.get("cost_basis")
-    return float(value or 0)
+    try:
+        resolved = float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    return resolved if math.isfinite(resolved) else 0.0
 
 
 def add_exposure_metadata(snapshot: dict, *, account_equity: float) -> dict:
@@ -1228,6 +1245,28 @@ def portfolio_risk_overlay(
     blockers = []
     warnings = []
     messages = {}
+    # A non-finite exposure must BLOCK, never fall through. When a price lookup fails the
+    # position values as NaN, and `NaN > limit` is False in Python -- so a data outage
+    # silently turned both limits below from fail-closed into fail-open. Found on
+    # 2026-09-24 when Yahoo returned no price for a Bursa symbol and a 5.40%-of-equity
+    # position was approved against a 5% cap.
+    #
+    # Same rule the bridge applies to an `inf` risk number: a value that cannot be
+    # computed is not a value that passes.
+    unpriced = [
+        name
+        for name, value in (
+            ("position", projected_position_pct),
+            ("total_exposure", projected_total_pct),
+        )
+        if not math.isfinite(value)
+    ]
+    if unpriced:
+        blockers.append("portfolio_exposure_unknown")
+        messages["portfolio_exposure_unknown"] = (
+            f"{symbol}: {' and '.join(unpriced)} exposure could not be valued, so the "
+            "risk limits cannot be checked. Treated as blocking."
+        )
     if projected_position_pct > limits["max_position_pct"]:
         blockers.append("portfolio_position_limit")
         messages["portfolio_position_limit"] = (
