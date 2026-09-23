@@ -560,6 +560,26 @@ no Moomoo gateway running.
    for MY — which is `MARGIN`, so `account_shariah_gate` would refuse it on Riba grounds
    even if `TrdEnv.SIMULATE` were not hardcoded at every call site.
 
+   **Nor does any other broker API, as far as a survey found.** Asked to name an
+   alternative supporting Bursa paper trading, moomoo's assistant surveyed the field and
+   found none: Webull Malaysia's OpenAPI trades US stocks, ETFs and options only; iTick
+   and KLSE-screener-style services are market data or scraping, with no order placement.
+   Recorded as a survey result rather than a proof of non-existence — it is attributed,
+   not exhaustive — but it is the state of the question as of 2026-09-24.
+
+   That makes the project's Malaysian position a decision with a reason behind it rather
+   than a gap: **Bursa is screened and monitored, not traded, because no broker exposes a
+   Shariah-acceptable Malaysian execution API.** That is a more defensible sentence than a
+   half-built one, and it is worth saying that way in any write-up.
+
+   **One actionable lead, unverified.** The same survey named `iTick` as a Malaysian
+   market-data API — real-time Bursa quotes, historical data, REST and WebSocket. That
+   matters because `yahoo_finance` is currently the *only* Bursa price source this project
+   has, Yahoo is unofficial with no SLA, and Moomoo cannot replace it either. iTick is
+   worth evaluating as a second source or a failover. It is data only, so it could never
+   touch the decision path beyond what `provider_for` already routes — which is the reason
+   it is a safe thing to try.
+
    That is narrower than it sounds. Everything Malaysian this project actually claims still
    works: SC screening, the eligible universe, the disposal clock, live Bursa pricing, and
    preview → approval on real prices. Only the final submission has nowhere to go.
