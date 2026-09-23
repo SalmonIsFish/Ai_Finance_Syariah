@@ -2,6 +2,7 @@
 
 from agents.option_structure_agent import evaluate_option_structure
 from option_permissibility import REASON_NOT_PERMITTED as REASON_OPTION_NOT_PERMITTED
+from numeric_guards import is_finite_number
 from option_permissibility import check_option_permissibility
 from agents.quant_agent import evaluate_quant
 from agents.risk_engine import evaluate_risk
@@ -143,7 +144,14 @@ def evaluate_candidate(
         blockers.append("synthetic_market_data")
     if risk["status"] != "PASS":
         blockers.append("risk_rejected")
-    if selected_price is None or selected_price <= 0:
+    # `nan <= 0` is False and `nan is not None`, so the original guard never fired on a
+    # NaN price -- a price this system could not compute passed the one gate whose job is
+    # refusing an unusable price. Verified: evaluate_candidate(price=nan) returned
+    # READY_FOR_APPROVAL with no blockers at all.
+    #
+    # This matters most on the option path, where the equity portfolio overlay is skipped
+    # by design (CLAUDE.md limitation 4) and nothing else checks the price.
+    if not is_finite_number(selected_price) or selected_price <= 0:
         blockers.append("valid_price_required")
     if option_structure_result is not None and option_structure_result["status"] != "PASS":
         # Distinguish "this contract is not permissible at all" from "this structure or
@@ -158,7 +166,9 @@ def evaluate_candidate(
             blockers.append("option_structure_rejected")
 
     decision = "READY_FOR_APPROVAL" if not blockers else "BLOCKED"
-    notional = round(quantity * selected_price, 2) if selected_price else None
+    # NaN is truthy, so `if selected_price` was True for a NaN price and notional became
+    # NaN rather than None -- an unusable number presented as a figure.
+    notional = round(quantity * selected_price, 2) if is_finite_number(selected_price) else None
     agent_summary = {
         "shariah": shariah,
         "quant": quant,

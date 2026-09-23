@@ -19,6 +19,7 @@ determination, so that a scholarly ruling either way is one constant away rather
 a resurrection of deleted code.
 """
 
+from numeric_guards import first_non_finite, is_finite_number
 from option_permissibility import check_option_permissibility
 
 SHARES_PER_CONTRACT = 100
@@ -67,6 +68,21 @@ def check_structure(
 
     if normalized not in ALLOWED_STRUCTURES:
         return {"status": "REJECT", "reason": "unknown_structure", "structure": normalized}
+
+    # A non-finite input must never satisfy a collateral test. `inf >= required` is True,
+    # so infinite cash "covered" a cash-secured put and infinite shares "covered" a call
+    # -- a value that could not be computed reading as more than enough.
+    unusable = first_non_finite(
+        shares_held=shares_held, cash_collateral=cash_collateral, contracts=contracts
+    )
+    if unusable is None and strike is not None and not is_finite_number(strike):
+        unusable = "strike"
+    if unusable is not None:
+        return {
+            "status": "REJECT",
+            "reason": f"{unusable}_not_a_finite_number",
+            "structure": normalized,
+        }
 
     if normalized == "covered_call":
         if shares_held >= contracts * SHARES_PER_CONTRACT:

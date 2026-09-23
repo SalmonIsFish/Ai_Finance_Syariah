@@ -133,17 +133,79 @@ def check_a_disabled_cap_passes_everything() -> None:
         assert result["reason"] == "sector_limit_disabled", result
 
 
-def check_zero_equity_does_not_divide_by_zero() -> None:
+def check_unusable_equity_fails_closed() -> None:
+    """Unreadable account equity now REJECTS. It used to PASS, and that was wrong.
+
+    Returning PASS avoided a division by zero, but it answered "can this order breach the
+    sector limit?" with "no" when the honest answer is "that cannot be determined". The
+    same condition makes `_period_loss_pct` return `inf` specifically so the risk gate
+    fails CLOSED -- two modules were answering one question in opposite directions, and
+    this was the one that let an order through.
+
+    Changed 2026-09-24 alongside the wider non-finite sweep. The division is still never
+    performed; only the verdict changed.
+    """
+    for equity in (0.0, -1.0, float("nan"), float("inf"), None, "not-a-number"):
+        result = check_sector_concentration(
+            symbol="XOM",
+            added_exposure=100.0,
+            positions=[],
+            sectors={},
+            account_equity=equity,
+            max_sector_pct=10.0,
+        )
+        assert result["status"] == "REJECT", (equity, result)
+        assert result["reason"] == "account_equity_unavailable", (equity, result)
+        assert result["projected_pct"] is None, (equity, result)
+
+
+def check_a_malformed_limit_does_not_disable_the_gate() -> None:
+    """A typo in MAX_SECTOR_EXPOSURE_PCT used to become 0.0, i.e. sector_limit_disabled."""
     result = check_sector_concentration(
         symbol="XOM",
         added_exposure=100.0,
         positions=[],
         sectors={},
-        account_equity=0.0,
+        account_equity=10_000.0,
+        max_sector_pct="ten percent",
+    )
+    assert result["status"] == "REJECT", result
+    assert result["reason"] == "sector_limit_misconfigured", result
+
+
+def check_an_unvaluable_order_does_not_contribute_zero() -> None:
+    """`max(0.0, nan)` returned 0.0, so a non-computable order added NOTHING.
+
+    That is the most dangerous variant of this bug class: not a value propagating into a
+    comparison that silently passes, but a fail-closed signal flattened into a passing
+    value before the gate ever sees it.
+    """
+    result = check_sector_concentration(
+        symbol="XOM",
+        added_exposure=float("nan"),
+        positions=[],
+        sectors={},
+        account_equity=10_000.0,
         max_sector_pct=10.0,
     )
-    assert result["status"] == "PASS", result
-    assert result["reason"] == "account_equity_unavailable", result
+    assert result["status"] == "REJECT", result
+    assert result["reason"] == "sector_exposure_unknown", result
+
+
+def check_an_unvaluable_held_position_does_not_vanish_from_its_sector() -> None:
+    """A NaN exposure escaped `value <= 0` and was summed into the sector total."""
+    result = check_sector_concentration(
+        symbol="XOM",
+        added_exposure=100.0,
+        positions=[{"symbol": "CVX", "exposure_value": float("nan")}],
+        sectors={"CVX": "Energy", "XOM": "Energy"},
+        account_equity=10_000.0,
+        max_sector_pct=10.0,
+    )
+    # The unvaluable holding is excluded rather than counted as zero, and the order that
+    # CAN be valued is still assessed on what is known.
+    assert result["status"] in {"PASS", "REJECT"}, result
+    assert result["current_exposure"] == 0.0, result
 
 
 def check_sectors_are_read_from_recorded_screens() -> None:
@@ -199,7 +261,10 @@ def main() -> None:
     check_a_different_sector_is_unaffected()
     check_unknown_sector_still_counts_against_a_cap()
     check_a_disabled_cap_passes_everything()
-    check_zero_equity_does_not_divide_by_zero()
+    check_unusable_equity_fails_closed()
+    check_a_malformed_limit_does_not_disable_the_gate()
+    check_an_unvaluable_order_does_not_contribute_zero()
+    check_an_unvaluable_held_position_does_not_vanish_from_its_sector()
     check_sectors_are_read_from_recorded_screens()
     check_lookup_never_raises()
     print("PASS: sector concentration is capped, and missing data cannot hide it.")

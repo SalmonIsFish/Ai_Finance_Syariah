@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from config import BACKEND_DIR
+from numeric_guards import is_finite_number
 
 
 CACHE_DIR = BACKEND_DIR / "market_data_cache"
@@ -117,6 +118,19 @@ def _fetch_yfinance(yf_ticker: str, start_date: str, end_date: str) -> list[dict
         dt = idx
         if hasattr(dt, "date"):
             dt = dt.date()
+        # yfinance emits NaN rows for halted or no-trade sessions. `float(nan)` succeeds
+        # and `round(nan, 4)` is nan, so without this the NaN travels all the way into a
+        # gate -- where `nan > limit` is False and the gate silently passes. Dropping the
+        # bar at the boundary is the honest answer: a session with no price is a session
+        # with no data, and MIN_BARS already refuses a series that is too short.
+        prices = {
+            "open": row["Open"],
+            "high": row["High"],
+            "low": row["Low"],
+            "close": row["Close"],
+        }
+        if any(not is_finite_number(float(value)) for value in prices.values()):
+            continue
         bars.append(
             {
                 "symbol": yf_ticker.replace(".KL", ""),

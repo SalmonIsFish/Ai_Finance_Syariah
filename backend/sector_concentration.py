@@ -25,6 +25,7 @@ Two design points worth stating, because both are judgement calls:
     equity branch of that overlay, for the same reason.
 """
 
+from numeric_guards import finite_or, is_finite_number
 import json
 import sqlite3
 
@@ -145,7 +146,10 @@ def sector_exposure(positions, sectors: dict) -> dict:
             value = float(position.get("exposure_value") or 0)
         except (AttributeError, TypeError, ValueError):
             continue
-        if value <= 0:
+        # `nan <= 0` is False, so a NaN exposure used to escape this filter and poison
+        # the sector total. Treated as unusable rather than as zero: a position that
+        # cannot be valued is not a position worth nothing.
+        if not is_finite_number(value) or value <= 0:
             continue
         sector = sectors.get(symbol, UNKNOWN_SECTOR)
         totals[sector] = round(totals.get(sector, 0.0) + value, 4)
@@ -172,12 +176,22 @@ def check_sector_concentration(
     try:
         cap = float(max_sector_pct) if max_sector_pct is not None else 0.0
     except (TypeError, ValueError):
-        cap = 0.0
+        # A malformed limit used to become 0.0, which the `cap <= 0` branch below turns
+        # into PASS / sector_limit_disabled. A typo in a risk limit must not disable the
+        # gate it configures.
+        cap = float("nan")
 
     current = sector_exposure(positions, sectors).get(sector, 0.0)
     # The symbol's own existing exposure is already inside `current`, so the
     # projection is simply the sector total plus what this order adds.
-    projected = round(current + max(0.0, float(added_exposure or 0)), 4)
+    # `max(0.0, nan)` returns 0.0, so an order whose notional could not be computed used
+    # to add *nothing* to the sector total and arrive at the gate looking clean. That is
+    # the most dangerous variant of this bug: a fail-closed signal flattened into a
+    # passing value before the gate sees it. Kept non-finite so the check below refuses.
+    # Not float(added_exposure or 0): that raises on a non-numeric and treats a real 0.0
+    # as missing. finite_or hands anything unusable straight to the refusal below.
+    added = finite_or(added_exposure, float("nan"))
+    projected = round(current + max(0.0, added), 4) if is_finite_number(added) else float("nan")
 
     base = {
         "sector": sector,
@@ -187,6 +201,17 @@ def check_sector_concentration(
         "max_sector_pct": cap,
     }
 
+    if not is_finite_number(cap):
+        return {
+            **base,
+            "status": "REJECT",
+            "reason": "sector_limit_misconfigured",
+            "projected_pct": None,
+            "message": (
+                f"The sector exposure limit is not a usable number ({max_sector_pct!r}), "
+                "so the sector concentration check cannot run. Treated as blocking."
+            ),
+        }
     if cap <= 0:
         return {**base, "status": "PASS", "reason": "sector_limit_disabled", "projected_pct": None}
 
@@ -194,15 +219,35 @@ def check_sector_concentration(
         equity = float(account_equity)
     except (TypeError, ValueError):
         equity = 0.0
-    if equity <= 0:
+    # Previously PASS. `_period_loss_pct` returns `inf` for exactly this condition in
+    # order to fail CLOSED, so two modules answered one question in opposite directions.
+    # An account whose equity cannot be read is an account whose limits cannot be checked.
+    if not is_finite_number(equity) or equity <= 0:
         return {
             **base,
-            "status": "PASS",
+            "status": "REJECT",
             "reason": "account_equity_unavailable",
             "projected_pct": None,
+            "message": (
+                "Account equity could not be read, so sector concentration cannot be "
+                "measured against it. Treated as blocking."
+            ),
         }
 
-    projected_pct = round((projected / equity) * 100, 4)
+    projected_pct = (
+        round((projected / equity) * 100, 4) if is_finite_number(projected) else float("nan")
+    )
+    if not is_finite_number(projected_pct):
+        return {
+            **base,
+            "status": "REJECT",
+            "reason": "sector_exposure_unknown",
+            "projected_pct": None,
+            "message": (
+                f"{sector} exposure could not be valued for {normalized}, so the sector "
+                "limit cannot be checked. Treated as blocking."
+            ),
+        }
     if projected_pct > cap:
         return {
             **base,

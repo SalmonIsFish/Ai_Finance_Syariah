@@ -37,6 +37,7 @@ from approval_workflow import approve_candidate
 from config import allowed_origins, load_settings
 from market_data import summarize_history
 from moomoo_status import check_moomoo_status
+from numeric_guards import finite_or, is_finite_number
 from news_summarizer import attach_ai_summaries
 from opportunity_scanner import scan_opportunities
 from option_permissibility import REASON_NOT_PERMITTED as REASON_OPTION_NOT_PERMITTED
@@ -574,13 +575,9 @@ def exposure_value(position: dict) -> float:
     and a number we actually know -- the shares were bought at a real price.
     """
     value = position.get("market_value")
-    if value is None or not math.isfinite(float(value)):
+    if not is_finite_number(value):
         value = position.get("cost_basis")
-    try:
-        resolved = float(value or 0)
-    except (TypeError, ValueError):
-        return 0.0
-    return resolved if math.isfinite(resolved) else 0.0
+    return float(finite_or(value, 0.0))
 
 
 def add_exposure_metadata(snapshot: dict, *, account_equity: float) -> dict:

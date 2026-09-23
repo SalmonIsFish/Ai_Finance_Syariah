@@ -32,6 +32,8 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
+from numeric_guards import first_non_finite, is_finite_number
+
 import portfolio_store
 
 COMPLIANT = "PASS"
@@ -331,6 +333,13 @@ def purification_due(*, cost_basis: float, proceeds: float) -> float:
     Negative inputs raise rather than silently producing a plausible number: a
     wrong purification figure is a religious error, not a rounding error.
     """
+    # `nan < 0` is False, so the guard below never fired on a non-finite input, and
+    # `max(0.0, nan)` then returned 0.0 -- the exact silent zero this function's own
+    # docstring says must never happen. A religious obligation reported as nil because a
+    # price was missing is the one direction this must not err in.
+    unusable = first_non_finite(cost_basis=cost_basis, proceeds=proceeds)
+    if unusable is not None:
+        raise ValueError(f"purification input {unusable} is not a finite number")
     if cost_basis < 0 or proceeds < 0:
         raise ValueError(
             f"purification inputs must be non-negative (cost_basis={cost_basis}, proceeds={proceeds})"
@@ -358,10 +367,15 @@ def purification_ledger(screening: dict, *, price_lookup=None) -> dict:
         if holding.get("alert") != ALERT_NON_COMPLIANT:
             continue
         price = price_lookup(holding["symbol"]) if price_lookup else None
-        if price is None:
+        # `is None` missed NaN, so an unpriced holding was not recorded in `unpriced`,
+        # contributed 0.00 to the total, and the ledger still reported complete: True.
+        if not is_finite_number(price):
             unpriced.append(holding["symbol"])
             continue
         proceeds = price * holding["quantity"]
+        if not is_finite_number(proceeds):
+            unpriced.append(holding["symbol"])
+            continue
         due = purification_due(cost_basis=holding["cost_basis"], proceeds=proceeds)
         total += due
         entries.append(

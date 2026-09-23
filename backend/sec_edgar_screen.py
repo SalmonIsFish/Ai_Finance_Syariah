@@ -47,6 +47,7 @@ import os
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from numeric_guards import first_non_finite, is_finite_number
 from sec_edgar_cache import cached_fetch
 from shariah_screen_store import record_screen_to_default_db
 
@@ -398,6 +399,11 @@ def compute_ratios(gaap: dict):
             return "no_annual_report_filed_yet_only_quarterly_data_available"
         return "total_assets_not_reported_in_any_filing"
     total_assets = float(anchor["value"])
+    # `nan <= 0` and `inf <= 0` are both False, so this guard alone let a non-finite
+    # balance sheet through -- and both ratios then compared False against the limit,
+    # producing a silent COMPLIANT. Checked explicitly, and first.
+    if not is_finite_number(total_assets):
+        return "total_assets_not_a_finite_number"
     if total_assets <= 0:
         return "total_assets_not_positive"
     period_end = anchor["end"]
@@ -411,14 +417,22 @@ def compute_ratios(gaap: dict):
     if not cash_concepts:
         return "no_recognised_cash_concept_in_filing"
 
+    debt_ratio_pct = round(debt / total_assets * 100, 4)
+    cash_ratio_pct = round(cash / total_assets * 100, 4)
+    # Belt to the braces above. A ratio that is not a finite number cannot be compared to
+    # the limit -- every comparison would be False, which reads as "under the limit".
+    unusable = first_non_finite(debt_ratio_pct=debt_ratio_pct, cash_ratio_pct=cash_ratio_pct)
+    if unusable:
+        return f"{unusable}_not_a_finite_number"
+
     return {
         "report_date": period_end,
         "form": anchor.get("form"),
         "total_assets": total_assets,
         "interest_bearing_debt": debt,
         "conventional_cash": cash,
-        "debt_ratio_pct": round(debt / total_assets * 100, 4),
-        "cash_ratio_pct": round(cash / total_assets * 100, 4),
+        "debt_ratio_pct": debt_ratio_pct,
+        "cash_ratio_pct": cash_ratio_pct,
         "limit_pct": MAX_RATIO_PCT,
         "debt_concepts_used": debt_concepts,
         "cash_concepts_used": cash_concepts,
@@ -485,7 +499,9 @@ def usd_rows(gaap: dict, concept: str):
             continue
         end = row.get("end")
         value = row.get("val")
-        if not end or value is None:
+        # `value is None` misses NaN, and json.loads parses a bare NaN literal natively.
+        # A non-finite fact must never enter the set a ratio is computed from.
+        if not end or not is_finite_number(value):
             continue
         rows.append(
             {

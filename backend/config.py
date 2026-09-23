@@ -8,6 +8,7 @@ from pathlib import Path
 import os
 
 from broker_routing import DEFAULT_MY_ADAPTER
+from numeric_guards import is_finite_number
 
 BACKEND_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BACKEND_DIR.parent
@@ -94,6 +95,15 @@ def _float_env(name: str, default: str, *, minimum: float | None = None) -> floa
         value = float(os.getenv(name, default))
     except ValueError as exc:
         raise ValueError(f"{name} must be numeric") from exc
+    # float() happily parses "inf", "-inf", "nan" and "Infinity". Every one of them
+    # passed the minimum check below -- `nan < minimum` is False, and `inf` is above any
+    # minimum -- so MAX_POSITION_PCT=inf disabled the position, total-exposure, sector
+    # and loss limits at once, with no startup error and nothing in the logs.
+    #
+    # A risk limit that is not a real number is a misconfiguration, and this module
+    # already refuses to start on a bad ALPACA_MODE or MOOMOO_MODE for the same reason.
+    if not is_finite_number(value):
+        raise ValueError(f"{name} must be a finite number, not {os.getenv(name, default)!r}")
     if minimum is not None and value < minimum:
         raise ValueError(f"{name} must be at least {minimum}")
     return value

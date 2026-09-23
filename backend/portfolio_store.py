@@ -4,6 +4,8 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 
+from numeric_guards import is_finite_number
+
 
 # Standard US equity-option contract size.
 OPTION_CONTRACT_MULTIPLIER = 100
@@ -414,11 +416,19 @@ def portfolio_snapshot(connection: sqlite3.Connection, *, price_lookup=None) -> 
             position["valuation_error"] = error
             continue
         latest_price = price.get("latest_close")
-        if latest_price is None:
+        # `is None` missed NaN, which is what yfinance yields for a halted session. The
+        # position was then valued at NaN, labelled "VALUED", and left out of
+        # valuation_errors -- so the snapshot asserted a valuation that never happened,
+        # and the evidence record inherited that claim.
+        if not is_finite_number(latest_price):
             error = {
                 "symbol": position["symbol"],
                 "status": "DATA_ERROR",
-                "reason": "latest_close_missing",
+                "reason": (
+                    "latest_close_missing"
+                    if latest_price is None
+                    else "latest_close_not_a_finite_number"
+                ),
             }
             valuation_errors.append(error)
             position["valuation_status"] = "DATA_ERROR"
