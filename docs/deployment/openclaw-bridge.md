@@ -98,6 +98,7 @@ credential.
 | `portfolio_steward` | `compliance_snapshot`, `portfolio_history`, `positions` |
 | `auditor` | `evidence`, `execution_audit`, `approvals`, `audit_log` |
 | `sc_watcher` | `publications`, `publication`, `universe` |
+| `trader` | `preview_order`, `screen_detail`, `quant_signal`, `market_data` |
 | `chief_of_staff` | **none** |
 
 The chief of staff having no data access is deliberate and tested. With data access it
@@ -160,7 +161,90 @@ model would print above the authoritative line, so a fabricated block would rend
 fact with the filter inspecting only the narration below it. Composition therefore
 belongs to the relay, which fetches its own blocks. See the reasoning in `compose.py`.
 
+## The relay: two taps, and the operator key (Phase 3)
+
+`relay.py` is a **separate process from the MCP servers**, started by you rather than by
+OpenClaw. No model runs in it. It fetches its own facts, renders them, and carries out
+exactly two human actions:
+
+| | action | credentials |
+|---|---|---|
+| **Tap 1** | `POST /paper/approval` — queues | Basic auth only |
+| **Tap 2** | `POST /paper/execute/{id}` — submits | Basic auth **+** operator key |
+
+Those are not two steps this code invented. nginx already returns 401 on
+`/paper/(execute|reconcile)/` without the operator header while letting
+`/paper/(preview|approval)` through, so the two taps sit on two credential tiers the
+deployment already enforces.
+
+**Buttons only.** A text message can never cause a write — there is no `/execute 14`
+command and there must never be one. A callback carries a server-side nonce, not a symbol
+or a queue id. Two identity checks, not one: the chat must be allowlisted **and** the
+presser must be your Telegram user id, because chat membership is not identity.
+
+**`EXECUTE PAPER` lives only in `relay.py`.** It is in no tool schema, no role prompt and
+no roster entry, so a model has never seen it anywhere that emitting it would act.
+`test_bridge_no_secret_leak.py` asserts that.
+
+**One order per approval.** `claim_execution` is a single conditional `UPDATE`, so the
+database decides who wins a double tap — Telegram redelivers callbacks, and the cost of
+losing that race is two orders. `UNIQUE(queue_id)` is the belt to that brace. A timeout
+records `EXECUTION_UNCERTAIN` and is **never** retried: the request may already have
+reached the broker, and resending to find out is the bug.
+
+**Proposals expire.** Options 90s pending / 60s queued; equities 300s / 180s. CLAUDE.md
+records queue 10 dying `BROKER_CANCELLED` because an option bid went from 1.05 to 1.00 in
+under two minutes. A test asserts the option window stays inside that.
+
+### Enabling execute
+
+Without `BRIDGE_OPERATOR_KEY` the relay renders tap 2, shows the exact payload it would
+send, and stops at a dry run recorded as `DRY_RUN` — never `EXECUTED`, because the store
+must not claim an order was submitted when none was. Add the key to
+`backend/bridge/.env` only when you want tap 2 to reach the broker.
+
+**Malaysian orders get no execute button at all**, and the message says why:
+`paper_execution.py:139` picks the adapter globally and production runs `alpaca_mcp`,
+which has no Bursa access. Tap 1 is real and recorded; tap 2 is not offered, and a
+replayed callback is still refused.
+
+## Polling (Phase 3)
+
+Nothing on the droplet can call out — `VPS_RUNBOOK.md:387` lists "no monitoring or
+alerting" as a known gap — so every alert is the laptop asking.
+
+| job | interval | what it watches |
+|---|---|---|
+| `disposal_clock` | daily | non-compliant holdings and overdue deadlines |
+| `publication_watch` | 30 min | a new or newly activated SC list |
+| `risk_watch` | 5 min | a risk number going unbounded |
+
+Steady state is under 20 requests/hour against a 240 r/m allowance, because every request
+costs a 260,000-iteration PBKDF2 on a 2 GB droplet.
+
+**The disposal-clock job is the one that must never be cached.** Calling
+`GET /portfolio/compliance` is what advances and persists the clock — nothing else calls
+`apply_disposal_clock` — so it uses `refresh_disposal_clock()`, and a test asserts it.
+
+**No scheduled job may call `/paper/preview`, `/news` or `/copilot/*`**, asserted by an
+AST check over `schedules.py`. A scheduled preview would flood `/api/evidence` with
+records indistinguishable from orders you actually considered, and that distinction cannot
+be recovered afterwards.
+
+## Running the relay
+
+```powershell
+# Add to backend/bridge/.env first:
+#   BRIDGE_TELEGRAM_TOKEN=...
+#   BRIDGE_TELEGRAM_CHAT_ID=...
+#   BRIDGE_TELEGRAM_OWNER_ID=...
+#   BRIDGE_OPERATOR_KEY=...      # only when you want tap 2 to be real
+```
+
+Start it under Windows Task Scheduler as yourself, not as a service account — the
+operator key should live under your own ACL.
+
 ## Not built yet
 
-`proposals.py`, `relay.py`, `schedules.py` (Phase 3 — the Telegram two-tap flow and the
-polling jobs, including the daily disposal-clock refresh).
+A `--role trader` proposal has to be initiated by you or by OpenClaw; the relay does not
+scan for candidates on its own, deliberately (see the note on scheduled previews above).

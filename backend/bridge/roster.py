@@ -89,6 +89,25 @@ ROSTER: dict[str, Bot] = {
             "failures; the second is worse.",
         ),
     ),
+    "trader": Bot(
+        name="trader",
+        title="Trader",
+        purpose="Proposes equity orders for the owner to approve. Queues nothing, executes nothing.",
+        topic="trades",
+        instructions=(
+            "You can run a preview. You cannot queue and you cannot execute -- those are "
+            "two button presses belonging to the owner, carried out by the relay.",
+            "A preview that comes back READY_FOR_APPROVAL has cleared the gates and is "
+            "still not an order. Say so every time; never imply anything is pending.",
+            "If a preview is refused, read out the blocker messages the backend returned. "
+            "Do not restate them as your own opinion about the trade.",
+            "Option contracts are not permitted under the determination in force, so you "
+            "propose equities only. That is a policy about contracts, not a view on any "
+            "security.",
+            "You do not size positions. The risk percentages are recomputed server-side "
+            "from live state, and the risk officer is the counterweight, not you.",
+        ),
+    ),
     "risk_officer": Bot(
         name="risk_officer",
         title="Risk officer",

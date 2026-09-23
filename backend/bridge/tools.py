@@ -234,6 +234,57 @@ def research(client, args: dict) -> dict:
 # --- Risk ---------------------------------------------------------------------------
 
 
+def preview_order(client, args: dict) -> dict:
+    """Run an order through the gate chain WITHOUT queuing it.
+
+    The only write any LLM-reachable tool performs, and it is deliberately the one that
+    decides nothing: /paper/preview runs the gates and records evidence, but
+    `broker_submission` is hardcoded false and no queue entry exists afterwards. Queuing
+    is tap 1, which is a human action carried out by the relay.
+
+    The five risk percentages are informational -- the server recomputes them from live
+    state -- so they are sent as zeros rather than as numbers a model guessed.
+    """
+    symbol = str(args["symbol"]).strip().upper()
+    body = {
+        "symbol": symbol,
+        "side": str(args.get("side") or "BUY").upper(),
+        "quantity": int(args["quantity"]),
+        "price": args.get("price"),
+        "position_pct": 0.0,
+        "total_exposure_pct": 0.0,
+        "loss_per_trade_pct": 0.0,
+        "daily_loss_pct": 0.0,
+        "orders_today": 0,
+        "asset_class": "equity",
+    }
+    result = client.call("paper_preview", body=body)
+    if result["status"] != "OK":
+        return _failed(result, label="Preview")
+
+    payload = result["data"] or {}
+    preview = payload.get("preview") or {}
+    status = preview.get("status")
+    lines = [
+        f"[Preview] {symbol} {body['side']} x{body['quantity']} -> {status}",
+        f"  Notional      {preview.get('notional')}",
+        "",
+        "  This is a preview. It has queued nothing and submitted nothing; only the",
+        "  owner can queue it, and only from the proposal card in Telegram.",
+    ]
+    if status != "READY_FOR_APPROVAL":
+        lines.append("")
+        lines.append(
+            render.render_blockers(preview.get("blocker_messages"), preview.get("blockers"))
+        )
+    return _envelope(
+        result,
+        facts=payload,
+        rendered="\n".join(lines),
+        prose_slot={"allowed": True, "must_mention": [symbol], "polarity": None},
+    )
+
+
 def risk_limits(client, args: dict) -> dict:
     """The configured limits. Config values, not positions."""
     result = client.call("risk_limits")
@@ -491,6 +542,20 @@ _TOOL_LIST = (
         False,
         research,
     ),
+    Tool(
+        "preview_order",
+        "Run an equity order through the gate chain without queuing it. Queuing and "
+        "executing are the owner's, from the proposal card.",
+        {
+            "symbol": {"type": "string"},
+            "quantity": {"type": "integer"},
+            "side": {"type": "string", "enum": ["BUY", "SELL"]},
+            "price": {"type": "number"},
+        },
+        ("paper_preview",),
+        True,
+        preview_order,
+    ),
     Tool("risk_limits", "The configured risk limits.", {}, ("risk_limits",), False, risk_limits),
     Tool(
         "risk_snapshot",
@@ -575,6 +640,10 @@ ROLE_TOOLS: dict[str, frozenset[str]] = {
         }
     ),
     "quant": frozenset({"quant_signal", "market_data", "research", "screen_detail"}),
+    # Option contracts are blocked system-wide pending a scholarly ruling, so the trader
+    # proposes equities only. The option selection tool is deliberately not wired: it
+    # would return the determination and nothing else.
+    "trader": frozenset({"preview_order", "screen_detail", "quant_signal", "market_data"}),
     "risk_officer": frozenset(
         {"risk_limits", "risk_snapshot", "positions", "paper_account", "portfolio"}
     ),

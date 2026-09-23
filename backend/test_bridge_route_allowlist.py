@@ -20,8 +20,10 @@ BRIDGE = BACKEND / "bridge"
 # Anything that looks like an API path: a leading slash and a lowercase letter.
 PATH_SHAPED = re.compile(r"^/[a-z]")
 
-# Files that legitimately carry paths for reasons other than calling the API.
-PATH_EXEMPT = {"routes.py"}
+# Files that legitimately carry paths for reasons other than calling the Amanah API.
+# relay.py talks to a second host entirely -- api.telegram.org -- so it spells Telegram's
+# own URL prefix. check_the_relay_spells_no_amanah_path below holds it to the real rule.
+PATH_EXEMPT = {"routes.py", "relay.py"}
 
 
 def _bridge_files() -> list[Path]:
@@ -62,6 +64,24 @@ def check_only_routes_py_spells_a_path() -> None:
         "only routes.py may contain an API path literal; an ad-hoc path is a route the "
         f"allowlist does not cover: {offenders}"
     )
+
+
+def check_the_relay_spells_no_amanah_path() -> None:
+    """The relay is exempt from the generic scan only because of Telegram.
+
+    It is the process that holds the operator key, so it is the last place an ad-hoc
+    Amanah path should be allowed. Every backend call it makes must still go through a
+    route name.
+    """
+    source = (BRIDGE / "relay.py").read_text(encoding="utf-8")
+    amanah_shaped = re.compile(r"[\"']/(?:api|paper|stock|portfolio|positions|approvals|audit)")
+    matches = amanah_shaped.findall(source)
+    assert not matches, f"relay.py spells an Amanah API path directly: {matches}"
+
+    # And the Telegram host it IS allowed to name must be the real one.
+    from bridge.relay import TELEGRAM_API
+
+    assert TELEGRAM_API == "https://api.telegram.org"
 
 
 def check_the_operator_key_is_attached_to_exactly_two_routes() -> None:
@@ -145,8 +165,55 @@ def check_every_route_is_reachable_by_name_only() -> None:
         raise AssertionError(f"route_for accepted {invented!r}")
 
 
+def check_no_scheduled_job_previews_or_spends() -> None:
+    """A polling loop must not run order-shaped actions or spend model money.
+
+    /paper/preview writes an evidence record with `source: "preview"` -- the one field
+    that separates an order the owner actually considered from watchlist scan noise. A
+    scheduled preview would destroy that distinction permanently, and no migration brings
+    it back. /news and /copilot/* have no spend cap anywhere in the backend.
+    """
+    import ast
+
+    from bridge.routes import FORBIDDEN_SCHEDULED_ROUTES
+
+    source = (BRIDGE / "schedules.py").read_text(encoding="utf-8")
+    called = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Attribute) and func.attr == "call" and node.args:
+                first = node.args[0]
+                if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                    called.add(first.value)
+
+    forbidden = called & set(FORBIDDEN_SCHEDULED_ROUTES)
+    assert not forbidden, f"a scheduled job calls an order-shaped route: {sorted(forbidden)}"
+
+    from bridge.routes import ROUTES
+
+    unknown = called - set(ROUTES)
+    assert not unknown, f"a scheduled job names a route that does not exist: {sorted(unknown)}"
+
+    writes = {name for name in called if ROUTES[name].method == "POST"}
+    assert not writes, f"a scheduled job performs a write: {sorted(writes)}"
+
+
+def check_the_disposal_clock_job_bypasses_the_cache() -> None:
+    """Calling /portfolio/compliance IS the clock; a cache hit silently stops it."""
+    source = (BRIDGE / "schedules.py").read_text(encoding="utf-8")
+    assert "refresh_disposal_clock" in source
+    assert "read_compliance()" not in source, (
+        "the scheduled job must use the uncached path -- holdings_compliance."
+        "apply_disposal_clock only runs when the endpoint is really called"
+    )
+
+
 def main() -> None:
     check_only_routes_py_spells_a_path()
+    check_the_relay_spells_no_amanah_path()
+    check_no_scheduled_job_previews_or_spends()
+    check_the_disposal_clock_job_bypasses_the_cache()
     check_the_operator_key_is_attached_to_exactly_two_routes()
     check_the_header_function_refuses_every_other_route()
     check_no_route_spends_money()
