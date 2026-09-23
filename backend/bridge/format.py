@@ -270,3 +270,104 @@ def render_compliance(facts: dict) -> str:
                 _line("Note", f"estimate understated; unpriced: {', '.join(map(str, unpriced))}")
             )
     return "\n".join(lines)
+
+
+def render_shariah_us(facts: dict) -> str:
+    """Render the US SEC EDGAR screen from /stock/{symbol}/explain.
+
+    A different surface from the SC Malaysia list, and deliberately rendered separately
+    rather than squeezed into render_shariah: the fields genuinely differ, and so does
+    the strength of the claim. The SC list is an authority's determination; this is a
+    self-built ratio screen whose own module docstring calls it "not a certified
+    screening service". Flattening the two would misrepresent the weaker one.
+    """
+    symbol = str(facts.get("symbol") or "?")
+    verdict = facts.get("verdict") or {}
+    provenance = facts.get("provenance") or {}
+
+    lines = [
+        f"[Shariah] {symbol} (US)",
+        _line("Verdict", str(verdict.get("status") or "UNKNOWN")),
+        _line("Tradeable", str(verdict.get("tradeable"))),
+    ]
+    if verdict.get("statement"):
+        lines.append(_line("Statement", str(verdict["statement"])))
+
+    rule = facts.get("rule") or {}
+    if rule.get("label"):
+        lines.append(_line("Rule", f"{rule.get('label')} (tier {rule.get('tier')})"))
+    if rule.get("narrowest_margin_pct") is not None:
+        lines.append(_line("Margin", _number(rule.get("narrowest_margin_pct"), suffix="%")))
+
+    lines.append(_line("Provider", str(provenance.get("provider") or "unknown")))
+    lines.append(_line("Report date", str(provenance.get("report_date") or "unknown")))
+    lines.append(_line("Screened at", str(provenance.get("screened_at") or "unknown")))
+
+    # The limitations are the honest half of this screen and must not be dropped:
+    # business activity is approximated by SIC code, and XBRL cannot separate Islamic
+    # from conventional instruments, so both ratios are overstated.
+    for limitation in provenance.get("limitations") or []:
+        lines.append(f"      - {limitation}")
+
+    lines.append("")
+    lines.append(f"  {CLASSIFICATION_FOOTER}")
+    return "\n".join(lines)
+
+
+def render_publications(facts: dict) -> str:
+    """Render /api/universe/publications -- which SC list is active, and what preceded it."""
+    publications = facts.get("publications") or []
+    lines = ["[SC publications]", _line("Count", _number(len(publications), places=0))]
+    for publication in publications[:10]:
+        active = " ACTIVE" if publication.get("activated_at") else ""
+        lines.append("")
+        lines.append(f"  {publication.get('id')}  {publication.get('publication_date')}{active}")
+        lines.append(_line("  Review", str(publication.get("human_review_status") or "unknown")))
+        lines.append(_line("  Document", str(publication.get("source_document_hash") or "unknown")))
+        official = publication.get("official_record_count")
+        parsed = publication.get("parsed_record_count")
+        if official is not None or parsed is not None:
+            lines.append(_line("  Records", f"{parsed} parsed of {official} official"))
+    return "\n".join(lines)
+
+
+def render_evidence(facts: dict) -> str:
+    """Render /api/evidence/{ticker} -- decisions this system actually recorded."""
+    ticker = str(facts.get("ticker") or "?")
+    decisions = facts.get("decisions") or []
+    lines = [f"[Evidence] {ticker}", _line("Records", _number(facts.get("count"), places=0))]
+    for decision in decisions[:10]:
+        shariah = decision.get("shariah") or {}
+        quant = decision.get("quant") or {}
+        lines.append("")
+        lines.append(f"  {decision.get('timestamp')}  {decision.get('decision')}")
+        # `source` separates an order the owner actually considered from watchlist scan
+        # noise; without it a scan of 30 symbols looks like 30 considered trades.
+        lines.append(_line("  Source", str(decision.get("source") or "unknown")))
+        lines.append(_line("  Reason", str(decision.get("decision_reason") or "none")))
+        lines.append(_line("  Shariah", f"{shariah.get('status')} ({shariah.get('reason')})"))
+        if shariah.get("source_document_hash"):
+            lines.append(_line("  Document", str(shariah["source_document_hash"])))
+        if quant:
+            lines.append(_line("  Quant", f"{quant.get('signal')} at {quant.get('price')}"))
+    return "\n".join(lines)
+
+
+def render_universe(facts: dict) -> str:
+    """Render /api/universe -- the eligible Malaysian securities under the active list."""
+    active = facts.get("active_publication") or {}
+    securities = facts.get("securities") or []
+    lines = ["[Universe]"]
+    if not active:
+        lines.append(_line("Active list", "none -- no approved publication is active"))
+        return "\n".join(lines)
+    lines.append(_line("Active list", f"{active.get('id')} ({active.get('publication_date')})"))
+    lines.append(_line("Filter", str(facts.get("shariah_status_filter") or "PASS")))
+    lines.append(_line("Count", _number(facts.get("count"), places=0)))
+    lines.append(_line("Showing", _number(len(securities), places=0)))
+    for security in securities[:25]:
+        lines.append(
+            f"  {str(security.get('ticker') or '?'):<8} {security.get('verdict'):<7} "
+            f"{security.get('issuer_name') or ''}"
+        )
+    return "\n".join(lines)
