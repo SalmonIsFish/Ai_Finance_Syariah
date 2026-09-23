@@ -41,14 +41,24 @@ anything can reach a broker.
 from __future__ import annotations
 
 import json
+import sys
 import time
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from bridge import proposals
-from bridge.client import STATUS_OK, STATUS_UNAVAILABLE, STATUS_UNKNOWN
-from bridge.format import render_blockers, render_shariah, render_shariah_us
-from bridge.markets import detect_market
+# This module is run directly as a process (see main() at the foot of the file), so the
+# backend directory has to be importable before the bridge package is. Same pattern, and
+# same reason, as mcp_server.py.
+BRIDGE_DIR = Path(__file__).resolve().parent
+BACKEND_DIR = BRIDGE_DIR.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
+from bridge import proposals  # noqa: E402
+from bridge.client import STATUS_OK, STATUS_UNAVAILABLE, STATUS_UNKNOWN  # noqa: E402
+from bridge.format import render_blockers, render_shariah, render_shariah_us  # noqa: E402
+from bridge.markets import detect_market  # noqa: E402
 
 # The phrase POST /paper/execute requires. Deliberately only here.
 EXECUTE_PHRASE = "EXECUTE PAPER"
@@ -516,3 +526,90 @@ def build_callback_data(action: str, nonce: str) -> str:
     if len(data.encode("utf-8")) > 64:
         raise ValueError("callback_data exceeds Telegram's 64-byte limit")
     return data
+
+
+# --- entrypoint ----------------------------------------------------------------------
+
+REQUIRED_ENV = ("BRIDGE_TELEGRAM_TOKEN", "BRIDGE_TELEGRAM_CHAT_ID", "BRIDGE_TELEGRAM_OWNER_ID")
+
+# Optional forum-topic thread ids, one per bot topic, so a trade proposal and a routine
+# compliance alert do not share a thread. Absent means everything lands in the main chat.
+TOPIC_ENV_PREFIX = "BRIDGE_TELEGRAM_TOPIC_"
+
+
+def topics_from_env(env) -> dict:
+    """{"trades": 12, "compliance": 15, ...} from BRIDGE_TELEGRAM_TOPIC_TRADES etc."""
+    topics = {}
+    for key, value in env.items():
+        if not key.startswith(TOPIC_ENV_PREFIX):
+            continue
+        name = key[len(TOPIC_ENV_PREFIX) :].strip().lower()
+        try:
+            topics[name] = int(str(value).strip())
+        except (TypeError, ValueError):
+            continue
+    return topics
+
+
+def build_relay(env=None, *, db_path=None, with_operator: bool = True):
+    """Construct a Relay from the environment, failing closed on anything missing.
+
+    ``with_operator`` is True by default because this is the process that is *meant* to
+    hold the operator key -- but a missing key is not fatal here. It downgrades tap 2 to
+    a dry run, which is the intended way to exercise the whole flow before anything can
+    reach a broker.
+    """
+    import os
+
+    from bridge.client import AmanahClient, load_bridge_config
+
+    source = os.environ if env is None else env
+    missing = [key for key in REQUIRED_ENV if not str(source.get(key) or "").strip()]
+    if missing:
+        raise RuntimeError(
+            "the relay needs " + ", ".join(missing) + " in backend/bridge/.env "
+            "(see docs/deployment/openclaw-bridge.md)"
+        )
+
+    holds_key = bool(str(source.get("BRIDGE_OPERATOR_KEY") or "").strip())
+    config = load_bridge_config(with_operator=with_operator and holds_key, env=source)
+    connection = proposals.connect(db_path)
+    return Relay(
+        AmanahClient(config),
+        connection,
+        token=str(source["BRIDGE_TELEGRAM_TOKEN"]).strip(),
+        owner_user_id=int(str(source["BRIDGE_TELEGRAM_OWNER_ID"]).strip()),
+        chat_id=int(str(source["BRIDGE_TELEGRAM_CHAT_ID"]).strip()),
+        topics=topics_from_env(source),
+    )
+
+
+def main(argv=None) -> int:
+    import argparse
+
+    from bridge.mcp_server import load_env_file
+
+    parser = argparse.ArgumentParser(description="Amanah bridge Telegram relay.")
+    parser.add_argument("--iterations", type=int, default=None, help="stop after N polls")
+    parser.add_argument("--db", default=None, help="proposal store path")
+    args = parser.parse_args(argv)
+
+    load_env_file(BRIDGE_DIR / ".env")
+    try:
+        relay = build_relay(db_path=args.db)
+    except RuntimeError as exc:
+        sys.stderr.write(f"relay configuration error: {exc}\n")
+        return 1
+
+    # Say this at startup rather than at tap 2. A relay that will only ever dry-run
+    # should not look identical to one that can submit.
+    if relay.can_execute:
+        print("Relay started. Operator key present: tap 2 WILL submit to the broker.")
+    else:
+        print("Relay started. No operator key: tap 2 stops at a dry run.")
+    relay.run(iterations=args.iterations)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

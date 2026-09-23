@@ -210,9 +210,15 @@ sending it by hand), and a replayed callback is still refused at the method. Tap
 real and recorded either way.
 
 Malaysian execution is off until `PAPER_EXECUTION_ADAPTER_MY=moomoo` is set on the
-backend; set it and the button appears with no bridge change. That said, the routing was
-never the only obstacle: OpenD has no runbook for the droplet and no Moomoo order has ever
-reached a broker.
+backend; set it and the button appears with no bridge change.
+
+*(An earlier version of this page stated that as working when it was not: `/paper/status`
+did not return `execution_markets` at all, so the relay refused every market including US.
+Fixed, and `test_bridge_status_contract.py` now asserts the real route shape rather than a
+fixture — which is what would have caught it.)*
+
+The routing was never the only obstacle to Bursa execution: OpenD has to run somewhere the
+backend can reach, and no Moomoo order has ever reached a broker.
 
 ## Polling (Phase 3)
 
@@ -239,16 +245,49 @@ be recovered afterwards.
 
 ## Running the relay
 
-```powershell
-# Add to backend/bridge/.env first:
-#   BRIDGE_TELEGRAM_TOKEN=...
-#   BRIDGE_TELEGRAM_CHAT_ID=...
-#   BRIDGE_TELEGRAM_OWNER_ID=...
-#   BRIDGE_OPERATOR_KEY=...      # only when you want tap 2 to be real
+Add to `backend/bridge/.env`:
+
 ```
+BRIDGE_TELEGRAM_TOKEN=<from @BotFather>
+BRIDGE_TELEGRAM_CHAT_ID=<the group or DM id>
+BRIDGE_TELEGRAM_OWNER_ID=<your own Telegram user id>
+
+# Optional forum topics, one per role, so a trade proposal and a routine compliance
+# alert do not share a thread. Omit them and everything lands in the main chat.
+BRIDGE_TELEGRAM_TOPIC_TRADES=
+BRIDGE_TELEGRAM_TOPIC_COMPLIANCE=
+BRIDGE_TELEGRAM_TOPIC_RISK=
+
+# Leave this out until you want tap 2 to be real.
+# BRIDGE_OPERATOR_KEY=<the 64-hex nginx operator key>
+```
+
+Then:
+
+```powershell
+.\.venv\Scripts\python.exe backend\bridge\relay.py
+.\.venv\Scripts\python.exe backend\bridge\relay.py --iterations 1   # one poll, for a smoke test
+```
+
+It refuses to start if any of the three required variables is missing, naming which, and
+it prints its execute capability on the first line:
+
+```
+Relay started. No operator key: tap 2 stops at a dry run.
+Relay started. Operator key present: tap 2 WILL submit to the broker.
+```
+
+That line is deliberate — a relay that can only ever dry-run must not look identical to
+one that can submit.
 
 Start it under Windows Task Scheduler as yourself, not as a service account — the
 operator key should live under your own ACL.
+
+## Order of operations
+
+The relay reads `execution_markets` from `/paper/status`, which the **deployed backend**
+must be serving. Run it against an older production and every market fails closed, with no
+execute button anywhere. So: deploy the backend first, then start the laptop side.
 
 ## Not built yet
 

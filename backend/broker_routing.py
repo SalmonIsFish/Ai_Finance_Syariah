@@ -60,6 +60,7 @@ CODE_NO_ADAPTER = "no_adapter_configured"
 CODE_MARKET_NOT_CONFIGURED = "market_not_configured"
 CODE_MARKET_UNSUPPORTED = "adapter_cannot_serve_market"
 CODE_UNKNOWN_ADAPTER = "unknown_adapter"
+CODE_ROUTED = "routed"
 
 
 def market_for(approval: dict) -> str:
@@ -140,11 +141,13 @@ def adapter_for(approval: dict, settings) -> dict:
             "adapter": adapter,
         }
 
-    return {"status": "PASS", "adapter": adapter, "market": market}
-
-
-def uses_alpaca(adapter: str) -> bool:
-    """Whether this adapter name is one of the Alpaca transports."""
-    from alpaca_paper_adapter import ALPACA_ADAPTERS
-
-    return adapter in ALPACA_ADAPTERS
+    # An affirmative reason, not None. A caller that renders `reason` without first
+    # checking `enabled` would otherwise print "execution is not enabled for this market"
+    # for a market that is -- which is what bridge/relay.py did.
+    return {
+        "status": "PASS",
+        "code": CODE_ROUTED,
+        "reason": f"{market} orders are submitted through '{adapter}'",
+        "adapter": adapter,
+        "market": market,
+    }

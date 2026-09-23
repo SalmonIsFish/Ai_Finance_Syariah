@@ -253,7 +253,7 @@ exactly like a failure and is not one. Dispatch on whether a file has collectabl
 functions, **not** on whether it has a `__main__` guard. A one-off runner that got this
 backwards on 2026-09-21 manufactured two false failures before the mistake was caught.
 
-**103 `test_*.py` files on disk. 102 run and all 102 pass; `test_moomoo.py` is the one excluded**
+**105 `test_*.py` files on disk. 104 run and all 104 pass; `test_moomoo.py` is the one excluded**
 (full census, 2026-09-23). Treat that number as a measurement with a date on it, not a fact —
 and do not trust a hardcoded list in this file. The list that used to sit here enumerated 42
 files and asserted "All 42 of those pass" while the suite had grown past 80, so a fresh reader

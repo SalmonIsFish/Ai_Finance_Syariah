@@ -22,6 +22,8 @@ from broker_routing import (
     CODE_MARKET_NOT_CONFIGURED,
     CODE_MARKET_UNSUPPORTED,
     CODE_NO_ADAPTER,
+    CODE_ROUTED,
+    CODE_UNKNOWN_ADAPTER,
     adapter_for,
     market_for,
 )
@@ -147,9 +149,27 @@ def test_an_adapter_that_cannot_serve_the_market_is_refused_by_name():
 
 
 def test_an_unknown_adapter_fails_closed():
+    """The reachable case is a typo in PAPER_EXECUTION_ADAPTER_MY, which must not be
+    silently treated as 'off' -- a typo and a deliberate disable need different fixes."""
     routing = adapter_for(approval(), Settings(adapter="etrade"))
     assert routing["status"] == "REJECT"
+    assert routing["code"] == CODE_UNKNOWN_ADAPTER
     assert routing["adapter"] == "etrade"
+
+    typo = adapter_for(approval("4197", "MY"), Settings(adapter="alpaca_mcp", adapter_my="momoo"))
+    assert typo["code"] == CODE_UNKNOWN_ADAPTER
+    assert typo["code"] != CODE_NO_ADAPTER, "a typo must not read as 'deliberately off'"
+
+
+def test_a_routed_order_carries_an_affirmative_reason():
+    """The PASS branch used to have no reason at all, and trading_modes.execution_markets
+    passed that None to the relay, which rendered "execution is not enabled for this
+    market" for a market that is."""
+    routing = adapter_for(approval(), Settings(adapter="alpaca_mcp"))
+    assert routing["code"] == CODE_ROUTED
+    assert routing["reason"]
+    assert "not enabled" not in routing["reason"].lower()
+    assert "alpaca_mcp" in routing["reason"]
 
 
 def test_an_unknown_market_fails_closed():

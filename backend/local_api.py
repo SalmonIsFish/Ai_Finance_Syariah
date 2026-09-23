@@ -66,7 +66,7 @@ from shariah_screen_store import (
 from shariah_explain import explain_symbol
 import holdings_compliance
 from shariah_trace import describe_approval
-from trading_modes import trading_mode_status
+from trading_modes import execution_markets, trading_mode_status
 from watchlist_store import (
     ensure_watchlist_tables,
     get_watchlist_settings,
@@ -1572,6 +1572,11 @@ def paper_status(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
         "paper_execution_adapter": settings.paper_execution_adapter,
         "live_trading": False,
         "broker_submission": broker_submission_configured(settings),
+        # Which markets this instance will actually submit for. The bridge relay reads
+        # this to decide whether to offer an execute button, rather than restating the
+        # routing rule. It was added to /system/mode first and wired here only after a
+        # contract test caught that the relay was reading a key this route never sent.
+        "execution_markets": execution_markets(settings),
     }
 
 

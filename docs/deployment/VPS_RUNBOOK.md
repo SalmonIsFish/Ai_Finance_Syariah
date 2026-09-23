@@ -86,6 +86,51 @@ GitHub redirects it to `Ai_Finance_Syariah.git`, and `git ls-remote` on both ret
 refs, so pulls and pushes work — it is confusing, not broken. Worth re-pointing next time
 someone is on the box, so nobody concludes the droplet tracks a different repository.
 
+### The pending deploy: 30799f0 -> df31318 (options, the bridge, per-market routing)
+
+Audited before deploying. **Low risk**: no new packages (`requirements.txt` unchanged), no
+required new environment variable, no import cycle (`import local_api` verified end to
+end), and **no dashboard rebuild** -- `git diff 30799f0..HEAD -- dashboard dashboard-v2`
+is empty, so skip the `npm run build` above. Equity execution is byte-identical.
+
+```bash
+ssh -i ~/.ssh/amanahtrader_vps amanah@159.65.220.83
+cd /home/amanah/amanah-trader && git pull
+sudo systemctl restart amanah-trader && systemctl status amanah-trader --no-pager
+```
+
+Add `PAPER_EXECUTION_ADAPTER_MY=disabled` to `backend/.env`. It is the default anyway, so
+this documents the decision rather than changes behaviour -- and remember `config.py:29`
+loads with `setdefault`, so **edit in place, never append** a second line for a key.
+
+**What a live user sees change**, all of it intended:
+
+| Surface | Before | After |
+|---|---|---|
+| `POST /paper/preview` with `asset_class=option` | `READY_FOR_APPROVAL` | `REJECT`, blocker `option_contracts_not_permitted`, with a human sentence in `blocker_messages` |
+| `POST /paper/approval` for an option | `APPROVED_PAPER_READY` | `REJECT` carrying the determination |
+| `GET /stock/{symbol}/option-strategy` | a proposed contract | the determination, before any chain fetch |
+| `GET /system/mode` -> `broker_submission` | `false`, which was wrong | `true` |
+| `GET /paper/status` | seven keys | plus `execution_markets` |
+| `POST /paper/execute` on a Bursa order | `UNSUPPORTED_MARKET` (Alpaca's words) | `ADAPTER_NOT_CONFIGURED_FOR_MARKET` (the system's) |
+
+Options are blocked pending a scholarly ruling -- see
+`docs/shariah-policy/option-contracts-determination.md`. The dashboard already renders
+`blocker_messages` and never reads `/system/mode.broker_submission` for a badge, so no UI
+breaks.
+
+**Smoke after restart:**
+
+```bash
+curl -s https://amanahtrader.uk/api/shariah/4197 | head -c 200      # PASS + SC hash
+curl -s https://amanahtrader.uk/stock/AAPL/option-strategy | head -c 200   # the determination
+curl -su project_owner https://amanahtrader.uk/paper/status | head -c 400  # execution_markets
+```
+
+The last one must contain `execution_markets` with `US.enabled: true` and
+`MY.enabled: false`. The OpenClaw relay reads that key; without it, it refuses every
+market. Do not start the laptop side until this returns it.
+
 ### Runtime configuration
 
 `/home/amanah/amanah-trader/backend/.env` — mode `0600`, owner `amanah:amanah`.
@@ -412,6 +457,63 @@ when you need to drive a demo trade.
   write zone on `/p3/*` and `/copilot/*`. `limit_req` sits inside `location /` rather than the
   server block, so `/hackathon/` and `/thetanuts/` are deliberately unchanged — they are other
   applications on this host, and throttling them is not this project's call.
+
+## Moomoo OpenD on the droplet (Bursa execution)
+
+**Not installed. This is the plan, not a record of something done.**
+
+Alpaca has no Bursa access, so Moomoo is the only Malaysian route, and the Moomoo SDK
+talks to OpenD -- a logged-in gateway process. It has to run somewhere the backend can
+reach, and the backend runs here. Running OpenD on a laptop does not work: this droplet
+cannot reach a machine behind NAT.
+
+On this host it is a better fit than it first sounds. There is a **command-line OpenD**
+supporting Ubuntu (this box is 24.04), it has a background-operation mode, and its default
+listen address is `127.0.0.1:11111` -- already what `MOOMOO_HOST` / `MOOMOO_PORT` expect.
+Nothing is exposed, ufw is unchanged, and the documented requirement that "if the listening
+address is not local, you must configure a private key" does not apply, because it is local.
+
+### Do the laptop first
+
+Three things about the Moomoo path are transcribed from documentation, not observed: the
+`MY.5225` code format, the MY account lookup, and whether `place_order` accepts
+`session=Session.NONE` and `fill_outside_rth=False` for Bursa -- both US-market concepts.
+None of those is a server question, and finding out here costs far more than finding out
+on a laptop.
+
+1. Install OpenD on the laptop, log in, confirm the MY paper account appears.
+2. Run `backend/test_moomoo.py` by hand. It exists for exactly this -- it drives the SDK
+   against a real gateway and is excluded from the census for that reason.
+3. Run the backend locally with `PAPER_EXECUTION_ADAPTER_MY=moomoo` and put one Bursa
+   order through preview -> approval -> execute -> reconcile. **Expect the first attempt
+   to fail**, and record what OpenD actually rejects.
+4. Fix it in `moomoo_paper_adapter.py`, with tests asserting the request that gets built.
+
+### Then the droplet
+
+5. Install command-line OpenD, listening on `127.0.0.1:11111`.
+6. Configure a non-interactive login: from v10.10 "by default, starting OpenD directly
+   enters interactive login mode", so credentials go in the config file instead. **Expect
+   a one-time device verification** on first login from a new server -- undocumented
+   either way, and entirely plausible for a real brokerage. Do it by hand, once.
+7. A systemd unit beside `amanah-trader.service`, with the app unit ordered `After=` it.
+   `check_moomoo_status` already fails in ~1.5s against a closed port, so the app starting
+   first is survivable rather than a hang.
+8. **Add swap.** This box is 2 GB with no swap, already running nginx, uvicorn and SQLite.
+   OpenD's footprint is undocumented; measure its RSS before choosing a size.
+9. Only then set `PAPER_EXECUTION_ADAPTER_MY=moomoo` in the droplet `.env` and restart.
+10. Run the first Bursa order **through https://amanahtrader.uk**, not locally. A
+    locally-run trade writes to a SQLite file this instance never sees.
+
+### The credential is the uncomfortable part
+
+An Alpaca paper key is worthless if leaked. A moomoo login is a real brokerage account,
+and it will be sitting in a config file on a public-facing host. Keep it `0600` and owned
+by `amanah`, never in git, and leave `MOOMOO_MODE=paper` -- `config.py` raises at startup
+on anything else, and `moomoo_paper_adapter` hardcodes `TrdEnv.SIMULATE` at every call
+site. Note the honest limit recorded in that module: paper and live share one OpenD socket
+and one logged-in account, separated by a hardcoded enum. That is a well-guarded flag, not
+the wall Alpaca's separate paper domain gives you.
 
 ## Stale files in the repo
 
