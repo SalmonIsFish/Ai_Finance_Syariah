@@ -19,10 +19,31 @@ unverified against a live gateway. Do not describe Bursa execution as working
 until a real order has filled and reconciled, the way the US path was proven
 twice. See CLAUDE.md "Known limitations".
 
-Everything here submits with `TrdEnv.SIMULATE`, hardcoded at every call site
-with no env var able to flip it, and `paper_execution.py` independently refuses
-any submission whose environment is not SIMULATE/PAPER. Enabling a market here
-therefore cannot put real money on an exchange.
+WHAT ACTUALLY PREVENTS A LIVE SUBMISSION
+----------------------------------------
+Stated precisely, because an earlier version of this docstring overclaimed and a
+confident wrong entry costs more than a gap:
+
+1. `TrdEnv.SIMULATE` is hardcoded at all three call sites (`place_order`,
+   `order_list_query`, `history_order_list_query`). `trd_env` is not held in a
+   variable, is not a parameter, and no env var or settings field reaches it. There is
+   no reference to `TrdEnv.REAL` in this module. Changing that requires editing source.
+2. `find_active_simulate_account` selects only rows with `trd_env == "SIMULATE"`, so a
+   REAL account is never chosen even if the login has one.
+3. `market_to_trd_market` falls through to `TrdMarket.NONE`, which is not tradeable.
+4. `approval_workflow` refuses the whole approval unless `MOOMOO_MODE` is `paper`, and
+   `config.load_settings` raises at startup if it is anything else.
+
+What this is **not**: `paper_execution.py` does not verify the environment of the order
+that was actually sent. Its check runs *before* submission, against the status probe's
+reported account -- and that probe has already filtered to SIMULATE itself. It is a
+second read of the same filter, not a second look at the submitted order.
+
+Note also how this differs in kind from the Alpaca adapter. There, paper and live are
+different hosts and `ALPACA_PAPER_BASE_URL` is the only one in the module, so live
+submission is impossible rather than merely blocked. Here paper and live share one
+OpenD socket and one logged-in account, separated by a hardcoded enum. The guards above
+are real and layered, but this is a well-guarded flag, not a wall.
 """
 
 import json

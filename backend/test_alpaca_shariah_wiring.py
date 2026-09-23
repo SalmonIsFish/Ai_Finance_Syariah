@@ -11,7 +11,9 @@ import shutil
 import tempfile
 
 import local_api
+import option_permissibility
 import portfolio_store
+from option_permissibility import REASON_NOT_PERMITTED
 
 
 CASH_ACCOUNT = {
@@ -107,6 +109,18 @@ def seed_shares(quantity: float, *, symbol: str = "AAPL", account_suffix: str = 
         connection.commit()
     finally:
         connection.close()
+
+
+def check_the_shipped_determination_refuses_a_covered_call() -> None:
+    """What a caller actually sees today: a fully covered call, refused end to end."""
+    local_api.check_alpaca_status = lambda: CASH_ACCOUNT
+    seed_shares(100)
+
+    approval = approve(covered_call_preview())["approval"]
+    assert approval["status"] == "REJECT", approval
+    assert approval["option_structure"]["reason"] == REASON_NOT_PERMITTED, approval
+    # The trace must name the refusal, not merely record a REJECT.
+    assert REASON_NOT_PERMITTED in approval["shariah_trace"], approval["shariah_trace"]
 
 
 def check_covered_call_on_cash_account_is_approved() -> None:
@@ -328,7 +342,20 @@ def main() -> None:
     # and the gate correctly refuses it. Left unset, this file passes or fails
     # according to whatever each developer's .env happens to contain.
     os.environ["PAPER_ACCOUNT_EQUITY"] = "100000"
+
+    # These checks drive the real HTTP handlers, so there is no kwarg seam to pass a
+    # determination through. The shipped determination refuses every option contract
+    # (option_permissibility.py); assert that first, then patch it permissive so the
+    # checks below stay about what they are about -- structure, collateral, margin,
+    # option intent surviving into the queue -- rather than all collapsing into the one
+    # refusal. Production keeps no runtime override; this is a module-constant patch.
+    original_determination = dict(option_permissibility.OPTION_DETERMINATION)
     try:
+        check_the_shipped_determination_refuses_a_covered_call()
+        option_permissibility.OPTION_DETERMINATION["status"] = (
+            option_permissibility.OPTION_POLICY_PERMITTED
+        )
+
         check_covered_call_on_cash_account_is_approved()
         check_covered_call_on_margin_account_is_rejected()
         check_uncovered_call_is_rejected()
@@ -338,6 +365,8 @@ def main() -> None:
         check_preview_endpoint_carries_option_intent()
         check_option_intent_survives_into_the_queue()
     finally:
+        option_permissibility.OPTION_DETERMINATION.clear()
+        option_permissibility.OPTION_DETERMINATION.update(original_determination)
         local_api.check_alpaca_status = original_status
         local_api.DB_PATH = original_db_path
         shutil.rmtree(temp_dir, ignore_errors=True)

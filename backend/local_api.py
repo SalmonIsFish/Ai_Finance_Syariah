@@ -38,6 +38,8 @@ from market_data import summarize_history
 from moomoo_status import check_moomoo_status
 from news_summarizer import attach_ai_summaries
 from opportunity_scanner import scan_opportunities
+from option_permissibility import REASON_NOT_PERMITTED as REASON_OPTION_NOT_PERMITTED
+from option_permissibility import determination_summary as option_determination_summary
 from option_strategy_api import propose_option_strategy
 import screening_api
 from paper_execution import (
@@ -1375,6 +1377,8 @@ def blocker_messages_for_evaluation(evaluation: dict) -> list[dict]:
             message = risk.get("reason", "Risk engine rejected this order.")
         if message is None and blocker == "shariah_rejected":
             message = "Shariah agent rejected this symbol."
+        if message is None and blocker == REASON_OPTION_NOT_PERMITTED:
+            message = option_determination_summary()
         if message is None:
             message = blocker
         messages.append({"blocker": blocker, "message": message})

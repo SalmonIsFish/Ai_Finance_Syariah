@@ -2,6 +2,13 @@
 disturbing the existing equity-only candidate path."""
 
 from agent_coordinator import evaluate_candidate
+from option_permissibility import OPTION_DETERMINATION, OPTION_POLICY_PERMITTED
+
+# The shipped determination refuses every option contract (option_permissibility.py).
+# These assertions are about the structure/collateral rules, which must stay exercised,
+# so they supply a permissive determination through the test-only seam.
+# test_option_permissibility.py covers the shipped default.
+PERMITTED = dict(OPTION_DETERMINATION, status=OPTION_POLICY_PERMITTED)
 
 
 SHARIAH_PASS = {"agent": "shariah", "status": "PASS", "reason": "symbol_compliant"}
@@ -28,8 +35,18 @@ QUANT_NO_SIGNAL = {
 }
 
 
-def option_candidate(*, side, quant, shariah=SHARIAH_PASS, structure=None):
-    """A Level 1 option candidate; only the fields under test vary."""
+def option_candidate(*, side, quant, shariah=SHARIAH_PASS, structure=None, permitted=True):
+    """A Level 1 option candidate; only the fields under test vary.
+
+    ``permitted`` supplies the test-only determination seam so these checks stay about
+    what they are about -- the side rule, the quant exemption, synthetic data -- rather
+    than all collapsing into the permissibility refusal. Pass permitted=False to assert
+    the shipped default. See option_permissibility.py.
+    """
+    # Only when a structure is actually supplied: None means "equity-shaped call, no
+    # structure gate", and turning that into a dict would change what is under test.
+    if permitted and structure is not None:
+        structure = dict(structure, determination=PERMITTED)
     return evaluate_candidate(
         symbol="CVX",
         side=side,
@@ -133,7 +150,7 @@ def main() -> None:
         orders_today=0,
         shariah_override=SHARIAH_PASS,
         quant_override=QUANT_BUY,
-        option_structure={"structure": "covered_call", "shares_held": 100, "contracts": 1},
+        option_structure={"determination": PERMITTED, "structure": "covered_call", "shares_held": 100, "contracts": 1},
     )
     assert covered_call_ready["decision"] == "READY_FOR_APPROVAL"
     assert covered_call_ready["agent_summary"]["option_structure"]["status"] == "PASS"
@@ -152,7 +169,7 @@ def main() -> None:
         orders_today=0,
         shariah_override=SHARIAH_PASS,
         quant_override=QUANT_BUY,
-        option_structure={"structure": "naked_call"},
+        option_structure={"determination": PERMITTED, "structure": "naked_call"},
     )
     assert naked_call_blocked["decision"] == "BLOCKED"
     assert "option_structure_rejected" in naked_call_blocked["blockers"]
@@ -173,7 +190,7 @@ def main() -> None:
         shariah_override=SHARIAH_PASS,
         quant_override=QUANT_BUY,
         asset_class="option",
-        option_structure={"structure": "covered_call", "shares_held": 100, "contracts": 1},
+        option_structure={"determination": PERMITTED, "structure": "covered_call", "shares_held": 100, "contracts": 1},
     )
     assert "only_buy_side_supported" not in covered_call_sell["blockers"]
     assert covered_call_sell["decision"] == "READY_FOR_APPROVAL"

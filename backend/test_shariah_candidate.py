@@ -5,6 +5,13 @@ account_shariah_gate internals."""
 
 from approval_workflow import approve_candidate
 from shariah_candidate import build_shariah_candidate
+from option_permissibility import OPTION_DETERMINATION, OPTION_POLICY_PERMITTED
+
+# The shipped determination refuses every option contract (option_permissibility.py).
+# These assertions are about the structure/collateral rules, which must stay exercised,
+# so they supply a permissive determination through the test-only seam.
+# test_option_permissibility.py covers the shipped default.
+PERMITTED = dict(OPTION_DETERMINATION, status=OPTION_POLICY_PERMITTED)
 
 
 SHARIAH_PASS = {"agent": "shariah", "status": "PASS", "provider": "ZOYA", "reason": "COMPLIANT"}
@@ -88,6 +95,12 @@ def main() -> None:
 
     # End-to-end: the composer's output actually flows through the real
     # approval gate correctly, not just each piece in isolation.
+    # The shipped determination refuses every option, even a fully covered one.
+    assert approve_candidate(covered_call, approved_by_user=True)["status"] == "REJECT"
+
+    # Under a permissive determination the composed candidate flows through the real
+    # approval gate, which is what keeps this path exercised rather than dormant.
+    covered_call["option_structure"]["determination"] = PERMITTED
     ready = approve_candidate(covered_call, approved_by_user=True)
     assert ready["status"] == "APPROVED_PAPER_READY"
 

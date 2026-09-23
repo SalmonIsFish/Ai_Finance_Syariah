@@ -14,7 +14,11 @@ def evaluate_option_structure(
     strike: float | None = None,
     contracts: int = 1,
     uses_margin: bool = False,
+    determination: dict | None = None,
 ) -> dict:
+    # `determination` is the test-only seam described in option_permissibility.py. It is
+    # threaded rather than swallowed so a test can exercise the structure arithmetic
+    # through the real agent, not around it. Nothing in production passes it.
     result = check_structure(
         structure=structure,
         shares_held=shares_held,
@@ -22,6 +26,7 @@ def evaluate_option_structure(
         strike=strike,
         contracts=contracts,
         uses_margin=uses_margin,
+        determination=determination,
     )
     return {
         "agent": "option_structure",

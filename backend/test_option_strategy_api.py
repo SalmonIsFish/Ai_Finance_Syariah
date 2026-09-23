@@ -8,6 +8,11 @@ Nothing reaches a network: the quote and the two selectors are seams.
 """
 import pytest
 import auth
+from option_permissibility import (
+    OPTION_DETERMINATION,
+    OPTION_POLICY_PERMITTED,
+    REASON_NOT_PERMITTED,
+)
 @pytest.fixture(autouse=True)
 def _owner_auth_fixture():
     try:
@@ -36,6 +41,12 @@ CASH_ACCOUNT = {
 HOLDER_ACCOUNT = {**CASH_ACCOUNT, "shares_held": 100}
 
 QUOTE = {"latest_close": 203.92, "source": "alpaca_iex", "latest_date": "2026-08-18", "bars": 10}
+
+# Test-only seam. The shipped determination refuses every option (see
+# option_permissibility.py); these tests assert the *proposal* behaviour, which must stay
+# exercised so a scholarly ruling either way is one constant away rather than a rebuild.
+# test_the_endpoint_refuses_under_the_shipped_determination below covers the real default.
+PERMITTED_DETERMINATION = dict(OPTION_DETERMINATION, status=OPTION_POLICY_PERMITTED)
 
 
 def fake_quote(symbol, **kwargs):
@@ -79,7 +90,7 @@ def recording_selectors(strategy: str):
 def test_a_proposal_is_never_presented_as_approved() -> None:
     selectors, _ = recording_selectors("COVERED_CALL")
     result = option_strategy_api.propose_option_strategy(
-        "cvx", account=HOLDER_ACCOUNT, quote=fake_quote, selectors=selectors
+        "cvx", account=HOLDER_ACCOUNT, quote=fake_quote, selectors=selectors, determination=PERMITTED_DETERMINATION
     )
 
     next_step = result["next_step"]
@@ -99,7 +110,7 @@ def test_a_proposal_is_never_presented_as_approved() -> None:
 def test_the_preview_request_is_postable_as_an_option_order() -> None:
     selectors, _ = recording_selectors("COVERED_CALL")
     result = option_strategy_api.propose_option_strategy(
-        "CVX", account=HOLDER_ACCOUNT, quote=fake_quote, selectors=selectors
+        "CVX", account=HOLDER_ACCOUNT, quote=fake_quote, selectors=selectors, determination=PERMITTED_DETERMINATION
     )
     body = result["next_step"]["preview_request"]
 
@@ -116,7 +127,7 @@ def test_cash_secured_put_is_sized_from_settled_cash_not_buying_power() -> None:
     selectors, calls = recording_selectors("CASH_SECURED_PUT")
     account = {**CASH_ACCOUNT, "cash_collateral": 25000.0, "buying_power": 100000.0}
     option_strategy_api.propose_option_strategy(
-        "CVX", account=account, strategy="cash_secured_put", quote=fake_quote, selectors=selectors
+        "CVX", account=account, strategy="cash_secured_put", quote=fake_quote, selectors=selectors, determination=PERMITTED_DETERMINATION
     )
     strategy, symbol, kwargs = calls[0]
     assert strategy == "CASH_SECURED_PUT"
@@ -128,20 +139,20 @@ def test_strategy_defaults_to_the_conservative_one() -> None:
     """With shares on hand, write calls against stock already owned."""
     selectors, calls = recording_selectors("COVERED_CALL")
     option_strategy_api.propose_option_strategy(
-        "CVX", account=HOLDER_ACCOUNT, quote=fake_quote, selectors=selectors
+        "CVX", account=HOLDER_ACCOUNT, quote=fake_quote, selectors=selectors, determination=PERMITTED_DETERMINATION
     )
     assert calls[0][0] == "COVERED_CALL", calls
 
     selectors, calls = recording_selectors("CASH_SECURED_PUT")
     option_strategy_api.propose_option_strategy(
-        "CVX", account=CASH_ACCOUNT, quote=fake_quote, selectors=selectors
+        "CVX", account=CASH_ACCOUNT, quote=fake_quote, selectors=selectors, determination=PERMITTED_DETERMINATION
     )
     assert calls[0][0] == "CASH_SECURED_PUT", calls
 
     # 99 shares cannot cover a contract, so it must not pick a covered call.
     selectors, calls = recording_selectors("CASH_SECURED_PUT")
     option_strategy_api.propose_option_strategy(
-        "CVX", account={**CASH_ACCOUNT, "shares_held": 99}, quote=fake_quote, selectors=selectors
+        "CVX", account={**CASH_ACCOUNT, "shares_held": 99}, quote=fake_quote, selectors=selectors, determination=PERMITTED_DETERMINATION
     )
     assert calls[0][0] == "CASH_SECURED_PUT", calls
 
@@ -149,7 +160,11 @@ def test_strategy_defaults_to_the_conservative_one() -> None:
 def test_multi_leg_and_unknown_strategies_are_refused() -> None:
     for requested in ["iron_condor", "straddle", "vertical_spread", "protective_put"]:
         result = option_strategy_api.propose_option_strategy(
-            "CVX", account=HOLDER_ACCOUNT, strategy=requested, quote=fake_quote
+            "CVX",
+            account=HOLDER_ACCOUNT,
+            strategy=requested,
+            quote=fake_quote,
+            determination=PERMITTED_DETERMINATION,
         )
         assert result["status"] == "REJECT", (requested, result)
         assert "Level 1 only" in result["reason"], result
@@ -160,7 +175,11 @@ def test_no_selection_yields_no_preview_request() -> None:
         return {"status": "NO_CANDIDATE", "strategy": "COVERED_CALL", "reason": "no strike in band"}
 
     result = option_strategy_api.propose_option_strategy(
-        "CVX", account=HOLDER_ACCOUNT, quote=fake_quote, selectors=(no_candidate, no_candidate)
+        "CVX",
+        account=HOLDER_ACCOUNT,
+        quote=fake_quote,
+        selectors=(no_candidate, no_candidate),
+        determination=PERMITTED_DETERMINATION,
     )
     assert result["status"] == "NO_CANDIDATE"
     assert result["next_step"]["preview_request"] is None
@@ -184,6 +203,7 @@ def test_route_resolves_account_facts_from_the_broker_context() -> None:
             strategy=strategy,
             quote=fake_quote,
             selectors=recording_selectors("COVERED_CALL")[0],
+            determination=PERMITTED_DETERMINATION,
         )
 
     local_api.propose_option_strategy = spy
@@ -278,3 +298,35 @@ if __name__ == "__main__":
         main()
     finally:
         _my_app.dependency_overrides.pop(_get_owner_actor, None)
+
+
+def test_the_endpoint_refuses_under_the_shipped_determination() -> None:
+    """The default the system actually ships: no contract is proposed at all.
+
+    The tests above pass a permissive determination through the test-only seam so the
+    proposal machinery stays exercised. This one uses the determination in force, and it
+    is the behaviour a caller will really see.
+    """
+    result = option_strategy_api.propose_option_strategy(
+        "CVX", account=HOLDER_ACCOUNT, quote=fake_quote
+    )
+    assert result["status"] == "REJECT"
+    assert result["reason"] == REASON_NOT_PERMITTED
+    assert result["determination"]["review_status"] == "PENDING_SCHOLARLY_REVIEW"
+    # No contract, and nothing that could be mistaken for one.
+    assert "selection" not in result
+    assert "next_step" not in result
+
+
+def test_the_refusal_costs_no_option_chain_request() -> None:
+    """Refusing before the quote seam matters: the chain fetch is a live paid call."""
+    calls = []
+
+    def counting_quote(symbol, **kwargs):
+        calls.append(symbol)
+        return QUOTE
+
+    option_strategy_api.propose_option_strategy(
+        "CVX", account=HOLDER_ACCOUNT, quote=counting_quote
+    )
+    assert calls == [], "the permissibility check must short-circuit before any market data"

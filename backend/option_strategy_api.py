@@ -18,6 +18,7 @@ cash -- never buying power -- backs a cash-secured put here too.
 """
 
 from market_data import summarize_history
+from option_permissibility import check_option_permissibility, determination_summary
 from option_strategy import select_cash_secured_put, select_covered_call
 
 SHARES_PER_CONTRACT = 100
@@ -79,6 +80,7 @@ def propose_option_strategy(
     policy: dict | None = None,
     quote=None,
     selectors=None,
+    determination: dict | None = None,
 ) -> dict:
     """Propose one Level 1 contract for `symbol`, given live account facts.
 
@@ -87,6 +89,19 @@ def propose_option_strategy(
     normalized = str(symbol or "").strip().upper()
     if not normalized:
         return {"status": "REJECT", "reason": "no symbol supplied", "symbol": ""}
+
+    # Before anything else, and before spending a live option-chain request: may an
+    # option contract be entered into at all? This endpoint does not go through
+    # option_structure_gate -- selecting is not approving -- so it needs its own check.
+    permissibility = check_option_permissibility(determination)
+    if permissibility["status"] != "PASS":
+        return {
+            "status": "REJECT",
+            "reason": permissibility["reason"],
+            "symbol": normalized,
+            "determination": permissibility["determination"],
+            "note": determination_summary(),
+        }
 
     shares_held = int(account.get("shares_held") or 0)
     # Settled cash, never buying_power: margin leverage cannot secure a put.

@@ -137,7 +137,12 @@ def execute_paper_order(connection: sqlite3.Connection, queue_id: int) -> dict:
     # `moomoo` holds whichever paper broker is configured; the key name is kept for
     # the existing execute-response contract. PAPER environment == Alpaca paper account.
     use_alpaca = settings.paper_execution_adapter in ALPACA_ADAPTERS
-    moomoo = check_alpaca_status() if use_alpaca else check_moomoo_status()
+    # Probe the market this order is actually for. check_moomoo_status used to be
+    # hardcoded to US while gating every order, so a Bursa order could be refused
+    # because no *US* simulate account existed -- a refusal for the wrong reason, which
+    # is worse than no check because the stated cause is untrue.
+    order_market = str(approval.get("shariah_market") or "US").strip().upper() or "US"
+    moomoo = check_alpaca_status() if use_alpaca else check_moomoo_status(order_market)
     if (
         not moomoo.get("paper_account_ready")
         or moomoo.get("environment") not in {"SIMULATE", "PAPER"}

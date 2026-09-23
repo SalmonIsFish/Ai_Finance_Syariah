@@ -59,6 +59,11 @@ BLOCKER_SENTENCES: dict[str, str] = {
         "The option contract is not a permitted Level 1 structure, or its collateral "
         "was not proven."
     ),
+    "option_contracts_not_permitted": (
+        "Option contracts are not permitted under the determination currently in force. "
+        "This is not a sizing or collateral problem and cannot be resolved by changing "
+        "the order; it awaits a scholarly ruling."
+    ),
     "portfolio_position_limit": (
         "The resulting position would exceed the per-position exposure limit."
     ),

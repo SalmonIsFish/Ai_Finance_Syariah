@@ -2,7 +2,10 @@
 in hackathon/alpaca-2026/SHARIAH_GATE_NOTES.md, for the underlying + structure
 gate decisions together."""
 
+from option_permissibility import OPTION_DETERMINATION, OPTION_POLICY_PERMITTED
 from shariah_trace import build_shariah_trace, describe_approval
+
+PERMITTED_DETERMINATION = dict(OPTION_DETERMINATION, status=OPTION_POLICY_PERMITTED)
 
 
 def main() -> None:
@@ -82,7 +85,15 @@ def main() -> None:
         shariah={"status": "PASS", "provider": "ZOYA", "reason": "COMPLIANT"},
         candidate={
             "account_type": "CASH",
-            "option_structure": {"structure": "covered_call", "shares_held": 100, "contracts": 1},
+            "option_structure": {
+                "structure": "covered_call",
+                "shares_held": 100,
+                "contracts": 1,
+                # Test-only seam: the shipped determination refuses every option, and
+                # this assertion is about the *trace rendering* of a structure verdict,
+                # not about permissibility. See option_permissibility.py.
+                "determination": PERMITTED_DETERMINATION,
+            },
         },
     )
     assert "structure=covered_call -> PASS" in approval_trace

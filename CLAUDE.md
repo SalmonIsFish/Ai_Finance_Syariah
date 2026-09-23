@@ -39,6 +39,46 @@ The same reviewer confirmed that a deterministic rule-based system does **not** 
 oversight. That is an argument for the existing architecture, not for adding interpretability
 tooling.
 
+### Option contracts are blocked, pending a ruling (2026-09-23)
+
+`option_permissibility.py` records a determination: **option contracts are not permitted**,
+on the grounds reported for the OIC Islamic Fiqh Academy and Mufti Taqi Usmani -- gharar
+(whether the option is exercised is unknown when the contract is made), maysir (each party
+bets against the other), and the premium, a promise not being a valid subject of sale.
+Source: https://www.islamicfinanceguru.com/articles/options-trading-halal-or-haram
+
+**The cited sources address option contracts generally.** They do not separately treat a
+covered call written against owned shares or a cash-secured put backed by settled cash,
+which is the only thing this system ever did. That silence is **not** permission -- the
+objections attach to the contract rather than to the side taken, and the writer is the
+party receiving the contested premium. The question is open with the owner's Shariah
+lecturer, so the system fails closed.
+
+This exposed a structural gap, not a cosmetic one. `option_structure_gate` asked "is this a
+permitted Level 1 structure, and is it collateralised?" and never asked the prior question:
+*may an option contract be entered into at all, and on whose authority?* That question had
+no representation in the code.
+
+Mechanics:
+
+- It is a **module constant, not an env var**. Flipping it is a deliberate code change,
+  reviewed and visible in git -- not a runtime flag someone flips because an order was
+  inconvenient. `test_option_permissibility.py` asserts no shipped module may even name
+  `OPTION_POLICY_PERMITTED`.
+- Blocked at three places, because one was not enough: `check_structure` (approval and,
+  by consequence, execute), `agent_coordinator.evaluate_candidate` (preview -- which builds
+  no `option_structure` at all, so an option used to preview `READY_FOR_APPROVAL` and be
+  refused only one step later), and `propose_option_strategy` (before any chain fetch).
+- The blocker code is `option_contracts_not_permitted`, kept distinct from
+  `option_structure_rejected`. The second can be fixed by sizing; the first cannot be fixed
+  at all. Collapsing them would tell the owner to add collateral for an order no collateral
+  can make permissible.
+- **No option code was deleted or commented out.** Every line stays live, and
+  `check_option_permissibility(determination=...)` is a test-only seam that keeps the
+  covered-call, cash-secured-put, margin and naked-structure arithmetic exercised under a
+  permissive determination. Commented-out code rots -- Ruff will not check it and no test
+  runs it. A ruling either way is one constant away, not a resurrection.
+
 Broker: **Alpaca**, paper only.
 
 ## Safety rules (these override convenience)
@@ -244,12 +284,18 @@ no Moomoo gateway running.
    swappable seam and a failed write is swallowed, because a locked SQLite file must never turn
    a COMPLIANT company into an ERROR. Malaysia is structurally excluded — the hook sits in the
    US screen, and `_evaluate_malaysia` does not pass through it.
-2. **Option fills are audited but not tracked as positions.** `portfolio_store` models whole
+2. **Option fills are audited but not tracked as positions.** *(Historical as of
+   2026-09-23: option contracts are blocked pending a ruling -- see "Option contracts are
+   blocked" above. This limitation still describes what the code does, and matters again
+   the moment a ruling permits options.)* `portfolio_store` models whole
    shares only — no contract multiplier, strike, expiry, or assignment. `sync_filled_order`
    diverts option fills to `paper_fills` under the OCC symbol and returns
    `OPTION_FILL_RECORDED` without touching `paper_positions`. Alpaca is the source of truth for
    options P&L. Do not "fix" this by booking contracts as shares — that was a real bug.
-3. **The strategy layer selects; selecting is not approving.** `option_strategy.py` calls
+3. **The strategy layer selects; selecting is not approving.** *(As of 2026-09-23
+   `propose_option_strategy` refuses before selecting anything, so the endpoint returns the
+   determination rather than a contract. The selection rules below are unchanged and still
+   tested; they are simply unreachable until a ruling.)* `option_strategy.py` calls
    `fetch_option_chain` and picks a contract for both Level 1 strategies: 1–7 DTE, the strike
    closest to 4% OTM inside a 2–7% band, filtered for a live bid, a spread under 15% of mid, a
    minimum premium, and a standard 100-share multiplier; sized from owned shares or settled
@@ -269,7 +315,10 @@ no Moomoo gateway running.
    it: `option_strategy` sizes a covered call from owned shares at the standard 100-share
    multiplier, and `0TCX` holds exactly 1 share of CVX.
 4. **The end-to-end chain has run against real Alpaca — twice, on the test account: once
-   equity, once option.** Both went preview → approval → `EXECUTE PAPER` → fill → reconcile →
+   equity, once option.** *(The option half is now history rather than a live capability:
+   option contracts are blocked pending a ruling. The record below is kept exactly as it
+   was — that fill happened, and erasing it would falsify the evidence trail. What changed
+   is the policy, not the past.)* Both went preview → approval → `EXECUTE PAPER` → fill → reconcile →
    ledger against `https://paper-api.alpaca.markets` over the `alpaca_mcp` transport, with
    nothing mocked.
 

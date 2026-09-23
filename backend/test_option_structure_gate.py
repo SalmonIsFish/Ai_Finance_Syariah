@@ -4,10 +4,33 @@ See hackathon/alpaca-2026/SHARIAH_GATE_NOTES.md for the sourced rationale behind
 each structure's verdict.
 """
 
-from option_structure_gate import check_structure
+from option_structure_gate import check_structure as _check_structure
+
+from functools import partial
+
+from option_permissibility import (
+    OPTION_DETERMINATION,
+    OPTION_POLICY_PERMITTED,
+    REASON_NOT_PERMITTED,
+)
+
+# The determination in force refuses every option contract, so the structure rules below
+# would all short-circuit. They are the *narrower* question -- is this structure allowed,
+# is it collateralised -- and they must stay exercised so a scholarly ruling either way is
+# one constant away rather than a rebuild. Hence a permissive determination here.
+# test_option_permissibility.py covers what the system actually ships.
+PERMITTED = dict(OPTION_DETERMINATION, status=OPTION_POLICY_PERMITTED)
+
+check_structure = partial(_check_structure, determination=PERMITTED)
 
 
 def main() -> None:
+    # First, the shipped default: a fully covered call is refused as impermissible.
+    shipped = _check_structure(structure="covered_call", shares_held=100, contracts=1)
+    assert shipped["status"] == "REJECT"
+    assert shipped["reason"] == REASON_NOT_PERMITTED
+
+    # Everything below runs under PERMITTED; see the note at the top of the file.
     # Covered call: allowed only when the agent already holds enough shares.
     covered = check_structure(structure="covered_call", shares_held=100, contracts=1)
     assert covered["status"] == "PASS"

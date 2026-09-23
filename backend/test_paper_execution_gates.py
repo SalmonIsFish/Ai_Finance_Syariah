@@ -139,7 +139,7 @@ def main() -> None:
     original_reconcile = paper_execution.reconcile_paper_order
     try:
         connection = make_connection()
-        paper_execution.check_moomoo_status = lambda: READY_MOOMOO
+        paper_execution.check_moomoo_status = lambda market="US": READY_MOOMOO
 
         set_execution_env(trading_mode="advisory", enabled=True, adapter="fake")
         advisory_id = add_approval(connection)
@@ -164,13 +164,13 @@ def main() -> None:
         assert risk_result["status"] == "RISK_GATE_FAILED"
         assert risk_result["broker_submission"] is False
 
-        paper_execution.check_moomoo_status = lambda: NOT_READY_MOOMOO
+        paper_execution.check_moomoo_status = lambda market="US": NOT_READY_MOOMOO
         moomoo_id = add_approval(connection)
         moomoo_result = execute_paper_order(connection, moomoo_id)
         assert moomoo_result["status"] == "MOOMOO_NOT_READY"
         assert moomoo_result["broker_submission"] is False
 
-        paper_execution.check_moomoo_status = lambda: READY_MOOMOO
+        paper_execution.check_moomoo_status = lambda market="US": READY_MOOMOO
         set_execution_env(trading_mode="approval", enabled=True, adapter="disabled")
         adapter_id = add_approval(connection)
         adapter_result = execute_paper_order(connection, adapter_id)

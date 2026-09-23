@@ -1,6 +1,8 @@
 """Coordinate local deterministic agents before paper-order approval."""
 
 from agents.option_structure_agent import evaluate_option_structure
+from option_permissibility import REASON_NOT_PERMITTED as REASON_OPTION_NOT_PERMITTED
+from option_permissibility import check_option_permissibility
 from agents.quant_agent import evaluate_quant
 from agents.risk_engine import evaluate_risk
 from agents.shariah_agent import evaluate_shariah
@@ -91,6 +93,17 @@ def evaluate_candidate(
     )
 
     blockers = []
+    # May an option contract be entered into at all? This has to be asked here and not
+    # only in option_structure_gate, because /paper/preview builds no `option_structure`
+    # -- the structure gate runs at approval time. Without this an option previewed as
+    # READY_FOR_APPROVAL and was refused only one step later, which tells the owner an
+    # order is viable when nothing can ever approve it.
+    option_determination = (option_structure or {}).get("determination")
+    if (
+        asset_class == "option"
+        and check_option_permissibility(determination=option_determination)["status"] != "PASS"
+    ):
+        blockers.append(REASON_OPTION_NOT_PERMITTED)
     # Options are written by selling to open (covered call, cash-secured put)
     # and closed by buying back -- the BUY-only restriction is an equity-only
     # rule. Reduce-only SELL protection for equities lives in local_api.py's
@@ -133,7 +146,16 @@ def evaluate_candidate(
     if selected_price is None or selected_price <= 0:
         blockers.append("valid_price_required")
     if option_structure_result is not None and option_structure_result["status"] != "PASS":
-        blockers.append("option_structure_rejected")
+        # Distinguish "this contract is not permissible at all" from "this structure or
+        # its collateral failed". They are different refusals with different remedies:
+        # the second can be fixed by sizing, the first cannot be fixed at all until an
+        # authority rules. Collapsing them would tell the owner to add collateral for an
+        # order that no collateral can make permissible.
+        if option_structure_result.get("reason") == REASON_OPTION_NOT_PERMITTED:
+            if REASON_OPTION_NOT_PERMITTED not in blockers:
+                blockers.append(REASON_OPTION_NOT_PERMITTED)
+        else:
+            blockers.append("option_structure_rejected")
 
     decision = "READY_FOR_APPROVAL" if not blockers else "BLOCKED"
     notional = round(quantity * selected_price, 2) if selected_price else None

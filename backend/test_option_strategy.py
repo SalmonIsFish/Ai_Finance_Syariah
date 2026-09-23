@@ -19,6 +19,14 @@ from option_strategy import (
 )
 from shariah_candidate import build_shariah_candidate
 from approval_workflow import approve_candidate
+from option_permissibility import (
+    OPTION_DETERMINATION,
+    OPTION_POLICY_PERMITTED,
+    REASON_NOT_PERMITTED,
+)
+
+# Test-only seam; see option_permissibility.py.
+PERMITTED_DETERMINATION = dict(OPTION_DETERMINATION, status=OPTION_POLICY_PERMITTED)
 
 
 TODAY = date(2026, 8, 19)
@@ -312,6 +320,17 @@ def feeds_the_gate_chain() -> None:
     )
     assert candidate["option_structure"]["structure"] == "covered_call", candidate
     assert candidate["option_structure"]["contracts"] == call["contracts"], candidate
+
+    # The determination in force refuses every option contract, so a perfectly selected,
+    # fully covered call is refused here -- and refused as impermissible, not as badly
+    # sized. Choosing is not approving, and now approving is not permitted either.
+    blocked = approve_candidate(candidate, approved_by_user=True)
+    assert blocked["status"] == "REJECT", blocked
+    assert blocked["option_structure"]["reason"] == REASON_NOT_PERMITTED, blocked
+
+    # Under a permissive determination the same proposal clears the chain, which is what
+    # keeps this path exercised rather than rotting behind the block.
+    candidate["option_structure"]["determination"] = PERMITTED_DETERMINATION
     approved = approve_candidate(candidate, approved_by_user=True)
     assert approved["status"] == "APPROVED_PAPER_READY", approved
 
@@ -327,6 +346,8 @@ def feeds_the_gate_chain() -> None:
         cash_collateral=put["cash_available"],
         shariah_override=SHARIAH_PASS,
     )
+    assert approve_candidate(secured, approved_by_user=True)["status"] == "REJECT"
+    secured["option_structure"]["determination"] = PERMITTED_DETERMINATION
     assert approve_candidate(secured, approved_by_user=True)["status"] == "APPROVED_PAPER_READY"
 
     # Selection does not launder a non-compliant underlying: a perfectly chosen strike

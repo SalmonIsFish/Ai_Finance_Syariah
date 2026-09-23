@@ -21,6 +21,9 @@ from fastapi.testclient import TestClient
 
 import pytest
 
+import option_permissibility
+from option_permissibility import REASON_NOT_PERMITTED
+
 _ENV_ORIG = {k: os.environ.get(k) for k in ["ALPACA_API_KEY_ID", "ALPACA_SECRET_KEY", "ALPACA_MODE", "MOOMOO_MODE", "TRADING_MODE"]}
 
 @pytest.fixture(autouse=True)
@@ -136,6 +139,33 @@ def seed_shares(db_path: Path, *, symbol: str, quantity: float, account_suffix: 
         connection.close()
 
 
+def default_determination_blocks_the_whole_chain(client) -> None:
+    """Before anything else: with the shipped determination, no option gets through.
+
+    This is the behaviour the system actually ships. Every other scenario below runs
+    with a permissive determination patched in, so that the structure, collateral and
+    account rules stay exercised -- but none of them describes what a caller sees today.
+    """
+    preview = client.post(
+        "/paper/preview",
+        json=option_preview_request(
+            strategy="COVERED_CALL", option_type="CALL", strike=210.0, price=3.50
+        ),
+    ).json()
+    assert preview["preview"]["status"] == "REJECT", preview
+    assert REASON_NOT_PERMITTED in preview["preview"]["blockers"], preview
+
+    # The refusal must name its authority, not just a code -- a bare code is an opinion.
+    messages = {m["blocker"]: m["message"] for m in preview["preview"]["blocker_messages"]}
+    assert "not permitted" in messages[REASON_NOT_PERMITTED], messages
+
+    approval = client.post(
+        "/paper/approval", json={"preview": preview["preview"], "approved": True}
+    ).json()
+    assert approval["approval"]["status"] == "REJECT", approval
+    assert approval["broker_submission"] is False
+
+
 def main() -> None:
     fixture_dir = tempfile.TemporaryDirectory()
     local_api.DB_PATH = Path(fixture_dir.name) / "paper_trading.db"
@@ -149,7 +179,17 @@ def main() -> None:
     os.environ["PAPER_EXECUTION_ADAPTER"] = "alpaca"
     client = TestClient(app)
 
+    # The determination in force refuses every option, so assert that first -- then
+    # patch it permissive for the scenarios below, which test the structure, collateral
+    # and account rules rather than the permissibility question. Patching the module
+    # constant keeps the production code free of any runtime override.
+    original_determination = dict(option_permissibility.OPTION_DETERMINATION)
     try:
+        default_determination_blocks_the_whole_chain(client)
+        option_permissibility.OPTION_DETERMINATION["status"] = (
+            option_permissibility.OPTION_POLICY_PERMITTED
+        )
+
         # --- Scenario 1: covered call, CASH account, enough owned shares ---
         # -> approved and actually reaches BROKER_SUBMITTED through the real
         # preview/approval/execute handlers.
@@ -319,6 +359,8 @@ def main() -> None:
         assert any(path == "/v2/orders" for _, path, _ in fake_network.calls)
         assert any(path == "/v2/account" for _, path, _ in fake_network.calls)
     finally:
+        option_permissibility.OPTION_DETERMINATION.clear()
+        option_permissibility.OPTION_DETERMINATION.update(original_determination)
         alpaca_paper_adapter.alpaca_request = original_request
 
     print(

@@ -1,6 +1,15 @@
 """Verify approval states without contacting Moomoo."""
 
 from approval_workflow import approve_candidate
+from option_permissibility import (
+    OPTION_DETERMINATION,
+    OPTION_POLICY_PERMITTED,
+    REASON_NOT_PERMITTED,
+)
+
+# Test-only: lets the structure arithmetic stay exercised while the shipped
+# determination refuses every option. See option_permissibility.py.
+PERMITTED_DETERMINATION = dict(OPTION_DETERMINATION, status=OPTION_POLICY_PERMITTED)
 
 
 candidate = {
@@ -14,24 +23,43 @@ candidate = {
 print("Pending:", approve_candidate(candidate, approved_by_user=False))
 print("Approved:", approve_candidate(candidate, approved_by_user=True))
 
-# A candidate with a compliant option structure approves normally.
+# Under the determination in force (option_permissibility.py), a fully covered call is
+# refused at approval -- and refused as impermissible, not as under-collateralised. The
+# user approving it makes no difference; that is the point of a gate.
 covered_call_candidate = {
     **candidate,
     "option_structure": {"structure": "covered_call", "shares_held": 100, "contracts": 1},
 }
 covered_call_result = approve_candidate(covered_call_candidate, approved_by_user=True)
-assert covered_call_result["status"] == "APPROVED_PAPER_READY"
+assert covered_call_result["status"] == "REJECT"
+assert covered_call_result["option_structure"]["reason"] == REASON_NOT_PERMITTED
 
-# A candidate with a non-compliant option structure is rejected even though
-# the underlying symbol is compliant and the user approved it.
+# With a permissive determination supplied through the test-only seam, the same
+# candidate approves -- proving the refusal above comes from the permissibility gate and
+# that the structure path still works end to end. See test_option_permissibility.py.
+permitted_covered_call = {
+    **candidate,
+    "option_structure": {
+        "structure": "covered_call",
+        "shares_held": 100,
+        "contracts": 1,
+        "determination": PERMITTED_DETERMINATION,
+    },
+}
+permitted_result = approve_candidate(permitted_covered_call, approved_by_user=True)
+assert permitted_result["status"] == "APPROVED_PAPER_READY", permitted_result
+
+# A non-compliant option structure is rejected for its own reason even when options are
+# permitted -- the structure rules are independent of the permissibility question.
 naked_call_candidate = {
     **candidate,
-    "option_structure": {"structure": "naked_call"},
+    "option_structure": {"structure": "naked_call", "determination": PERMITTED_DETERMINATION},
 }
 naked_call_result = approve_candidate(naked_call_candidate, approved_by_user=True)
 assert naked_call_result["status"] == "REJECT"
 assert naked_call_result["reason"] == "option_structure_rejected"
 assert naked_call_result["option_structure"]["status"] == "REJECT"
+assert naked_call_result["option_structure"]["reason"] == "structure_not_permitted"
 
 # No option_structure key at all is the existing equity-only behavior.
 assert "option_structure" not in candidate

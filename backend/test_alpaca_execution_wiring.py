@@ -68,7 +68,7 @@ def check_fake_adapter_keeps_moomoo_path(connection: sqlite3.Connection) -> None
     set_execution_env(adapter="fake")
     paper_execution.check_alpaca_status = poison
     alpaca_paper_adapter.alpaca_request = poison
-    paper_execution.check_moomoo_status = lambda: {
+    paper_execution.check_moomoo_status = lambda market="US": {
         "status": "paper_account_ready",
         "paper_account_ready": True,
         "environment": "SIMULATE",
