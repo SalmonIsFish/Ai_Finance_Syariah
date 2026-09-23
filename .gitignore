@@ -68,3 +68,10 @@ CararunCode.txt
 # Agent sync infra: keep scripts + hook manifest, drop machine-local logs/locks
 .agents/conversation_ids_seen.log
 .agents/.pull_lock_*
+
+# OpenClaw bridge: relay secrets (Basic credentials + the nginx operator key) and
+# local proposal state. backend/.env and backend/*.sqlite3 above do not match a
+# subdirectory, so these need their own lines.
+backend/bridge/.env
+backend/bridge/state.sqlite3
+backend/bridge/*.sqlite3
