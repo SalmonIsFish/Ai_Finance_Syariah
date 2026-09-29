@@ -1,7 +1,6 @@
 """Tests for the fail-closed AI Copilot."""
 
 import os
-import json
 import sqlite3
 import tempfile
 from pathlib import Path
@@ -12,8 +11,31 @@ fixture_dir = tempfile.TemporaryDirectory()
 universe_path = Path(fixture_dir.name) / "shariah_universe.json"
 universe_path.write_text('{"validation": {"status": "active"}, "records": []}', encoding="utf-8")
 import pytest
+from offline_seams import offline_seams
 
-_ENV_ORIG = {k: os.environ.get(k) for k in ["SHARIAH_UNIVERSE_PATH", "TRADING_MODE", "PAPER_EXECUTION_ENABLED", "PAPER_EXECUTION_ADAPTER", "MOOMOO_MODE", "OPENROUTER_API_KEY"]}
+# explain_ticker / research_copilot_ticker screen the ticker, and screening fetches Bursa
+# bars from Yahoo. No assertion here is about prices, so Yahoo is stood in as down.
+OFFLINE = ("yahoo",)
+
+
+@pytest.fixture(autouse=True)
+def _offline():
+    with offline_seams(*OFFLINE):
+        yield
+
+
+_ENV_ORIG = {
+    k: os.environ.get(k)
+    for k in [
+        "SHARIAH_UNIVERSE_PATH",
+        "TRADING_MODE",
+        "PAPER_EXECUTION_ENABLED",
+        "PAPER_EXECUTION_ADAPTER",
+        "MOOMOO_MODE",
+        "OPENROUTER_API_KEY",
+    ]
+}
+
 
 @pytest.fixture(autouse=True)
 def _restore_env():
@@ -29,6 +51,7 @@ def _restore_env():
             os.environ.pop(_k, None)
         else:
             os.environ[_k] = _ENV_ORIG[_k]
+
 
 os.environ["SHARIAH_UNIVERSE_PATH"] = str(universe_path)
 os.environ["TRADING_MODE"] = "approval"
@@ -93,13 +116,9 @@ def test_1_fail_closed_on_mismatch(mock_openrouter):
         "ok": True,
         "data": {
             "choices": [
-                {
-                    "message": {
-                        "content": '{"explanation": "hallucinated", "status_check": "PASS"}'
-                    }
-                }
+                {"message": {"content": '{"explanation": "hallucinated", "status_check": "PASS"}'}}
             ]
-        }
+        },
     }
 
     try:
@@ -108,7 +127,7 @@ def test_1_fail_closed_on_mismatch(mock_openrouter):
     except ValueError as e:
         assert "SAFETY VIOLATION" in str(e)
         assert "contradicts authoritative status" in str(e)
-    
+
     print("PASS: 1 - Copilot fails closed if LLM contradicts authoritative status")
 
 
@@ -128,13 +147,13 @@ def test_2_success_on_match(mock_openrouter):
                     }
                 }
             ]
-        }
+        },
     }
 
     res = explain_ticker("1155", "Explain it")
     assert res["authoritative_status"] == "PASS"
     assert res["explanation"] == "Valid explanation."
-    
+
     print("PASS: 2 - Copilot succeeds if LLM explicitly matches the deterministic status")
 
 
@@ -146,15 +165,7 @@ def test_3_fail_on_missing_fields_or_malformed(mock_openrouter):
 
     mock_openrouter.return_value = {
         "ok": True,
-        "data": {
-            "choices": [
-                {
-                    "message": {
-                        "content": '{"just_some": "random_json"}'
-                    }
-                }
-            ]
-        }
+        "data": {"choices": [{"message": {"content": '{"just_some": "random_json"}'}}]},
     }
 
     try:
@@ -162,8 +173,7 @@ def test_3_fail_on_missing_fields_or_malformed(mock_openrouter):
         assert False, "Should fail on missing explanation field"
     except ValueError as e:
         assert "missing" in str(e) or "SAFETY VIOLATION" in str(e)
-        
-        
+
     print("PASS: 3 - Copilot fails on malformed LLM response")
 
 
@@ -183,15 +193,16 @@ def test_4_research_copilot_success(mock_openrouter):
                     }
                 }
             ]
-        }
+        },
     }
 
     import copilot_api
+
     res = copilot_api.research_copilot_ticker("1155", "What is the research context?")
     assert res["authoritative_status"] == "PASS"
     assert res["explanation"] == "Research found..."
     assert res["limitations"] == ["Not investment advice"]
-    
+
     print("PASS: 4 - Research Copilot succeeds and parses limitations")
 
 
@@ -201,5 +212,7 @@ def main():
     test_3_fail_on_missing_fields_or_malformed()
     test_4_research_copilot_success()
 
+
 if __name__ == "__main__":
-    main()
+    with offline_seams(*OFFLINE):
+        main()

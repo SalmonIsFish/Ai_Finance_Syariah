@@ -666,6 +666,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     import auth
+    from offline_seams import offline_seams
 
     try:
         from local_api import app as _my_app, get_owner_actor as _get_owner_actor
@@ -678,6 +679,10 @@ if __name__ == "__main__":
         username="project_owner", role="admin"
     )
     try:
-        main()
+        # Preview quotes through Alpaca market data, and /moomoo/status probes OpenD on
+        # 127.0.0.1:11111 -- a real gateway on any machine that runs one. The contract
+        # asserted here is the fail-closed shape of both, so both are stood in as down.
+        with offline_seams("alpaca_data", "opend"):
+            main()
     finally:
         _my_app.dependency_overrides.pop(_get_owner_actor, None)

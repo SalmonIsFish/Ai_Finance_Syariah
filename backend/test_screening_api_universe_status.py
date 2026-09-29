@@ -10,12 +10,35 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
+from offline_seams import offline_seams
+
 fixture_dir = tempfile.TemporaryDirectory()
 universe_path = Path(fixture_dir.name) / "shariah_universe.json"
 universe_path.write_text('{"validation": {"status": "active"}, "records": []}', encoding="utf-8")
 import pytest
 
-_ENV_ORIG = {k: os.environ.get(k) for k in ["SHARIAH_UNIVERSE_PATH", "TRADING_MODE", "PAPER_EXECUTION_ENABLED", "PAPER_EXECUTION_ADAPTER", "MOOMOO_MODE"]}
+# test_8 calls /api/screen/{ticker}, which fetches Bursa bars from Yahoo. It asserts the
+# endpoint's shape is unchanged, not its prices, so Yahoo is stood in as down.
+OFFLINE = ("yahoo",)
+
+
+@pytest.fixture(autouse=True)
+def _offline():
+    with offline_seams(*OFFLINE):
+        yield
+
+
+_ENV_ORIG = {
+    k: os.environ.get(k)
+    for k in [
+        "SHARIAH_UNIVERSE_PATH",
+        "TRADING_MODE",
+        "PAPER_EXECUTION_ENABLED",
+        "PAPER_EXECUTION_ADAPTER",
+        "MOOMOO_MODE",
+    ]
+}
+
 
 @pytest.fixture(autouse=True)
 def _restore_env():
@@ -30,6 +53,7 @@ def _restore_env():
             os.environ.pop(_k, None)
         else:
             os.environ[_k] = _ENV_ORIG[_k]
+
 
 os.environ["SHARIAH_UNIVERSE_PATH"] = str(universe_path)
 os.environ["TRADING_MODE"] = "approval"
@@ -215,4 +239,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    with offline_seams(*OFFLINE):
+        main()

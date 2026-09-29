@@ -5,11 +5,17 @@ Known limitation #4 in CLAUDE.md says this chain has never been exercised live.
 This test can't touch the real Alpaca API without real credentials and a real
 API call, so it drives the *actual* production code path -- local_api's real
 handlers, build_shariah_candidate, approve_candidate, alpaca_paper_adapter's
-real order-construction logic -- and only swaps the single network seam
-(`alpaca_paper_adapter.alpaca_request`) that CLAUDE.md's testing conventions
-say is the one replaceable point. Nothing else is mocked. If the wiring
-between local_api.py and the gate chain is broken, this is what would catch
-it before a real API call would.
+real order-construction logic -- and swaps only network seams: the broker
+(`alpaca_paper_adapter.alpaca_request`) with a fake that plays the Alpaca paper
+API, and market data (`alpaca_market_data.alpaca_data_request`) stood in as
+unavailable. No gate is mocked. If the wiring between local_api.py and the gate
+chain is broken, this is what would catch it before a real API call would.
+
+This docstring used to say the broker seam was the only one swapped and nothing
+else was mocked. That was true of what was mocked, not of what was reached: the
+preview quote and the portfolio overlay went out to live Alpaca market data on
+every run (audit, 2026-09-28). They now take the market-data outage path, which
+is what the assertions below already exercised whenever the network was down.
 """
 
 import os
@@ -24,7 +30,17 @@ import pytest
 import option_permissibility
 from option_permissibility import REASON_NOT_PERMITTED
 
-_ENV_ORIG = {k: os.environ.get(k) for k in ["ALPACA_API_KEY_ID", "ALPACA_SECRET_KEY", "ALPACA_MODE", "MOOMOO_MODE", "TRADING_MODE"]}
+_ENV_ORIG = {
+    k: os.environ.get(k)
+    for k in [
+        "ALPACA_API_KEY_ID",
+        "ALPACA_SECRET_KEY",
+        "ALPACA_MODE",
+        "MOOMOO_MODE",
+        "TRADING_MODE",
+    ]
+}
+
 
 @pytest.fixture(autouse=True)
 def _restore_env():
@@ -39,6 +55,7 @@ def _restore_env():
             os.environ.pop(_k, None)
         else:
             os.environ[_k] = _ENV_ORIG[_k]
+
 
 os.environ["ALPACA_API_KEY_ID"] = "test-key-id"
 os.environ["ALPACA_SECRET_KEY"] = "test-secret-key"
@@ -370,14 +387,20 @@ def main() -> None:
 
 if __name__ == "__main__":
     import auth
+    from offline_seams import offline_seams
+
     try:
         from local_api import app as _my_app, get_owner_actor as _get_owner_actor
     except ImportError:
         import local_api
+
         _my_app = local_api.app
         _get_owner_actor = local_api.get_owner_actor
-    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(username='project_owner', role='admin')
+    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(
+        username="project_owner", role="admin"
+    )
     try:
-        main()
+        with offline_seams("alpaca_data"):
+            main()
     finally:
         _my_app.dependency_overrides.pop(_get_owner_actor, None)

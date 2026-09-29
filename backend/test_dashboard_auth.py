@@ -5,6 +5,18 @@ import base64
 
 from replit_app import app as replit_app
 import auth
+from offline_seams import offline_seams
+
+
+@pytest.fixture(autouse=True)
+def _offline():
+    """This test is about who may call each endpoint, not what the endpoint returns.
+    Until 2026-09-28 the owner-auth pass made real authenticated reads of the Alpaca
+    paper account (/paper/status, /paper/account, /paper/positions/live) plus market
+    data and news on every run. The assertions only need "not 401/403", which an
+    endpoint whose provider is down still satisfies."""
+    with offline_seams("alpaca_rest", "alpaca_data"):
+        yield
 
 
 @pytest.fixture

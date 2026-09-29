@@ -22,12 +22,27 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
+from offline_seams import offline_seams
+
 fixture_dir = tempfile.TemporaryDirectory()
 universe_path = Path(fixture_dir.name) / "shariah_universe.json"
 universe_path.write_text(
     json.dumps({"validation": {"status": "active"}, "records": []}), encoding="utf-8"
 )
 import pytest
+
+# screen_ticker fetches Bursa bars from Yahoo for the quant score and the quote. These
+# tests are about the Shariah verdict and the API contract; Yahoo is stood in as down,
+# so the quant side is the no-data case -- which is also what test 6 needs, since a
+# quant score must never override Shariah whatever it is.
+OFFLINE = ("yahoo",)
+
+
+@pytest.fixture(autouse=True)
+def _offline():
+    with offline_seams(*OFFLINE):
+        yield
+
 
 _ENV_ORIG = {
     k: os.environ.get(k)
@@ -374,4 +389,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    with offline_seams(*OFFLINE):
+        main()

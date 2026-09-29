@@ -13,17 +13,36 @@ parameters (daily loss / orders_today), symbol, quantity, price, and Shariah
 status cannot turn a genuinely-blocked order into an approved one; a
 genuinely valid order still succeeds.
 """
+
 import pytest
 import auth
+from offline_seams import offline_seams
+
+# Held positions (OTHER, 0001) are valued through live Alpaca data and Yahoo. Every
+# exposure threshold below assumes neither can price them, so they fall back to cost
+# basis. That used to hold only because the real services did not recognise made-up
+# symbols; with the providers stood in as unavailable, it holds by construction.
+OFFLINE = ("alpaca_data", "yahoo")
+
+
+@pytest.fixture(autouse=True)
+def _offline():
+    with offline_seams(*OFFLINE):
+        yield
+
+
 @pytest.fixture(autouse=True)
 def _owner_auth_fixture():
     try:
         from local_api import app as _my_app, get_owner_actor as _get_owner_actor
     except ImportError:
         import local_api
+
         _my_app = local_api.app
         _get_owner_actor = local_api.get_owner_actor
-    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(username='project_owner', role='admin')
+    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(
+        username="project_owner", role="admin"
+    )
     yield
     _my_app.dependency_overrides.pop(_get_owner_actor, None)
 
@@ -49,7 +68,23 @@ universe_path.write_text(
     encoding="utf-8",
 )
 
-_ENV_ORIG = {k: os.environ.get(k) for k in ["SHARIAH_UNIVERSE_PATH", "TRADING_MODE", "PAPER_EXECUTION_ENABLED", "PAPER_EXECUTION_ADAPTER", "MOOMOO_MODE", "PAPER_ACCOUNT_EQUITY", "MAX_POSITION_PCT", "MAX_TOTAL_EXPOSURE_PCT", "MAX_DAILY_LOSS_PCT", "MAX_WEEKLY_LOSS_PCT", "MAX_ORDERS_PER_DAY"]}
+_ENV_ORIG = {
+    k: os.environ.get(k)
+    for k in [
+        "SHARIAH_UNIVERSE_PATH",
+        "TRADING_MODE",
+        "PAPER_EXECUTION_ENABLED",
+        "PAPER_EXECUTION_ADAPTER",
+        "MOOMOO_MODE",
+        "PAPER_ACCOUNT_EQUITY",
+        "MAX_POSITION_PCT",
+        "MAX_TOTAL_EXPOSURE_PCT",
+        "MAX_DAILY_LOSS_PCT",
+        "MAX_WEEKLY_LOSS_PCT",
+        "MAX_ORDERS_PER_DAY",
+    ]
+}
+
 
 @pytest.fixture(autouse=True)
 def _restore_env():
@@ -70,6 +105,7 @@ def _restore_env():
             os.environ.pop(_k, None)
         else:
             os.environ[_k] = _ENV_ORIG[_k]
+
 
 os.environ["SHARIAH_UNIVERSE_PATH"] = str(universe_path)
 os.environ["TRADING_MODE"] = "approval"
@@ -404,14 +440,19 @@ def main():
 
 if __name__ == "__main__":
     import auth
+
     try:
         from local_api import app as _my_app, get_owner_actor as _get_owner_actor
     except ImportError:
         import local_api
+
         _my_app = local_api.app
         _get_owner_actor = local_api.get_owner_actor
-    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(username='project_owner', role='admin')
+    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(
+        username="project_owner", role="admin"
+    )
     try:
-        main()
+        with offline_seams(*OFFLINE):
+            main()
     finally:
         _my_app.dependency_overrides.pop(_get_owner_actor, None)
