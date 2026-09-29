@@ -167,7 +167,14 @@ def test_provider_routing():
 
 
 def test_live_fetch():
-    """Smoke test: fetch real data for Maybank if network is available."""
+    """Smoke test: fetch real data for Maybank. Opt-in: run_all_tests.py --live.
+
+    It used to run on every census and print SKIP when the network was down -- which the
+    runner counted as a PASS. Now it does not reach Yahoo unless asked to.
+    """
+    if os.environ.get("AMANAH_LIVE_TESTS") != "1":
+        print("SKIP: live_fetch -- opt-in, run with run_all_tests.py --live")
+        return
     try:
         bars, source = yahoo_finance.fetch_eod_prices(
             "1155",
