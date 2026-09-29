@@ -253,8 +253,8 @@ exactly like a failure and is not one. Dispatch on whether a file has collectabl
 functions, **not** on whether it has a `__main__` guard. A one-off runner that got this
 backwards on 2026-09-21 manufactured two false failures before the mistake was caught.
 
-**105 `test_*.py` files on disk. 104 run and all 104 pass; `test_moomoo.py` is the one excluded**
-(full census, 2026-09-23). Treat that number as a measurement with a date on it, not a fact —
+**107 `test_*.py` files on disk. 106 run and all 106 pass; `test_moomoo.py` is the one excluded**
+(full census, 2026-09-29, network guard on). Treat that number as a measurement with a date on it, not a fact —
 and do not trust a hardcoded list in this file. The list that used to sit here enumerated 42
 files and asserted "All 42 of those pass" while the suite had grown past 80, so a fresh reader
 began from a false picture of what was actually verified. Enumerate the current set instead:
@@ -263,27 +263,79 @@ began from a false picture of what was actually verified. Enumerate the current 
 .\.venv\Scripts\python.exe backend\run_all_tests.py            # census; exits 1 on any failure
 .\.venv\Scripts\python.exe backend\run_all_tests.py --verbose  # stream each result
 .\.venv\Scripts\python.exe backend\run_all_tests.py --filter sc_
+.\.venv\Scripts\python.exe backend\run_all_tests.py --live      # network guard OFF, live smoke tests ON
 ```
 
 `run_all_tests.py` implements the dispatch rule above so you do not have to re-derive it. Use
 it for the census — but it is not a substitute for evidence.
 
+**Read the census exit code directly, never through a pipeline.** In PowerShell, redirect the
+output to a file and read `$LASTEXITCODE` on the next line. Piping through `tail` or
+`Select-Object` reports the *pipe's* status, and that put false "104/104" claims into
+`ed18a5b`, `e0ce0bd` and `2149b14`. And do not modify the working tree — no edits, no
+`git stash` — while a census runs in the background. On 2026-09-28 a stash mid-run meant part
+of a census tested HEAD instead of the change, and that run had to be discarded.
+
 Run the files relevant to your change **individually** and show their real output. A bare
 `pytest backend\` is not acceptable as evidence: it collects nothing from the plain-script
 files, which are most of the suite, and reports success regardless.
+
+A bare `python -m pytest backend\test_x.py` or `python backend\test_x.py` also runs **without
+the network guard** below: only the runner loads it. To run one file exactly as the census
+does, use `run_all_tests.py --filter test_x`, and show the plain run's output as well if you
+need the individual test counts.
 
 `test_moomoo.py` hangs by design — it drives the moomoo SDK directly, bypassing the
 `check_moomoo_status()` TCP pre-check, because its purpose is to verify a *real* OpenD
 connection when you have one running. That pre-check is why a closed OpenD port now fails in
 ~1.5s instead of the SDK's multi-minute retry/backoff, which is what used to make
 `test_local_api_smoke.py` and the dashboard's status refresh hang. Both now complete fast with
-no Moomoo gateway running.
+no Moomoo gateway running. And since 2026-09-29 the smoke test no longer probes OpenD at all:
+it stands `_port_reachable` in as "not listening". Before that, on a machine running OpenD, it
+talked to the real gateway.
 
 ### Testing conventions
 
-- Network access goes through one replaceable module-level seam — `alpaca_request`,
-  `alpaca_data_request`, `load_alpaca_mcp_client`, `check_alpaca_status`. Tests swap the seam;
-  they never hit a real API.
+- **Tests never reach the network, and the runner enforces it.** Every process
+  `run_all_tests.py` starts loads `backend/netguard/sitecustomize.py`. It refuses socket
+  connects (except loopback ports the process bound itself), `curl_cffi` requests, and `uvx`
+  launches, and it records each refusal. A file that made one **fails with status `NETWORK`
+  even if it passed**. That is the point: most code catches a connection error and degrades,
+  so a test can reach a real service and stay green. `test_network_guard.py` proves the guard
+  in a child process, by its refusal log rather than exception types.
+- **This used to be a claim, not a fact.** This file said "they never hit a real API". On
+  2026-09-28 the adapter test in `test_non_finite_fails_closed.py` turned out to POST an order
+  with `limit_price "nan"` to paper-api, and pass *because Alpaca refused it*. Its Moomoo half
+  passed only because OpenD was down, and hung once OpenD was running. The audit that
+  followed found eight more files reaching real services on every run:
+  - authenticated reads of the Alpaca paper account;
+  - Alpaca market data and Yahoo;
+  - OpenD on `127.0.0.1:11111`.
+- Network access goes through six replaceable module-level seams:
+
+  | seam | module |
+  |---|---|
+  | `alpaca_request` | `alpaca_paper_adapter` |
+  | `load_alpaca_mcp_client` | `alpaca_paper_adapter` |
+  | `check_alpaca_status` | `alpaca_paper_adapter` |
+  | `alpaca_data_request` | `alpaca_market_data` |
+  | `_fetch_yfinance` | `yahoo_finance` |
+  | `_port_reachable` | `moomoo_status` |
+
+  `yfinance` fetches through libcurl and never touches Python's `socket`, so the guard hooks
+  `curl_cffi` separately. A socket-only guard would have missed every Yahoo call.
+- A test that needs "the provider answered X" swaps the seam itself. A test that only passes
+  *through* a fetching code path uses `backend/offline_seams.py`: `with
+  offline_seams("yahoo", "alpaca_data"):` stands each provider in as down, returning exactly
+  what its real seam returns on an outage, so the code takes its genuine outage path.
+- `KNOWN_NETWORK_USERS` in `run_all_tests.py` is **empty** and should stay that way. It
+  started with seven of the audit's eight files, and each came off as its seams were swapped.
+  The eighth, `test_yahoo_finance.py`, became opt-in instead (see `--live` below). An entry
+  whose file stops reaching the network fails as `STALE_ALLOWLIST`, so the list can only
+  shrink.
+- `--live` turns the guard off. `test_yahoo_finance.test_live_fetch` runs only then, via
+  `AMANAH_LIVE_TESTS=1`. It used to run on every census and print SKIP when offline, which
+  the runner counted as a PASS.
 - Prefer asserting the *request that was built*, not just the response that came back.
 - When a test passes on the first run, break the code deliberately and confirm the test fails.
   Several real bugs in this repo were found exactly that way.
@@ -422,7 +474,9 @@ no Moomoo gateway running.
 
    `test_option_execution_smoke.py` still covers the paths a single live trade cannot: a
    covered call, an unsupported strategy, a margin account, and an under-collateralized
-   cash-secured put, through the real FastAPI app with only the `alpaca_request` seam mocked.
+   cash-secured put, through the real FastAPI app with no gate mocked. Only network seams are
+   swapped: `alpaca_request` with a fake broker, and, since 2026-09-29, market data stood in
+   as unavailable. Before that, market data went live on every run.
    Writing it found and fixed **three** real bugs, all the same shape: an equity-only rule
    applied to options — and a **fourth** of that shape turned up later in live execution, which
    is recorded after them because it was found differently. `agent_coordinator.evaluate_candidate`
