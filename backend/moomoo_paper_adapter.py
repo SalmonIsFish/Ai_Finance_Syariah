@@ -50,6 +50,7 @@ import json
 from datetime import datetime, timezone
 
 from config import load_settings
+from numeric_guards import is_finite_number
 
 
 SUPPORTED_REAL_MARKETS = {"US", "MY"}
@@ -163,7 +164,9 @@ def submit_moomoo_paper_order(*, approval: dict) -> dict:
             "broker_submission": False,
             "reason": "positive_integer_quantity_required",
         }
-    if not isinstance(price, (int, float)) or price <= 0:
+    # is_finite_number, not isinstance: `nan <= 0` is False, so a NaN price passed this
+    # check and opened a real OpenD trade context before anything refused it.
+    if not is_finite_number(price) or price <= 0:
         return {
             "status": "INVALID_PRICE",
             "adapter": "moomoo",

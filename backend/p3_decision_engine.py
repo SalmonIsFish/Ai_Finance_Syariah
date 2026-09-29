@@ -4,6 +4,7 @@ import sqlite3
 import json
 from datetime import datetime, timezone
 import p3_portfolio_engine
+from numeric_guards import first_non_finite, is_finite_number
 from screening_api import screen_ticker, risk_limits
 import yahoo_finance
 
@@ -68,10 +69,28 @@ def authoritative_revalidation(
             "details": {"ticker": ticker},
         }
     current_price = bars[-1]["close"]
+    # A close that cannot be used is a missing price, and says which ticker. Without this
+    # the sizing guard still refuses it, but as field "price" -- true, and not actionable.
+    if not is_finite_number(current_price):
+        return {
+            "status": "BLOCKED",
+            "reason": "market_data_unavailable",
+            "details": {"ticker": ticker, "cause": "non_finite_close"},
+        }
 
     # 4. Risk Gate & Sizing
     limits = risk_limits().get("limits", {})
     cash = portfolio["current_cash"]
+    # The book's own cash, checked for every side. pure_risk sees cash only when sizing a
+    # BUY, so before this a SELL executed against a stored cash of inf and wrote inf back.
+    # NaN never gets here -- the column is NOT NULL and SQLite stores NaN as NULL -- but
+    # +/-inf is stored as-is.
+    if not is_finite_number(cash):
+        return {
+            "status": "BLOCKED",
+            "reason": "portfolio_cash_unusable",
+            "details": {"current_cash": str(cash)},
+        }
 
     # Equity here is THIS portfolio's own (cash + its position value, computed
     # below), not settings.paper_account_equity. That is deliberate and should
@@ -99,6 +118,7 @@ def authoritative_revalidation(
         RiskPolicy,
         calculate_target_quantity,
         LossPerUnitRequiredError,
+        NonFiniteRiskInputError,
     )
 
     total_exposure = 0.0
@@ -130,6 +150,14 @@ def authoritative_revalidation(
             }
 
         pos_price = bars[-1]["close"]
+        # Same rule for a holding. Unchecked, a non-finite close made equity non-finite and
+        # the refusal named "equity" rather than the position that could not be valued.
+        if not is_finite_number(pos_price):
+            return {
+                "status": "BLOCKED",
+                "reason": "portfolio_valuation_unavailable",
+                "details": {"ticker": p["ticker"], "cause": "non_finite_close"},
+            }
         pos_market_value = pos_price * p["quantity"]
 
         total_exposure += pos_market_value
@@ -185,6 +213,8 @@ def authoritative_revalidation(
         )
     except LossPerUnitRequiredError as e:
         return {"status": "BLOCKED", "reason": str(e), "details": {}}
+    except NonFiniteRiskInputError as e:
+        return {"status": "BLOCKED", "reason": str(e), "details": {"field": e.field}}
 
     # If the user proposed a quantity, validate it
     validated_qty = maximum_quantity
@@ -355,6 +385,15 @@ def execute_order(connection: sqlite3.Connection, order_id: int, actor: str) -> 
             if side == "BUY"
             else portfolio["current_cash"] + notional
         )
+        # The last line before the book is written. Revalidation already refuses every
+        # non-finite input it can see; this holds even if that ever stops being true. It
+        # sits before the cash check because that check misreads the cases it would meet:
+        # a BUY at price -inf gives new_cash = +inf, which is not < 0, and was written.
+        unusable = first_non_finite(
+            quantity=qty, price=exec_price, notional=notional, new_cash=new_cash
+        )
+        if unusable is not None:
+            raise ValueError(f"non_finite_execution_value: {unusable}")
         if new_cash < 0:
             raise ValueError("Insufficient cash during execution")
 

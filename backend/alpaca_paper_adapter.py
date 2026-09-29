@@ -25,6 +25,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from config import load_settings
+from numeric_guards import is_finite_number
 
 
 ALPACA_PAPER_BASE_URL = "https://paper-api.alpaca.markets"
@@ -696,7 +697,9 @@ def build_order_plan(approval: dict, *, adapter: str) -> dict:
         return reject("INVALID_SIDE", "side_must_be_BUY_or_SELL")
     if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
         return reject("INVALID_QUANTITY", "positive_integer_quantity_required")
-    if not isinstance(price, (int, float)) or isinstance(price, bool) or price <= 0:
+    # is_finite_number also excludes bool. `nan <= 0` is False, so a NaN price used to pass
+    # here and reach paper-api as limit_price "nan" -- refused by Alpaca, not by this gate.
+    if not is_finite_number(price) or price <= 0:
         return reject("INVALID_PRICE", "positive_price_required")
 
     intent = order_intent_from_approval(approval)

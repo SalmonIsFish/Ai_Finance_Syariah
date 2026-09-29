@@ -249,15 +249,39 @@ def test_a_non_finite_collateral_never_clears_the_structure_gate(value):
 # --- the broker adapters, the last guard before submission ---------------------------
 
 
+@pytest.mark.parametrize("adapter", ["alpaca", "alpaca_mcp", "moomoo"])
 @pytest.mark.parametrize("price", NON_FINITE, ids=NON_FINITE_IDS)
-def test_neither_adapter_submits_a_non_finite_price(price):
+def test_neither_adapter_submits_a_non_finite_price(price, adapter, monkeypatch):
     """`price <= 0` misses NaN, and the order body then carried limit_price "nan".
 
-    Alpaca would 422 it, so the refusal came from the broker rather than from the gate
-    chain -- the inverse of this architecture.
+    The refusal must come from the adapter's own price check, before any broker contact.
+    An earlier version of this test asserted only `broker_submission is False`, which was
+    satisfied for the wrong reasons: with paper keys in .env the Alpaca half really POSTed
+    limit_price "nan" to paper-api and passed because Alpaca refused it, and the Moomoo half
+    passed because no OpenD was running -- then hung the moment one was. So every broker
+    seam is replaced by a recorder, and the refusal is asserted by name.
+
+    The Moomoo seam is recorded rather than made to raise: the adapter wraps
+    load_moomoo_sdk() in `except Exception`, which would turn a raising stub into
+    SDK_UNAVAILABLE and let a broken guard pass again.
     """
     import alpaca_paper_adapter
     import moomoo_paper_adapter
+
+    contacted = []
+
+    def record(name):
+        def seam(*args, **kwargs):
+            contacted.append(name)
+            raise RuntimeError(f"{name} reached")
+
+        return seam
+
+    monkeypatch.setattr(alpaca_paper_adapter, "alpaca_request", record("alpaca_request"))
+    monkeypatch.setattr(
+        alpaca_paper_adapter, "load_alpaca_mcp_client", record("load_alpaca_mcp_client")
+    )
+    monkeypatch.setattr(moomoo_paper_adapter, "load_moomoo_sdk", record("load_moomoo_sdk"))
 
     approval = {
         "id": 1,
@@ -268,11 +292,12 @@ def test_neither_adapter_submits_a_non_finite_price(price):
         "shariah_market": "US",
         "payload": "{}",
     }
-    alpaca = alpaca_paper_adapter.submit_paper_order(approval, {}, "alpaca")
-    assert alpaca["broker_submission"] is False, alpaca
+    module = moomoo_paper_adapter if adapter == "moomoo" else alpaca_paper_adapter
+    result = module.submit_paper_order(approval, {}, adapter)
 
-    moomoo = moomoo_paper_adapter.submit_paper_order(approval, {}, "moomoo")
-    assert moomoo["broker_submission"] is False, moomoo
+    assert contacted == [], (adapter, contacted, result)
+    assert result["status"] == "INVALID_PRICE", result
+    assert result["broker_submission"] is False, result
 
 
 # --- the exposure valuation ----------------------------------------------------------
@@ -303,3 +328,248 @@ def test_a_non_finite_risk_limit_is_refused_at_startup(raw, monkeypatch):
     monkeypatch.setenv("MAX_POSITION_PCT", raw)
     with pytest.raises(ValueError):
         config.load_settings()
+
+
+# --- the P3 sizing engine ------------------------------------------------------------
+#
+# pure_risk sizes by min(cash, position, total, sector, per_trade_loss). `min` keeps its
+# running best unless a later value compares smaller, so a NaN anywhere after the first
+# argument is silently dropped -- and `max(0.0, +inf)` passes an infinite cap straight
+# through. Before the guard, loss_per_unit=nan sized 10x over the per-trade loss cap and
+# equity=inf sized to all available cash with every percentage cap gone. The inputs that
+# did fail closed did so by accident of argument order.
+#
+# Imported from `backend.pure_risk`, the module object p3_decision_engine uses, so the
+# exception class caught there is the one raised here.
+
+SIZING_FIELDS = [
+    "price",
+    "position",
+    "cash",
+    "equity",
+    "total_exposure",
+    "sector_exposure",
+    "max_position_pct",
+    "max_total_exposure_pct",
+    "max_sector_exposure_pct",
+    "max_loss_per_trade_pct",
+    "loss_per_unit",
+]
+
+
+def _sizing(side="BUY", **overrides):
+    """Baseline: 100k book, price 10, caps 5/25/20, 0.5% loss cap -> 50 shares."""
+    from backend.pure_risk import RiskPolicy, RiskState, calculate_target_quantity
+
+    v = {
+        "price": 10.0,
+        "position": 0.0,
+        "cash": 100_000.0,
+        "equity": 100_000.0,
+        "total_exposure": 0.0,
+        "sector_exposure": 0.0,
+        "max_position_pct": 5.0,
+        "max_total_exposure_pct": 25.0,
+        "max_sector_exposure_pct": 20.0,
+        "max_loss_per_trade_pct": 0.5,
+        "loss_per_unit": 10.0,
+    }
+    unknown = set(overrides) - set(v)
+    assert not unknown, f"_sizing does not wire {unknown}"
+    v.update(overrides)
+
+    state = RiskState(
+        cash=v["cash"],
+        equity=v["equity"],
+        positions={"AAPL": v["position"]},
+        sector_exposure={"Tech": v["sector_exposure"]},
+        total_exposure=v["total_exposure"],
+    )
+    policy = RiskPolicy(
+        max_position_pct=v["max_position_pct"],
+        max_total_exposure_pct=v["max_total_exposure_pct"],
+        max_sector_exposure_pct=v["max_sector_exposure_pct"],
+        max_loss_per_trade_pct=v["max_loss_per_trade_pct"],
+    )
+    return calculate_target_quantity(
+        state, "AAPL", v["price"], "Tech", policy, side, loss_per_unit=v["loss_per_unit"]
+    )
+
+
+def test_the_sizing_fixture_reaches_the_real_arithmetic():
+    """Not vacuous: the baseline binds on the loss cap, and on the position cap without it."""
+    assert _sizing() == 50.0
+    assert _sizing(max_loss_per_trade_pct=None) == 500.0
+
+
+@pytest.mark.parametrize("value", NON_FINITE, ids=NON_FINITE_IDS)
+@pytest.mark.parametrize("field", SIZING_FIELDS)
+def test_a_non_finite_sizing_input_is_refused_and_named(field, value):
+    """Refused rather than sized -- and the refusal names the field, which also proves the
+    override reached the value the guard reads instead of being dropped by the fixture."""
+    from backend.pure_risk import NonFiniteRiskInputError
+
+    with pytest.raises(NonFiniteRiskInputError) as excinfo:
+        _sizing(**{field: value})
+    assert excinfo.value.field == field
+
+
+@pytest.mark.parametrize("value", NON_FINITE, ids=NON_FINITE_IDS)
+def test_a_sell_never_returns_a_non_finite_quantity(value):
+    """SELL returns the held quantity as-is, so a NaN holding became a NaN order size."""
+    from backend.pure_risk import NonFiniteRiskInputError
+
+    with pytest.raises(NonFiniteRiskInputError) as excinfo:
+        _sizing(side="SELL", position=value)
+    assert excinfo.value.field == "position"
+
+
+# --- the P3 book: prices in, cash out ------------------------------------------------
+#
+# p3_decision_engine reads a close for the candidate and for every held position, and
+# execute_order writes current_cash back. Measured on 2026-09-29 with the sizing guard
+# above in place: every non-finite close was already refused before any write. What was
+# left open was the book itself -- a SELL on a book whose stored cash was already inf
+# executed and wrote inf back, because nothing checked the book's cash on the SELL side
+# and nothing checked the write -- and refusals that named a field ("equity") instead of
+# the ticker whose price could not be used.
+#
+# NaN cannot be stored at all: current_cash is REAL NOT NULL and SQLite stores NaN as
+# NULL, so that write raises. +/-inf is stored as-is, which is why the cases below use it.
+
+
+def _p3_book(monkeypatch, *, cash=100_000.0, hold=None):
+    """An in-memory P3 book, and a mutable {ticker: close} the engine prices from."""
+    import sqlite3
+
+    from backend import p3_decision_engine, p3_portfolio_engine
+
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    p3_portfolio_engine.ensure_p3_tables(conn)
+    portfolio_id = p3_portfolio_engine.create_portfolio(conn, "Test", cash)["id"]
+    if hold:
+        conn.execute(
+            """
+            INSERT INTO p3_portfolio_positions (portfolio_id, ticker, quantity, average_cost,
+                market_value, unrealized_pnl, realized_pnl, sector, updated_at)
+            VALUES (?, ?, ?, 100.0, 0.0, 0.0, 0.0, 'Tech', '2024-01-01T00:00:00Z')
+            """,
+            (portfolio_id, hold[0], hold[1]),
+        )
+        conn.commit()
+
+    closes = {"AAPL": 150.0, "MSFT": 200.0}
+
+    def fetch(ticker, start_date, end_date, allow_fallback, allow_stale_cache):
+        return [{"close": closes[ticker]}], "test"
+
+    monkeypatch.setattr(
+        p3_decision_engine,
+        "screen_ticker",
+        lambda t: {"shariah": {"status": "PASS", "sector": "Tech"}},
+    )
+    monkeypatch.setattr(p3_decision_engine.yahoo_finance, "fetch_eod_prices", fetch)
+    monkeypatch.setattr(
+        p3_decision_engine,
+        "risk_limits",
+        lambda: {
+            "limits": {
+                "max_loss_per_trade_pct": 0.5,
+                "max_total_exposure_pct": 100.0,
+                "max_position_pct": 50.0,
+                "max_sector_exposure_pct": 100.0,
+            }
+        },
+    )
+    return p3_decision_engine, conn, portfolio_id, closes
+
+
+def _cash_and_fills(conn, portfolio_id):
+    cash = conn.execute(
+        "SELECT current_cash FROM p3_portfolios WHERE id = ?", (portfolio_id,)
+    ).fetchone()[0]
+    fills = conn.execute("SELECT COUNT(*) FROM p3_portfolio_fills").fetchone()[0]
+    return cash, fills
+
+
+@pytest.mark.parametrize("close", NON_FINITE, ids=NON_FINITE_IDS)
+@pytest.mark.parametrize(
+    "unusable, hold, reason",
+    [
+        ("AAPL", None, "market_data_unavailable"),
+        ("MSFT", ("MSFT", 100), "portfolio_valuation_unavailable"),
+    ],
+    ids=["candidate", "held"],
+)
+def test_p3_names_the_ticker_whose_close_cannot_be_used(close, unusable, hold, reason, monkeypatch):
+    """Refused at the price source, under the reason a missing price already gets, and
+    naming the ticker. The sizing guard would refuse it too -- as "equity", which is true
+    and not something an operator can act on."""
+    engine, conn, portfolio_id, closes = _p3_book(monkeypatch, hold=hold)
+    closes[unusable] = close
+
+    result = engine.authoritative_revalidation(
+        conn, portfolio_id, "AAPL", "BUY", requested_price=150.0
+    )
+    assert result["status"] == "BLOCKED", result
+    assert result["reason"] == reason, result
+    assert result["details"]["ticker"] == unusable, result
+    assert result["details"]["cause"] == "non_finite_close", result
+
+
+@pytest.mark.parametrize("close", NON_FINITE, ids=NON_FINITE_IDS)
+@pytest.mark.parametrize("side", ["BUY", "SELL"])
+def test_p3_execution_never_moves_cash_on_a_close_that_went_bad(close, side, monkeypatch):
+    """Proposed and approved on good prices; the close goes non-finite before execution.
+    Nothing may be written -- not cash, not a fill."""
+    engine, conn, portfolio_id, closes = _p3_book(monkeypatch, hold=("AAPL", 10))
+    order = engine.propose_order(conn, portfolio_id, "AAPL", side)
+    engine.approve_order(conn, order["id"], "tester")
+    before = _cash_and_fills(conn, portfolio_id)
+
+    closes["AAPL"] = close
+    with pytest.raises(ValueError):
+        engine.execute_order(conn, order["id"], "tester")
+    assert _cash_and_fills(conn, portfolio_id) == before
+
+
+@pytest.mark.parametrize("stored", [float("inf"), float("-inf")], ids=["inf", "-inf"])
+@pytest.mark.parametrize("side", ["BUY", "SELL"])
+def test_p3_refuses_a_book_whose_cash_cannot_be_used(stored, side, monkeypatch):
+    """Garbage already in the book. Before this guard a SELL executed against cash=inf and
+    wrote inf back -- pure_risk checks cash only when sizing a BUY -- and -inf was refused
+    only by accident, as "Insufficient cash"."""
+    engine, conn, portfolio_id, _ = _p3_book(monkeypatch, hold=("AAPL", 10))
+    conn.execute("UPDATE p3_portfolios SET current_cash = ? WHERE id = ?", (stored, portfolio_id))
+    conn.commit()
+
+    result = engine.authoritative_revalidation(
+        conn, portfolio_id, "AAPL", side, requested_price=150.0
+    )
+    assert result["status"] == "BLOCKED", result
+    assert result["reason"] == "portfolio_cash_unusable", result
+
+
+@pytest.mark.parametrize("value", NON_FINITE, ids=NON_FINITE_IDS)
+@pytest.mark.parametrize("field", ["price", "quantity"])
+def test_execute_order_never_persists_a_non_finite_value(field, value, monkeypatch):
+    """The last line: even if revalidation ever let a non-finite value through, the write
+    refuses it by name. Today NaN would be stopped only because the NOT NULL column rejects
+    it, and inf would reach the book -- or, for a BUY, be misreported as insufficient cash."""
+    engine, conn, portfolio_id, _ = _p3_book(monkeypatch)
+    order = engine.propose_order(conn, portfolio_id, "AAPL", "BUY")
+    engine.approve_order(conn, order["id"], "tester")
+    before = _cash_and_fills(conn, portfolio_id)
+
+    real = engine.authoritative_revalidation
+
+    def lets_it_through(*args, **kwargs):
+        verdict = real(*args, **kwargs)
+        assert verdict["status"] == "PASS", verdict
+        return {**verdict, field: value}
+
+    monkeypatch.setattr(engine, "authoritative_revalidation", lets_it_through)
+    with pytest.raises(ValueError, match="non_finite_execution_value"):
+        engine.execute_order(conn, order["id"], "tester")
+    assert _cash_and_fills(conn, portfolio_id) == before
