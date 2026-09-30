@@ -119,7 +119,12 @@ def universe_ticker(connection: sqlite3.Connection, ticker: str) -> dict:
 
 def universe_publications(connection: sqlite3.Connection) -> dict:
     pubs = sc_malaysia_store.list_publications(connection)
-    return {"publications": [dict(p) for p in pubs]}
+    return {
+        "publications": [
+            {**p, "security_rows": sc_malaysia_store.security_row_breakdown(connection, p)}
+            for p in pubs
+        ]
+    }
 
 
 def publication_detail(connection: sqlite3.Connection, publication_id: str) -> dict | None:
@@ -134,6 +139,7 @@ def publication_detail(connection: sqlite3.Connection, publication_id: str) -> d
         "security_count": len(securities),
         "compliant_count": len(compliant),
         "non_compliant_count": len(non_compliant),
+        "security_rows": sc_malaysia_store.security_row_breakdown(connection, pub),
     }
 
 

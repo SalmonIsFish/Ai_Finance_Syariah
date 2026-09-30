@@ -89,6 +89,18 @@ def ensure_sc_tables(connection: sqlite3.Connection) -> None:
         "activated_by": "ALTER TABLE sc_publications ADD COLUMN activated_by TEXT",
         "deactivated_by": "ALTER TABLE sc_publications ADD COLUMN deactivated_by TEXT",
         "deactivation_reason": "ALTER TABLE sc_publications ADD COLUMN deactivation_reason TEXT",
+        # How many sc_security_status rows came from each SC source beyond the
+        # main list (parsed_record_count): the additional-instruments list and
+        # Table 2's reclassifications to non-compliant. Without them the 886
+        # main-list counts said nothing about the 905 rows actually stored, and
+        # nothing compared the two. NULL on a row ingested before these existed
+        # means "not recorded", which activate_publication refuses.
+        "additional_instrument_row_count": (
+            "ALTER TABLE sc_publications ADD COLUMN additional_instrument_row_count INTEGER"
+        ),
+        "reclassified_row_count": (
+            "ALTER TABLE sc_publications ADD COLUMN reclassified_row_count INTEGER"
+        ),
     }
     for column, statement in migrations.items():
         if column not in existing_columns:
@@ -136,8 +148,9 @@ def insert_publication(connection: sqlite3.Connection, pub: dict) -> dict:
             source_document_hash, official_record_count,
             extractable_record_count, parsed_record_count,
             parser_version, ingestion_timestamp, human_review_status,
-            human_review_notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            human_review_notes, additional_instrument_row_count,
+            reclassified_row_count
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             pub_id,
@@ -152,6 +165,12 @@ def insert_publication(connection: sqlite3.Connection, pub: dict) -> dict:
             now,
             pub.get("human_review_status", "pending"),
             pub.get("human_review_notes"),
+            # Absent means "no rows beyond the main list" -- a strict claim that
+            # security_row_breakdown then checks against the rows, so a wrong 0
+            # fails activation rather than passing it. An explicit None stays
+            # NULL (not recorded) and is refused outright.
+            pub.get("additional_instrument_row_count", 0),
+            pub.get("reclassified_row_count", 0),
         ),
     )
     connection.commit()
@@ -335,6 +354,19 @@ def activate_publication(
             "extractable_record_count": extractable,
             "parsed_record_count": parsed,
         }
+    rows = security_row_breakdown(connection, pub)
+    if not rows["recorded"]:
+        return {
+            "status": "error",
+            "reason": "security_row_breakdown_not_recorded",
+            "security_rows": rows,
+        }
+    if not rows["reconciles"]:
+        return {
+            "status": "error",
+            "reason": "security_rows_do_not_reconcile",
+            "security_rows": rows,
+        }
     if not pub.get("source_document_hash"):
         return {"status": "error", "reason": "source_document_hash_missing"}
     if not pub.get("parser_version"):
@@ -512,6 +544,47 @@ def check_eligibility(
         "publication_id": pub["id"],
         "publication_date": pub["publication_date"],
         "source_document_hash": pub.get("source_document_hash"),
+    }
+
+
+def security_row_breakdown(connection: sqlite3.Connection, pub: dict) -> dict:
+    """Compare the rows stored for a publication with the counts it recorded.
+
+    official/extractable/parsed reconcile SC's main compliant list only. The
+    stored rows also include the additional-instruments list (board
+    OTHER_INSTRUMENT) and Table 2's reclassifications, so the main-list counts
+    alone can never say whether a row went missing or appeared later.
+
+    NON_COMPLIANT rows get no per-source check: the JSON import path may carry
+    them inside parsed_record_count, so they cannot be attributed to Table 2
+    without a source column. The total plus the OTHER_INSTRUMENT count still
+    catches any dropped or extra row. The row counts are reported even when
+    nothing was recorded, so a display can describe the rows without claiming
+    they reconcile.
+    """
+    ensure_sc_tables(connection)
+    total, other_instrument, non_compliant = connection.execute(
+        "SELECT COUNT(*), "
+        "COALESCE(SUM(board = 'OTHER_INSTRUMENT'), 0), "
+        "COALESCE(SUM(shariah_status != 'COMPLIANT'), 0) "
+        "FROM sc_security_status WHERE publication_id = ?",
+        (pub["id"],),
+    ).fetchone()
+    parsed = pub.get("parsed_record_count")
+    additional = pub.get("additional_instrument_row_count")
+    reclassified = pub.get("reclassified_row_count")
+    recorded = parsed is not None and additional is not None and reclassified is not None
+    expected = parsed + additional + reclassified if recorded else None
+    return {
+        "total_rows": total,
+        "other_instrument_rows": other_instrument,
+        "non_compliant_rows": non_compliant,
+        "parsed_record_count": parsed,
+        "additional_instrument_row_count": additional,
+        "reclassified_row_count": reclassified,
+        "recorded": recorded,
+        "expected_rows": expected,
+        "reconciles": recorded and total == expected and other_instrument == additional,
     }
 
 

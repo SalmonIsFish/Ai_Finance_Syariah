@@ -21,7 +21,9 @@ PARSER_VERSION = "json-import-v1"
 # Bumped whenever the shape of a build_pdf_payload() export changes. ingest_payload
 # refuses anything else rather than guessing: a payload is the parse of an
 # authoritative document, and a half-understood one must not reach the store.
-PAYLOAD_VERSION = "sc-pdf-payload-v1"
+# v2 added the per-source row counts on the publication; a v1 payload carries
+# none, and staging it would leave activation nothing to reconcile rows against.
+PAYLOAD_VERSION = "sc-pdf-payload-v2"
 
 
 def _compute_file_hash(path: Path) -> str:
@@ -78,6 +80,9 @@ def ingest_universe_json(
         "official_record_count": official_record_count,
         "extractable_record_count": extractable_record_count,
         "parsed_record_count": parsed_count,
+        # Every JSON record counts as parsed; this path has no other source.
+        "additional_instrument_row_count": 0,
+        "reclassified_row_count": 0,
         "parser_version": PARSER_VERSION,
         "human_review_status": effective_status,
         "human_review_notes": reconciliation_notes,
@@ -179,6 +184,7 @@ def build_pdf_payload(
             }
         )
         seen_tickers.add(r.ticker)
+    additional_rows = 0
     for r in result.additional_instruments:
         if r.ticker in seen_tickers:
             continue
@@ -192,7 +198,9 @@ def build_pdf_payload(
             }
         )
         seen_tickers.add(r.ticker)
+        additional_rows += 1
     skipped_conflicts = []
+    reclassified_rows = 0
     for r in result.table2_newly_non_compliant:
         # Table 2 is an explicit authoritative SC statement of reclassification
         # to non-compliant -- not an absence-based inference -- so REJECT is
@@ -212,6 +220,13 @@ def build_pdf_payload(
             }
         )
         seen_tickers.add(r.ticker)
+        reclassified_rows += 1
+
+    # Counted from what was actually appended, after the dedup and conflict
+    # skips above, so these describe the rows staged rather than the rows SC
+    # printed. activate_publication checks the stored rows against them.
+    pub["additional_instrument_row_count"] = additional_rows
+    pub["reclassified_row_count"] = reclassified_rows
 
     return {
         "status": "parsed",

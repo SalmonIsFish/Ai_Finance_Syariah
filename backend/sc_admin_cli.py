@@ -121,13 +121,24 @@ def cmd_show(args: argparse.Namespace) -> None:
     print(f"  official_record_count:     {pub['official_record_count']}")
     print(f"  extractable_record_count:  {pub['extractable_record_count']}")
     print(f"  parsed_record_count:       {pub['parsed_record_count']}")
-    reconciled = (
+    rows = sc_malaysia_store.security_row_breakdown(conn, pub)
+    print(f"  additional_instrument_rows: {rows['additional_instrument_row_count']}")
+    print(f"  reclassified_rows:         {rows['reclassified_row_count']}")
+    print(
+        f"  stored rows:               {rows['total_rows']} "
+        f"(expected {rows['expected_rows'] if rows['recorded'] else 'not recorded'}, "
+        f"{rows['other_instrument_rows']} other-instrument)"
+    )
+    counts_reconcile = (
         pub["official_record_count"] is not None
         and pub["official_record_count"]
         == pub["extractable_record_count"]
         == pub["parsed_record_count"]
     )
-    print(f"  reconciles:                {reconciled}")
+    # Both must hold: the main-list counts against SC's stated total, and the
+    # stored rows against the per-source counts recorded at ingest. These are
+    # the same two checks activate_publication makes.
+    print(f"  reconciles:                {counts_reconcile and rows['reconciles']}")
     print(f"  source_document_hash:      {pub['source_document_hash']}")
     print(f"  parser_version:            {pub['parser_version']}")
 
@@ -161,6 +172,12 @@ def cmd_approve(args: argparse.Namespace) -> None:
     print(
         f"Record counts:    official={pub['official_record_count']} "
         f"extractable={pub['extractable_record_count']} parsed={pub['parsed_record_count']}"
+    )
+    rows = sc_malaysia_store.security_row_breakdown(conn, pub)
+    print(
+        f"Stored rows:      {rows['total_rows']} "
+        f"(main {pub['parsed_record_count']} + additional {rows['additional_instrument_row_count']} "
+        f"+ reclassified {rows['reclassified_row_count']}; reconciles={rows['reconciles']})"
     )
     print(f"Reviewer:         {actor.username} (authenticated, role={actor.role})")
     print(f"Notes:            {args.notes or '(none)'}")

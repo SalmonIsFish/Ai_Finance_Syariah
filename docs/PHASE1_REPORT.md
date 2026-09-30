@@ -237,7 +237,7 @@ consistent with the codebase's established convention.
   compliant list; the extra rows are one additional-instrument entry and 18
   entries from SC's separate "newly non-compliant" reclassification table,
   both explicitly and separately tracked in `sc_malaysia_import.py`. Not a
-  bug, but worth knowing before assuming "886" means "total row count."
+  bug, but worth knowing before assuming "886" means "total row count." *(2026-09-30: the per-source counts are now recorded at ingest and checked at activation -- see CLAUDE.md Known limitations 6. The active publication predates this and is not backfilled.)*
 - **Informational** — Running any `test_*.py` file directly on a Windows
   console with the default cp1252 code page will raise `UnicodeEncodeError`
   on the arrow characters in some print statements; this is a

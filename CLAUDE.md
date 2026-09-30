@@ -253,7 +253,7 @@ exactly like a failure and is not one. Dispatch on whether a file has collectabl
 functions, **not** on whether it has a `__main__` guard. A one-off runner that got this
 backwards on 2026-09-21 manufactured two false failures before the mistake was caught.
 
-**107 `test_*.py` files on disk. 106 run and all 106 pass; `test_moomoo.py` is the one excluded**
+**108 `test_*.py` files on disk. 107 run and all 107 pass; `test_moomoo.py` is the one excluded**
 (full census, 2026-09-30, network guard on, cold SEC cache). The 2026-09-29 figure of
 106/106 was true only while `backend/sec_edgar_cache` was warm: three files fetched from SEC
 on a miss and failed as `NETWORK` once the entries passed 24 h. See the SEC bullet under
@@ -742,6 +742,26 @@ talked to the real gateway.
    and `p3_decision_engine` already rounds to it, but Bursa also has an odd-lot market, so a
    local "must be a multiple of 100" rule could wrongly refuse a legitimate order. Sizing
    belongs to the decision engine; the adapter submits what it is given.
+
+6. **SC publications now reconcile their stored rows, but the active one predates it.**
+   `official/extractable/parsed_record_count` cover SC's main compliant list only (886 for
+   `sc-sac-my-2026-05-29`). The table also holds the additional-instruments list (board
+   `OTHER_INSTRUMENT`) and Table 2's reclassifications to non-compliant, which is why it has
+   905 rows. Until 2026-09-30 nothing compared the rows with the publication, and the bridge
+   printed "886 parsed of 886 official" as if that were the whole table.
+
+   A publication now records `additional_instrument_row_count` and `reclassified_row_count`
+   at ingest (`sc-pdf-payload-v2`; a v1 export is refused), and `activate_publication`
+   refuses unless `sc_malaysia_store.security_row_breakdown` reconciles: total rows ==
+   parsed + additional + reclassified, and `OTHER_INSTRUMENT` rows == additional. Tested in
+   `test_sc_row_reconciliation.py`, including against the real PDF (886 + 1 + 18 = 905).
+
+   **The active 2026-05-29 publication was deliberately not backfilled.** Its two columns are
+   NULL ("not recorded"). Filling them from its own rows would reconcile the rows against
+   themselves. It stays active, because `check_eligibility` does not re-verify, but a manual
+   re-`activate` of it now refuses with `security_row_breakdown_not_recorded`. The bridge and
+   `sc_admin_cli show` describe its rows by board and status, and do not claim they reconcile.
+   The next SC publication will carry real counts.
 
 ## Style
 

@@ -327,8 +327,36 @@ def render_publications(facts: dict) -> str:
         official = publication.get("official_record_count")
         parsed = publication.get("parsed_record_count")
         if official is not None or parsed is not None:
-            lines.append(_line("  Records", f"{parsed} parsed of {official} official"))
+            # These counts cover SC's main compliant list only. Saying "parsed"
+            # alone read as the whole table, which also holds the additional
+            # instruments and Table 2's reclassifications.
+            lines.append(_line("  Main list", f"{parsed} parsed of {official} official"))
+        rows = publication.get("security_rows")
+        if rows:
+            lines.append(_line("  Rows", _render_security_rows(rows)))
     return "\n".join(lines)
+
+
+def _render_security_rows(rows: dict) -> str:
+    """One line on what the stored rows are, and whether they reconcile.
+
+    When the per-source counts were never recorded, the rows are described as
+    they are -- by board and status -- without claiming they add up to anything.
+    """
+    total = rows.get("total_rows")
+    if not rows.get("recorded"):
+        main = (total or 0) - (rows.get("other_instrument_rows") or 0)
+        main -= rows.get("non_compliant_rows") or 0
+        return (
+            f"{total} ({main} main list, {rows.get('other_instrument_rows')} other-instrument, "
+            f"{rows.get('non_compliant_rows')} non-compliant) -- breakdown not recorded at ingest"
+        )
+    verdict = "reconciled" if rows.get("reconciles") else "DO NOT RECONCILE"
+    return (
+        f"{total}: {rows.get('parsed_record_count')} main list"
+        f" + {rows.get('additional_instrument_row_count')} additional"
+        f" + {rows.get('reclassified_row_count')} reclassified -- {verdict}"
+    )
 
 
 def render_evidence(facts: dict) -> str:
