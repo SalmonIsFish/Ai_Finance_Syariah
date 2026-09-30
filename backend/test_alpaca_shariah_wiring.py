@@ -380,4 +380,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    from sec_fixture import sec_screens_compliant
+
+    # A symbol screened without a shariah_override goes to SEC EDGAR, and these
+    # scenarios need the underlying to PASS. This used to go live and pass only
+    # while backend/sec_edgar_cache held a fresh entry (found 2026-09-30).
+    with sec_screens_compliant("AAPL", "MSFT"):
+        main()

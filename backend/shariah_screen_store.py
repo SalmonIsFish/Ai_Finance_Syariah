@@ -18,13 +18,19 @@ so the limit the ratios were judged against is read off the verdict
 """
 
 import json
+import os
 import sqlite3
 from datetime import datetime, timezone
+from pathlib import Path
 
 from config import BACKEND_DIR
 
 
-DB_PATH = BACKEND_DIR / "paper_trading.db"
+# Where record_screen_to_default_db appends. run_all_tests.py points this at a
+# throwaway file: a test that screened a US symbol without swapping
+# sec_edgar_screen._record_screen appended to the real, append-only log, and on
+# 2026-09-30 three census files were found doing exactly that.
+DB_PATH = Path(os.getenv("SHARIAH_SCREEN_LOG_DB") or BACKEND_DIR / "paper_trading.db")
 
 
 def utc_now() -> str:

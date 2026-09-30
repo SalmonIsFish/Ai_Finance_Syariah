@@ -189,7 +189,21 @@ def main() -> int:
     # run must never append to it. Set here rather than in each test file
     # because all 84 of them go through agent_coordinator sooner or later.
     evidence_sink = tempfile.mkdtemp(prefix="amanah-test-evidence-")
-    base_env = {**os.environ, "EVIDENCE_DIR": evidence_sink}
+    # Start every run with an empty SEC cache. backend/sec_edgar_cache is the
+    # developer's, and a warm entry answers without a socket -- so a test that
+    # fetches from SEC passed the guard for 24h after any live run and failed it
+    # afterwards. With a cold cache the same test fails the same way every time.
+    sec_cache_sink = tempfile.mkdtemp(prefix="amanah-test-sec-cache-")
+    # The Shariah screen log is append-only, so a test must never write to the
+    # real one. Tests swap sec_edgar_screen._record_screen; this catches any that
+    # forget, the same way EVIDENCE_DIR does for the evidence trail.
+    screen_log_sink = str(Path(tempfile.mkdtemp(prefix="amanah-test-screens-")) / "screens.db")
+    base_env = {
+        **os.environ,
+        "EVIDENCE_DIR": evidence_sink,
+        "SEC_EDGAR_CACHE_DIR": sec_cache_sink,
+        "SHARIAH_SCREEN_LOG_DB": screen_log_sink,
+    }
     if args.live:
         base_env["AMANAH_LIVE_TESTS"] = "1"
         print("LIVE: network guard OFF -- tests may reach real services.")

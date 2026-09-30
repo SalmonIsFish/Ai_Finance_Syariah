@@ -667,6 +667,7 @@ def main() -> None:
 if __name__ == "__main__":
     import auth
     from offline_seams import offline_seams
+    from sec_fixture import sec_screens_compliant
 
     try:
         from local_api import app as _my_app, get_owner_actor as _get_owner_actor
@@ -682,7 +683,10 @@ if __name__ == "__main__":
         # Preview quotes through Alpaca market data, and /moomoo/status probes OpenD on
         # 127.0.0.1:11111 -- a real gateway on any machine that runs one. The contract
         # asserted here is the fail-closed shape of both, so both are stood in as down.
-        with offline_seams("alpaca_data", "opend"):
+        # SEC answers instead: approval screens the underlying on EDGAR and the
+        # contract needs a PASS. This used to go live and pass only while
+        # backend/sec_edgar_cache held a fresh entry (found 2026-09-30).
+        with offline_seams("alpaca_data", "opend"), sec_screens_compliant("AAPL", "MSFT"):
             main()
     finally:
         _my_app.dependency_overrides.pop(_get_owner_actor, None)

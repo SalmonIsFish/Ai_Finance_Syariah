@@ -28,6 +28,9 @@ SCREEN_ALLOWED = {
     "shariah_explain.py",  # the explanation path
     "sec_edgar_screen.py",
     "check_us_strategy.py",  # CLI, goes through us_strategy -> shariah_agent
+    # Test support, not a screening path: it swaps sec_request so the real screen
+    # runs on canned SEC payloads. Listed rather than hidden behind importlib.
+    "sec_fixture.py",
 }
 
 

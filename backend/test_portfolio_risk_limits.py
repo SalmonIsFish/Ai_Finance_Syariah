@@ -262,7 +262,12 @@ if __name__ == "__main__":
         _my_app = local_api.app
         _get_owner_actor = local_api.get_owner_actor
     _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(username='project_owner', role='admin')
+    from sec_fixture import sec_screens_compliant
+
     try:
-        main()
+        # Approval screens AAPL on SEC EDGAR. This used to go live and pass only
+        # while backend/sec_edgar_cache held a fresh entry (found 2026-09-30).
+        with sec_screens_compliant("AAPL"):
+            main()
     finally:
         _my_app.dependency_overrides.pop(_get_owner_actor, None)

@@ -254,7 +254,10 @@ functions, **not** on whether it has a `__main__` guard. A one-off runner that g
 backwards on 2026-09-21 manufactured two false failures before the mistake was caught.
 
 **107 `test_*.py` files on disk. 106 run and all 106 pass; `test_moomoo.py` is the one excluded**
-(full census, 2026-09-29, network guard on). Treat that number as a measurement with a date on it, not a fact —
+(full census, 2026-09-30, network guard on, cold SEC cache). The 2026-09-29 figure of
+106/106 was true only while `backend/sec_edgar_cache` was warm: three files fetched from SEC
+on a miss and failed as `NETWORK` once the entries passed 24 h. See the SEC bullet under
+Testing conventions. Treat that number as a measurement with a date on it, not a fact —
 and do not trust a hardcoded list in this file. The list that used to sit here enumerated 42
 files and asserted "All 42 of those pass" while the suite had grown past 80, so a fresh reader
 began from a false picture of what was actually verified. Enumerate the current set instead:
@@ -311,7 +314,7 @@ talked to the real gateway.
   - authenticated reads of the Alpaca paper account;
   - Alpaca market data and Yahoo;
   - OpenD on `127.0.0.1:11111`.
-- Network access goes through six replaceable module-level seams:
+- Network access goes through seven replaceable module-level seams:
 
   | seam | module |
   |---|---|
@@ -321,6 +324,7 @@ talked to the real gateway.
   | `alpaca_data_request` | `alpaca_market_data` |
   | `_fetch_yfinance` | `yahoo_finance` |
   | `_port_reachable` | `moomoo_status` |
+  | `sec_request` | `sec_edgar_screen` |
 
   `yfinance` fetches through libcurl and never touches Python's `socket`, so the guard hooks
   `curl_cffi` separately. A socket-only guard would have missed every Yahoo call.
@@ -328,6 +332,18 @@ talked to the real gateway.
   *through* a fetching code path uses `backend/offline_seams.py`: `with
   offline_seams("yahoo", "alpaca_data"):` stands each provider in as down, returning exactly
   what its real seam returns on an outage, so the code takes its genuine outage path.
+- **SEC is the exception: tests that pass through a US screen usually need it to answer.**
+  Approval needs the underlying to PASS, so an outage stand-in would change what the test
+  proves. `backend/sec_fixture.py` does this: `with sec_screens_compliant("AAPL", "MSFT"):`
+  serves SEC-shaped payloads, and the real screen computes COMPLIANT from them. It also
+  swaps `sec_edgar_screen._record_screen`, because the verdict log is append-only.
+  **This hole existed because the SEC cache answers without a socket.** On 2026-09-30,
+  `test_alpaca_shariah_wiring`, `test_local_api_smoke` and `test_portfolio_risk_limits`
+  turned out to screen AAPL/MSFT against live SEC. They passed the guard for 24 h after any
+  live run and failed it afterwards, and they appended every verdict to the real
+  `paper_trading.db` screen log. The runner now closes both for every file: it points
+  `SEC_EDGAR_CACHE_DIR` at an empty directory and `SHARIAH_SCREEN_LOG_DB` at a throwaway
+  file, the same way it already handles `EVIDENCE_DIR`.
 - `KNOWN_NETWORK_USERS` in `run_all_tests.py` is **empty** and should stay that way. It
   started with seven of the audit's eight files, and each came off as its seams were swapped.
   The eighth, `test_yahoo_finance.py`, became opt-in instead (see `--live` below). An entry
@@ -360,8 +376,10 @@ talked to the real gateway.
    ~8 req/s, under SEC's 10 req/s guidance. Measured: three symbols cold 4.53 s, warm 0.66 s
    with no SEC request at all. It caches raw responses only, never verdicts, and never caches
    a failure — a 404 is a fact about SEC, not about the company, and the screen fails closed
-   on ERROR. Tests are unaffected — they supply a `shariah_override` or swap the
-   `sec_request` seam, and none reach SEC or the cache.
+   on ERROR. Tests supply a `shariah_override` or swap the `sec_request` seam
+   (`sec_fixture.py`), and the runner starts every census with an empty cache. *(This
+   used to say "none reach SEC or the cache". That was false until 2026-09-30: three
+   files reached both. See Testing conventions.)*
 
    **Every verdict is now logged.** `check_us_symbol` is a thin wrapper over
    `_screen_us_symbol` that appends the verdict to the append-only `shariah_screens` table

@@ -28,6 +28,7 @@ Configuration (both read from ``backend/.env`` via the environment):
 |---|---|---|
 | ``SEC_EDGAR_CACHE_TTL_HOURS`` | ``24`` | entry lifetime; ``0`` disables the cache |
 | ``SEC_EDGAR_MIN_REQUEST_INTERVAL_MS`` | ``125`` | floor between live fetches (~8/s) |
+| ``SEC_EDGAR_CACHE_DIR`` | ``backend/sec_edgar_cache`` | where entries live; read at import |
 """
 
 from __future__ import annotations
@@ -41,7 +42,10 @@ from pathlib import Path
 from config import BACKEND_DIR
 
 
-CACHE_DIR = BACKEND_DIR / "sec_edgar_cache"
+# run_all_tests.py points this at an empty directory for every run. A warm
+# developer cache once kept three files green that fetched from SEC on a miss: the
+# census passed within 24h of a live run and failed as NETWORK after (2026-09-30).
+CACHE_DIR = Path(os.getenv("SEC_EDGAR_CACHE_DIR") or BACKEND_DIR / "sec_edgar_cache")
 
 DEFAULT_TTL_HOURS = 24.0
 # SEC's published guidance is a maximum of 10 requests/second. 125 ms is ~8/s,
