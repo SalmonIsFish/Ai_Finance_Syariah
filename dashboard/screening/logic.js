@@ -13,18 +13,24 @@ export function buildUniverseQuery({ shariahStatus = "PASS", limit = 1000, offse
   }).toString();
 }
 
+// The SC classifies a security. That says nothing about the trading strategy or
+// this system (CLAUDE.md, reviewer correction 2), so the UI states it wherever a
+// verdict is shown.
+export const CLASSIFICATION_SCOPE_NOTE =
+  "This is the classification of the security only. It does not certify the trading strategy or this system.";
+
 const SHARIAH_BADGES = {
   PASS: {
     label: "PASS",
     className: "badge badge--ok",
     explanation:
-      "An approved and activated SC Malaysia publication establishes this security as Shariah-compliant.",
+      "An approved and activated SC Malaysia publication establishes this security as Shariah-compliant. " + CLASSIFICATION_SCOPE_NOTE,
   },
   REJECT: {
     label: "REJECT",
     className: "badge badge--bad",
     explanation:
-      "An approved and activated SC Malaysia publication explicitly establishes this security as non-compliant.",
+      "An approved and activated SC Malaysia publication explicitly establishes this security as non-compliant. " + CLASSIFICATION_SCOPE_NOTE,
   },
   UNKNOWN: {
     label: "UNKNOWN",

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  CLASSIFICATION_SCOPE_NOTE,
   buildUniverseQuery,
   statusBadge,
   tradingStatusFromShariah,
@@ -159,4 +160,11 @@ test("formatPctValue formats an already-percent-scaled number without multiplyin
   assert.equal(formatPctValue(null), "—");
   assert.equal(formatPctValue(undefined), "—");
   assert.equal(formatPctValue(NaN), "—");
+});
+
+test("a PASS or REJECT badge never reads as certifying the strategy or the system", () => {
+  for (const status of ["PASS", "REJECT"]) {
+    assert.ok(statusBadge(status).explanation.endsWith(CLASSIFICATION_SCOPE_NOTE));
+  }
+  assert.match(CLASSIFICATION_SCOPE_NOTE, /does not certify the trading strategy or this system/);
 });

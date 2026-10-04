@@ -39,6 +39,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import config
+from option_permissibility import check_option_permissibility
 from option_structure_gate import ALLOWED_STRUCTURES, REJECTED_STRUCTURES
 
 
@@ -46,10 +47,49 @@ def _fmt_pct(value: float) -> str:
     return f"{value:g}%"
 
 
-def build_mandate(settings) -> str:
-    generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+def _option_rows(determination: dict | None) -> tuple[str, str]:
+    """Section 5 step and section 6 rows for options, from the determination in force.
+
+    Read from option_permissibility rather than option_structure_gate alone: until
+    2026-10-05 this listed the structure gate's allowed table as "permitted" while the
+    determination blocked every option contract, so the mandate described a permission
+    the system did not grant.
+    """
     allowed = ", ".join(f"`{s}`" for s in sorted(ALLOWED_STRUCTURES))
     rejected = ", ".join(f"`{s}`" for s in sorted(REJECTED_STRUCTURES))
+    verdict = check_option_permissibility(determination=determination)
+    if verdict["status"] == "PASS":
+        step = "For options, the option-structure gate returns PASS."
+        rows = (
+            f"| Rejected option structures | {rejected} |\n"
+            f"| Permitted option structures | {allowed} — **pending scholar review**; "
+            "loosened for a deadline and not re-vetted |"
+        )
+        return step, rows
+
+    in_force = verdict["determination"]
+    recorded = in_force.get("recorded_on", "unrecorded")
+    authority = in_force.get("authority", "no authority recorded")
+    step = (
+        "No option contract may be entered into. Options are **not permitted** under the "
+        f"determination recorded on {recorded}, and every option order is refused at "
+        "preview, at approval and at strategy proposal."
+    )
+    rows = (
+        f"| Option contracts | **Not permitted** — determination recorded {recorded} "
+        f"({authority}). Whether a covered call on owned shares or a fully cash-secured put "
+        "falls under the same ruling is awaiting scholarly review. |\n"
+        "| Option structures | Not reachable while the above holds. For reference, the "
+        f"structure gate refuses {rejected} and would otherwise accept {allowed}; that table "
+        "was loosened for a deadline and has not been re-vetted. |"
+    )
+    return step, rows
+
+
+def build_mandate(settings, determination: dict | None = None) -> str:
+    """``determination`` is a test seam, as in check_option_permissibility. main() never passes it."""
+    generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    option_step, option_rows = _option_rows(determination)
     strategies = ", ".join(f"`{s}`" for s in settings.quant_strategies) or "none configured"
 
     return f"""# Trading Mandate — Amanah Trader
@@ -138,8 +178,11 @@ so.
 All of the following, with no exceptions and no override path:
 
 1. The Shariah gate returns **PASS** for the security.
-2. For options, the option-structure gate returns PASS.
-3. The account gate confirms no standing *riba* exposure (cash account, no margin).
+2. {option_step}
+3. The account gate confirms no leverage is available: the broker must report a
+   buying-power multiplier of 1×. Alpaca offers no true cash account, so the account
+   is a margin agreement capped at 1×; whether that is acceptable is **pending scholar
+   review** (`docs/shariah-policy/margin-account-policy.md`).
 4. Every risk limit in section 3 holds, recomputed from live state.
 5. Market data is real. Synthetic or unverifiable prices **block** — a fallback to
    fixture data cannot produce a tradeable signal.
@@ -155,10 +198,9 @@ which failed a gate.
 | Excluded | Note |
 |---|---|
 | Short selling | Not supported at any layer |
-| Margin / leverage | Account gate rejects margin-enabled accounts |
+| Margin / leverage | Account gate rejects any account the broker reports with leverage above 1×. A 1×-capped margin agreement passes; see section 5, step 3 |
 | Multi-leg spreads | Rejected by the option-structure gate |
-| Rejected option structures | {rejected} |
-| Permitted option structures | {allowed} — **pending scholar review**; loosened for a deadline and not re-vetted |
+{option_rows}
 | Live (non-paper) trading | Structurally impossible: no live host exists in the codebase |
 
 ## 7. Accountability

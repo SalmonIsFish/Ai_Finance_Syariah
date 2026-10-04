@@ -64,7 +64,8 @@ Not the codebase. `reviewer-packet.md` lists the four questions where this syste
 makes its own determination and therefore needs a ruling:
 
 1. The margin account — blocking, and may disqualify the broker entirely.
-2. The permitted option structures — loosened for a deadline, never re-vetted.
+2. Options — blocked since 2026-09-23; whether a covered call or cash-secured put
+   falls under the same ruling is open.
 3. Purification — three fiqh questions the code deliberately leaves open.
 4. The US ratio screen — an approximation, with the qualitative limb unimplemented.
 

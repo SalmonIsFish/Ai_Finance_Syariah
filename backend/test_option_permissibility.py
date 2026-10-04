@@ -175,6 +175,7 @@ def check_the_seam_is_not_used_in_production() -> None:
             "option_strategy_api.py",
             "option_structure_agent.py",
             "agent_coordinator.py",
+            "trading_mandate.py",
         }:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

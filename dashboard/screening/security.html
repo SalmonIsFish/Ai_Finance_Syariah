@@ -50,7 +50,7 @@
 
   <script type="module">
     import { fetchScreen, fetchPublicationDetail, fetchRiskLimits, fetchEvidence, fetchUniverse, fetchResearch, fetchResearchCopilot } from "./api.js";
-    import { statusBadge, tradingStatusFromShariah, formatDate, formatScore, formatPctValue, publicationBannerState } from "./logic.js";
+    import { CLASSIFICATION_SCOPE_NOTE, statusBadge, tradingStatusFromShariah, formatDate, formatScore, formatPctValue, publicationBannerState } from "./logic.js";
     import {
       initTheme, wireThemeToggle, createBadge, createStateMessage, createSection,
       createKeyValueList, createTradingStatusBanner, createDecisionCard, createPublicationBanner,
@@ -197,6 +197,9 @@
         note.textContent = "The security is not currently established as eligible by an approved and activated authoritative publication. This is not the same as non-compliant.";
         body.appendChild(note);
       }
+      const scope = document.createElement("p");
+      scope.textContent = CLASSIFICATION_SCOPE_NOTE;
+      body.appendChild(scope);
       document.getElementById("shariah-section").replaceChildren(createSection("Shariah", body));
     }
 

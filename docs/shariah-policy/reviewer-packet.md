@@ -43,24 +43,30 @@ This decides the broker, not a configuration value.
 
 ---
 
-## Question 2 — Options. Permitted table was loosened for a deadline.
+## Question 2 — Options. Currently blocked; is the block right?
 
-**Where:** `backend/option_structure_gate.py` —
-`ALLOWED_STRUCTURES = {covered_call, cash_secured_put, protective_put, collar}`;
-`REJECTED_STRUCTURES = {naked_call, naked_put, straddle, strangle}`.
+**Where:** `backend/option_permissibility.py` (the determination) and
+`backend/option_structure_gate.py` (the structure table it sits in front of).
 
-The project's own earlier scoping ruled derivatives prohibited. The four allowed
-structures exist because a hackathon required options, and the notes record this
-as *"a deliberate scope extension, not a continuation of prior policy."* It has
-not been re-vetted since.
+*Updated 2026-10-05.* Since 2026-09-23 **no option contract can be entered into.**
+The recorded determination follows the grounds reported for the OIC Islamic Fiqh
+Academy and Mufti Taqi Usmani: gharar, maysir, and the premium (a promise is not a
+valid subject of sale). It is a code constant, not a setting, and it is enforced
+at preview, at approval and at strategy proposal.
+
+Before that, four structures were allowed (`covered_call`, `cash_secured_put`,
+`protective_put`, `collar`) because a hackathon required options. The notes
+recorded that as *"a deliberate scope extension, not a continuation of prior
+policy."* One cash-secured put filled on the paper account on 2026-08-20, before
+the block. That record is kept, not erased.
 
 **To rule on:**
-- Are any of the four permissible, and on what basis? A covered call written
-  against owned stock and a cash-secured put fully collateralised are the two
-  with the strongest case; `protective_put` and `collar` have never been
-  exercised even in testing.
-- If some are permissible and others are not, the gate table is the single place
-  that changes.
+- Is blocking all option contracts correct for this system?
+- The cited sources treat options generally. Does writing a **covered call against
+  shares already owned**, or a **cash-secured put fully backed by settled cash**,
+  fall under the same ruling? Those are the only two structures this system has
+  ever used. If the answer differs between them, the determination and the gate
+  table are the only places that change.
 
 ---
 

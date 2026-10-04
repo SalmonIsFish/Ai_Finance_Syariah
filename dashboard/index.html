@@ -1371,7 +1371,9 @@
               <label>Asset Class
                 <select id="assetClass">
                   <option value="equity">Equity</option>
-                  <option value="option">Option</option>
+                  <!-- Presentation only: the backend refuses option orders itself
+                       (option_permissibility.py). Re-enable when that determination changes. -->
+                  <option value="option" disabled>Option (not permitted, pending ruling)</option>
                 </select>
               </label>
               <label>Side

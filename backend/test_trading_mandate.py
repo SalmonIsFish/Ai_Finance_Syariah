@@ -18,6 +18,7 @@ from dataclasses import replace
 
 import config
 import trading_mandate
+from option_permissibility import OPTION_DETERMINATION, OPTION_POLICY_PERMITTED
 
 
 def _settings():
@@ -103,11 +104,30 @@ def test_the_mandate_states_the_non_negotiables():
     print("PASS: the mandate states the confirmation phrase, exclusions and signature block")
 
 
+def test_the_mandate_never_permits_options_the_determination_blocks():
+    """Until 2026-10-05 the mandate listed four option structures as "permitted" while
+    option_permissibility refused every option contract. The owner would have signed a
+    permission the system does not grant.
+    """
+    blocked = trading_mandate.build_mandate(_settings())
+    assert "Permitted option structures" not in blocked
+    assert "**Not permitted**" in blocked
+    assert OPTION_DETERMINATION["recorded_on"] in blocked
+
+    # The other branch still works, so a ruling is one constant away, not a rewrite.
+    permitted = dict(OPTION_DETERMINATION, status=OPTION_POLICY_PERMITTED)
+    opened = trading_mandate.build_mandate(_settings(), determination=permitted)
+    assert "Permitted option structures" in opened
+    assert "**Not permitted**" not in opened
+    print("PASS: the mandate follows the option determination, not the structure table")
+
+
 def main():
     test_every_risk_limit_comes_from_live_config()
     test_the_mandate_tracks_a_changed_limit()
     test_the_mandate_never_claims_shariah_certification()
     test_the_mandate_states_the_non_negotiables()
+    test_the_mandate_never_permits_options_the_determination_blocks()
     print()
     print("All trading-mandate tests passed.")
 

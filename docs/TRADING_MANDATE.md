@@ -1,6 +1,6 @@
 # Trading Mandate — Amanah Trader
 
-**Generated 2026-09-22 08:44 UTC from the running configuration.** Do not edit by hand:
+**Generated 2026-10-04 16:17 UTC from the running configuration.** Do not edit by hand:
 regenerate with `python backend/trading_mandate.py`. Every figure below is read
 from the same settings and gate modules the system enforces at run time, so this
 document cannot drift from actual behaviour.
@@ -84,8 +84,11 @@ so.
 All of the following, with no exceptions and no override path:
 
 1. The Shariah gate returns **PASS** for the security.
-2. For options, the option-structure gate returns PASS.
-3. The account gate confirms no standing *riba* exposure (cash account, no margin).
+2. No option contract may be entered into. Options are **not permitted** under the determination recorded on 2026-09-23, and every option order is refused at preview, at approval and at strategy proposal.
+3. The account gate confirms no leverage is available: the broker must report a
+   buying-power multiplier of 1×. Alpaca offers no true cash account, so the account
+   is a margin agreement capped at 1×; whether that is acceptable is **pending scholar
+   review** (`docs/shariah-policy/margin-account-policy.md`).
 4. Every risk limit in section 3 holds, recomputed from live state.
 5. Market data is real. Synthetic or unverifiable prices **block** — a fallback to
    fixture data cannot produce a tradeable signal.
@@ -101,10 +104,10 @@ which failed a gate.
 | Excluded | Note |
 |---|---|
 | Short selling | Not supported at any layer |
-| Margin / leverage | Account gate rejects margin-enabled accounts |
+| Margin / leverage | Account gate rejects any account the broker reports with leverage above 1×. A 1×-capped margin agreement passes; see section 5, step 3 |
 | Multi-leg spreads | Rejected by the option-structure gate |
-| Rejected option structures | `naked_call`, `naked_put`, `straddle`, `strangle` |
-| Permitted option structures | `cash_secured_put`, `collar`, `covered_call`, `protective_put` — **pending scholar review**; loosened for a deadline and not re-vetted |
+| Option contracts | **Not permitted** — determination recorded 2026-09-23 (OIC Islamic Fiqh Academy; Mufti Taqi Usmani (as reported by Islamic Finance Guru)). Whether a covered call on owned shares or a fully cash-secured put falls under the same ruling is awaiting scholarly review. |
+| Option structures | Not reachable while the above holds. For reference, the structure gate refuses `naked_call`, `naked_put`, `straddle`, `strangle` and would otherwise accept `cash_secured_put`, `collar`, `covered_call`, `protective_put`; that table was loosened for a deadline and has not been re-vetted. |
 | Live (non-paper) trading | Structurally impossible: no live host exists in the codebase |
 
 ## 7. Accountability
