@@ -1,6 +1,6 @@
 # Trading Mandate — Amanah Trader
 
-**Generated 2026-10-04 16:17 UTC from the running configuration.** Do not edit by hand:
+**Generated 2026-10-04 17:03 UTC from the running configuration.** Do not edit by hand:
 regenerate with `python backend/trading_mandate.py`. Every figure below is read
 from the same settings and gate modules the system enforces at run time, so this
 document cannot drift from actual behaviour.
@@ -106,8 +106,8 @@ which failed a gate.
 | Short selling | Not supported at any layer |
 | Margin / leverage | Account gate rejects any account the broker reports with leverage above 1×. A 1×-capped margin agreement passes; see section 5, step 3 |
 | Multi-leg spreads | Rejected by the option-structure gate |
-| Option contracts | **Not permitted** — determination recorded 2026-09-23 (OIC Islamic Fiqh Academy; Mufti Taqi Usmani (as reported by Islamic Finance Guru)). Whether a covered call on owned shares or a fully cash-secured put falls under the same ruling is awaiting scholarly review. |
-| Option structures | Not reachable while the above holds. For reference, the structure gate refuses `naked_call`, `naked_put`, `straddle`, `strangle` and would otherwise accept `cash_secured_put`, `collar`, `covered_call`, `protective_put`; that table was loosened for a deadline and has not been re-vetted. |
+| Option contracts | **Not permitted**, including a covered call on owned shares and a fully cash-secured put — determination recorded 2026-09-23 (OIC Islamic Fiqh Academy; Mufti Taqi Usmani (as reported by Islamic Finance Guru)), adopted by the owner on 2026-10-05. |
+| Option structures | Not reachable while the above holds. The structure gate's table (refuses `naked_call`, `naked_put`, `straddle`, `strangle`; would otherwise accept `cash_secured_put`, `collar`, `covered_call`, `protective_put`) remains in the code only so a future change is reviewable. |
 | Live (non-paper) trading | Structurally impossible: no live host exists in the codebase |
 
 ## 7. Accountability

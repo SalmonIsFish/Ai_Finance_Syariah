@@ -39,7 +39,7 @@ The same reviewer confirmed that a deterministic rule-based system does **not** 
 oversight. That is an argument for the existing architecture, not for adding interpretability
 tooling.
 
-### Option contracts are blocked, pending a ruling (2026-09-23)
+### Option contracts are not permitted (2026-09-23; scope settled 2026-10-05)
 
 `option_permissibility.py` records a determination: **option contracts are not permitted**,
 on the grounds reported for the OIC Islamic Fiqh Academy and Mufti Taqi Usmani -- gharar
@@ -51,8 +51,11 @@ Source: https://www.islamicfinanceguru.com/articles/options-trading-halal-or-har
 covered call written against owned shares or a cash-secured put backed by settled cash,
 which is the only thing this system ever did. That silence is **not** permission -- the
 objections attach to the contract rather than to the side taken, and the writer is the
-party receiving the contested premium. The question is open with the owner's Shariah
-lecturer, so the system fails closed.
+party receiving the contested premium. **On 2026-10-05 the owner settled it: options are
+not permissible, including those two.** `OPTION_DETERMINATION` records
+`review_status: ADOPTED_BY_OWNER` and `adopted_on`, and no longer carries a
+`pending_question`. That is the owner's position applying the cited authorities, not a
+scholar's ruling on this system -- describe it that way.
 
 This exposed a structural gap, not a cosmetic one. `option_structure_gate` asked "is this a
 permitted Level 1 structure, and is it collateralised?" and never asked the prior question:
@@ -77,7 +80,7 @@ Mechanics:
   `check_option_permissibility(determination=...)` is a test-only seam that keeps the
   covered-call, cash-secured-put, margin and naked-structure arithmetic exercised under a
   permissive determination. Commented-out code rots -- Ruff will not check it and no test
-  runs it. A ruling either way is one constant away, not a resurrection.
+  runs it. Reversing the position is one constant away, not a resurrection.
 
 Broker: **Alpaca**, paper only.
 
@@ -391,9 +394,9 @@ talked to the real gateway.
    a COMPLIANT company into an ERROR. Malaysia is structurally excluded — the hook sits in the
    US screen, and `_evaluate_malaysia` does not pass through it.
 2. **Option fills are audited but not tracked as positions.** *(Historical as of
-   2026-09-23: option contracts are blocked pending a ruling -- see "Option contracts are
-   blocked" above. This limitation still describes what the code does, and matters again
-   the moment a ruling permits options.)* `portfolio_store` models whole
+   2026-09-23: option contracts are not permitted -- see "Option contracts are not
+   permitted" above. This limitation still describes what the code does, and matters again
+   if that position ever changes.)* `portfolio_store` models whole
    shares only — no contract multiplier, strike, expiry, or assignment. `sync_filled_order`
    diverts option fills to `paper_fills` under the OCC symbol and returns
    `OPTION_FILL_RECORDED` without touching `paper_positions`. Alpaca is the source of truth for
@@ -401,7 +404,7 @@ talked to the real gateway.
 3. **The strategy layer selects; selecting is not approving.** *(As of 2026-09-23
    `propose_option_strategy` refuses before selecting anything, so the endpoint returns the
    determination rather than a contract. The selection rules below are unchanged and still
-   tested; they are simply unreachable until a ruling.)* `option_strategy.py` calls
+   tested; they are simply unreachable.)* `option_strategy.py` calls
    `fetch_option_chain` and picks a contract for both Level 1 strategies: 1–7 DTE, the strike
    closest to 4% OTM inside a 2–7% band, filtered for a live bid, a spread under 15% of mid, a
    minimum premium, and a standard 100-share multiplier; sized from owned shares or settled
@@ -422,7 +425,7 @@ talked to the real gateway.
    multiplier, and `0TCX` holds exactly 1 share of CVX.
 4. **The end-to-end chain has run against real Alpaca — twice, on the test account: once
    equity, once option.** *(The option half is now history rather than a live capability:
-   option contracts are blocked pending a ruling. The record below is kept exactly as it
+   option contracts are not permitted. The record below is kept exactly as it
    was — that fill happened, and erasing it would falsify the evidence trail. What changed
    is the policy, not the past.)* Both went preview → approval → `EXECUTE PAPER` → fill → reconcile →
    ledger against `https://paper-api.alpaca.markets` over the `alpaca_mcp` transport, with

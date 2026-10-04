@@ -1,6 +1,6 @@
 # Option contracts — determination in force
 
-**Status: NOT PERMITTED. Recorded 2026-09-23. Pending scholarly review.**
+**Status: NOT PERMITTED. Recorded 2026-09-23. Scope settled by the owner 2026-10-05: this includes covered calls and cash-secured puts.**
 
 This note records a determination the system *applies*. It is not a ruling by this
 project, and nothing here certifies the system. See [[Maysir]] and [[Gharar]] for the
@@ -26,7 +26,7 @@ platform… not personal advice."*
 The article names **arbun** (a down payment the buyer may forfeit) and **wa'd** (a
 unilateral promise) as structures discussed in this area, both noted as non-tradeable.
 
-## The open question
+## The question that was open, and how it was settled
 
 **The cited sources address option contracts generally.** They do not separately treat:
 
@@ -39,6 +39,13 @@ a naked or speculative leg; `option_structure_gate` rejected those outright.
 **That silence is not permission.** The objections above attach to the contract itself
 rather than to the side one takes, and the writer is the party *receiving* the contested
 premium. Reading the gap as permission would be motivated reasoning.
+
+**Settled 2026-10-05.** The owner concluded that options are not permissible, including
+a covered call on owned shares and a fully cash-secured put, for the reason above: the
+objections attach to the contract, not to the side taken. This is the owner's adopted
+position applying the cited authorities. It is not a scholar's ruling on this system.
+
+For the record, the question as it was originally framed:
 
 **The question put to the reviewer:**
 
@@ -66,7 +73,7 @@ It is enforced at three points:
 The refusal code is `option_contracts_not_permitted`, deliberately distinct from
 `option_structure_rejected`. The second can be fixed by changing the order; the first
 cannot be fixed at all. Every refusal carries the determination — its authority, its
-source, its grounds, its scope note and the open question — so the reason is inspectable
+source, its grounds, its scope note and the date the owner adopted it — so the reason is inspectable
 rather than a bare code.
 
 **No option code was deleted.** The selection, structure and collateral logic all remain

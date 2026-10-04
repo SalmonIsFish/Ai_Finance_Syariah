@@ -75,13 +75,15 @@ def _option_rows(determination: dict | None) -> tuple[str, str]:
         f"determination recorded on {recorded}, and every option order is refused at "
         "preview, at approval and at strategy proposal."
     )
+    adopted = in_force.get("adopted_on")
+    adoption = f", adopted by the owner on {adopted}" if adopted else ""
     rows = (
-        f"| Option contracts | **Not permitted** — determination recorded {recorded} "
-        f"({authority}). Whether a covered call on owned shares or a fully cash-secured put "
-        "falls under the same ruling is awaiting scholarly review. |\n"
-        "| Option structures | Not reachable while the above holds. For reference, the "
-        f"structure gate refuses {rejected} and would otherwise accept {allowed}; that table "
-        "was loosened for a deadline and has not been re-vetted. |"
+        "| Option contracts | **Not permitted**, including a covered call on owned shares "
+        f"and a fully cash-secured put — determination recorded {recorded} ({authority})"
+        f"{adoption}. |\n"
+        "| Option structures | Not reachable while the above holds. The structure gate's "
+        f"table (refuses {rejected}; would otherwise accept {allowed}) remains in the code "
+        "only so a future change is reviewable. |"
     )
     return step, rows
 

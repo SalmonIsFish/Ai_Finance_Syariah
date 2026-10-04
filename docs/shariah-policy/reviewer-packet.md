@@ -43,30 +43,25 @@ This decides the broker, not a configuration value.
 
 ---
 
-## Question 2 — Options. Currently blocked; is the block right?
+## Question 2 — Options. Settled by the owner; for the record, not for ruling.
 
-**Where:** `backend/option_permissibility.py` (the determination) and
-`backend/option_structure_gate.py` (the structure table it sits in front of).
+**Where:** `backend/option_permissibility.py` and
+`docs/shariah-policy/option-contracts-determination.md`.
 
-*Updated 2026-10-05.* Since 2026-09-23 **no option contract can be entered into.**
-The recorded determination follows the grounds reported for the OIC Islamic Fiqh
-Academy and Mufti Taqi Usmani: gharar, maysir, and the premium (a promise is not a
-valid subject of sale). It is a code constant, not a setting, and it is enforced
-at preview, at approval and at strategy proposal.
+*Updated 2026-10-05.* Option contracts are **not permitted**, including a covered call
+on owned shares and a fully cash-secured put. The determination (recorded 2026-09-23)
+follows the grounds reported for the OIC Islamic Fiqh Academy and Mufti Taqi Usmani:
+gharar, maysir, and the premium (a promise is not a valid subject of sale). On
+2026-10-05 the owner applied it to both Level 1 structures, since the objections attach
+to the contract rather than to the side taken. It is a code constant, enforced at
+preview, at approval and at strategy proposal.
 
-Before that, four structures were allowed (`covered_call`, `cash_secured_put`,
-`protective_put`, `collar`) because a hackathon required options. The notes
-recorded that as *"a deliberate scope extension, not a continuation of prior
-policy."* One cash-secured put filled on the paper account on 2026-08-20, before
-the block. That record is kept, not erased.
+History, kept rather than erased: four structures were allowed earlier because a
+hackathon required options, and one cash-secured put filled on the paper account on
+2026-08-20, before the block.
 
-**To rule on:**
-- Is blocking all option contracts correct for this system?
-- The cited sources treat options generally. Does writing a **covered call against
-  shares already owned**, or a **cash-secured put fully backed by settled cash**,
-  fall under the same ruling? Those are the only two structures this system has
-  ever used. If the answer differs between them, the determination and the gate
-  table are the only places that change.
+Nothing is asked here. A reviewer who disagrees with the owner's position is welcome to
+say so, but the system does not wait on it.
 
 ---
 

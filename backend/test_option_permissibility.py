@@ -35,14 +35,14 @@ PERMITTED = dict(OPTION_DETERMINATION, status=OPTION_POLICY_PERMITTED)
 def check_the_shipped_determination_prohibits_options() -> None:
     """The default must be PROHIBITED. If this fails, someone flipped it -- read why."""
     assert OPTION_DETERMINATION["status"] == OPTION_POLICY_PROHIBITED
-    assert OPTION_DETERMINATION["review_status"] == "PENDING_SCHOLARLY_REVIEW"
+    assert OPTION_DETERMINATION["review_status"] == "ADOPTED_BY_OWNER"
 
     result = check_option_permissibility()
     assert result["status"] == "REJECT"
     assert result["reason"] == REASON_NOT_PERMITTED
 
 
-def check_the_determination_carries_its_authority_and_its_open_question() -> None:
+def check_the_determination_carries_its_authority_and_its_scope() -> None:
     """A refusal nobody can trace to an authority is an opinion, not an applied ruling."""
     determination = check_option_permissibility()["determination"]
     assert determination["authority"]
@@ -50,9 +50,11 @@ def check_the_determination_carries_its_authority_and_its_open_question() -> Non
     assert determination["recorded_on"] == "2026-09-23"
     assert set(determination["grounds"]) >= {"gharar", "maysir"}
     # The scope note is the honest part: the cited sources did not address a covered
-    # call on owned shares, and the system must not pretend they did.
+    # call on owned shares, and the system must not pretend they did. The owner closed
+    # that question on 2026-10-05, so no open question may linger in the record.
     assert "covered call" in determination["scope_note"]
-    assert determination["pending_question"]
+    assert determination["adopted_on"] == "2026-10-05"
+    assert "pending_question" not in determination
 
 
 def check_it_fails_closed_on_anything_that_is_not_explicitly_permitted() -> None:
@@ -92,10 +94,11 @@ def check_the_refusal_precedes_the_collateral_test() -> None:
     assert result["reason"] != "insufficient_underlying_shares"
 
 
-def check_the_summary_says_what_is_open() -> None:
+def check_the_summary_covers_both_level_1_structures() -> None:
     summary = determination_summary()
     assert "not permitted" in summary
-    assert "open question" in summary
+    assert "covered call" in summary and "cash-secured put" in summary
+    assert "open question" not in summary
     # CLAUDE.md: never coin "Shariah-aware", never call the system Shariah-compliant.
     assert "shariah-aware" not in summary.lower()
     assert "shariah-compliant system" not in summary.lower()
@@ -216,11 +219,11 @@ def check_no_shipped_module_can_mint_a_permissive_determination() -> None:
 
 def main() -> None:
     check_the_shipped_determination_prohibits_options()
-    check_the_determination_carries_its_authority_and_its_open_question()
+    check_the_determination_carries_its_authority_and_its_scope()
     check_it_fails_closed_on_anything_that_is_not_explicitly_permitted()
     check_every_structure_is_refused_under_the_shipped_determination()
     check_the_refusal_precedes_the_collateral_test()
-    check_the_summary_says_what_is_open()
+    check_the_summary_covers_both_level_1_structures()
     check_covered_call_arithmetic_still_works()
     check_cash_secured_put_arithmetic_still_works()
     check_margin_and_naked_structures_are_still_refused_when_permitted()

@@ -25,8 +25,13 @@ and the premium -- a promise not being a valid subject of sale.
 covered call written against shares already owned, or a cash-secured put fully backed by
 settled cash, which is the only thing this system ever did. That silence is not
 permission: the objections attach to the contract rather than to the side one takes, and
-the writer is the party *receiving* the contested premium. The question is open with the
-owner's Shariah lecturer, so the system fails closed -- its rule for anything unknown.
+the writer is the party *receiving* the contested premium.
+
+On 2026-10-05 the owner settled that question: **options are not permissible, including a
+covered call on owned shares and a fully cash-secured put.** It is no longer an open
+question, so the determination no longer carries one. That is the owner's adopted
+position, applying the cited authorities to the contract itself; it is not a scholar's
+ruling on this system, and nothing here should be described as one.
 
 WHY A CONSTANT AND NOT AN ENV VAR
 ---------------------------------
@@ -53,15 +58,11 @@ OPTION_DETERMINATION: dict = {
     "scope_note": (
         "The cited sources address option contracts generally and do not separately treat "
         "a covered call written against owned shares or a cash-secured put backed by "
-        "settled cash. That question is open with the owner's Shariah lecturer; until it "
-        "is answered this system treats it as unresolved and fails closed."
+        "settled cash. The owner applies them to those too: the objections attach to the "
+        "contract, not to the side taken, and the writer receives the contested premium."
     ),
-    "pending_question": (
-        "Does writing a covered call against shares already owned, or a cash-secured put "
-        "fully backed by settled cash, fall under the same ruling as speculative option "
-        "trading?"
-    ),
-    "review_status": "PENDING_SCHOLARLY_REVIEW",
+    "adopted_on": "2026-10-05",
+    "review_status": "ADOPTED_BY_OWNER",
 }
 
 
@@ -99,8 +100,8 @@ def determination_summary() -> str:
             f"({OPTION_DETERMINATION.get('authority')})."
         )
     return (
-        "Option contracts are not permitted under the determination recorded on "
-        f"{OPTION_DETERMINATION.get('recorded_on')} ({OPTION_DETERMINATION.get('authority')}). "
-        "Whether a covered call on owned shares or a fully cash-secured put falls under "
-        "the same ruling is an open question awaiting scholarly review."
+        "Option contracts are not permitted, including a covered call on owned shares "
+        "and a fully cash-secured put, under the determination recorded on "
+        f"{OPTION_DETERMINATION.get('recorded_on')} ({OPTION_DETERMINATION.get('authority')}) "
+        f"and adopted by the owner on {OPTION_DETERMINATION.get('adopted_on')}."
     )

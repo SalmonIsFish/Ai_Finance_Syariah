@@ -640,7 +640,7 @@ ROLE_TOOLS: dict[str, frozenset[str]] = {
         }
     ),
     "quant": frozenset({"quant_signal", "market_data", "research", "screen_detail"}),
-    # Option contracts are blocked system-wide pending a scholarly ruling, so the trader
+    # Option contracts are not permitted (option_permissibility.py), so the trader
     # proposes equities only. The option selection tool is deliberately not wired: it
     # would return the determination and nothing else.
     "trader": frozenset({"preview_order", "screen_detail", "quant_signal", "market_data"}),

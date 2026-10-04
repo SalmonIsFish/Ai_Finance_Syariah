@@ -312,7 +312,7 @@ def test_the_endpoint_refuses_under_the_shipped_determination() -> None:
     )
     assert result["status"] == "REJECT"
     assert result["reason"] == REASON_NOT_PERMITTED
-    assert result["determination"]["review_status"] == "PENDING_SCHOLARLY_REVIEW"
+    assert result["determination"]["review_status"] == "ADOPTED_BY_OWNER"
     # No contract, and nothing that could be mistaken for one.
     assert "selection" not in result
     assert "next_step" not in result
