@@ -67,7 +67,7 @@ function SearchBox({ value, onChange, placeholder, label }) {
         placeholder={placeholder}
         autoComplete="off"
         spellCheck={false}
-        className="pl-8 pr-3 py-1.5 w-56 bg-[var(--color-bg)] border border-[var(--color-border-strong)] rounded text-sm text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+        className="pl-8 pr-3 py-1.5 w-56 bg-[var(--color-bg)] border border-[var(--color-border-strong)] rounded text-sm text-[var(--color-text)] focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
       />
     </label>
   );

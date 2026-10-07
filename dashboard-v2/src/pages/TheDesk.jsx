@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import OfficerCard from "../components/OfficerCard";
 import EvidenceTrail from "../components/EvidenceTrail";
@@ -11,7 +11,7 @@ import Segmented from "../components/Segmented";
 import Panel from "../components/Panel";
 
 const INPUT_CLASS =
-  "w-full bg-[var(--color-bg)] border border-[var(--color-border-strong)] rounded px-3 py-2 text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]";
+  "w-full bg-[var(--color-bg)] border border-[var(--color-border-strong)] rounded px-3 py-2 text-[var(--color-text)] focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]";
 
 /** "5 of 5 passed", or the names of the checks that failed. Never a bare "Checked". */
 function summarizeChecks(checks) {
@@ -75,6 +75,21 @@ export default function TheDesk() {
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewPreview, setReviewPreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const reviewHeadingRef = useRef(null);
+
+  // The review replaces the verdict cards in place. Move focus to it, so a
+  // keyboard or screen-reader user lands on what changed rather than on a
+  // button that no longer exists; Escape backs out unless a submission is
+  // already in flight.
+  useEffect(() => {
+    if (!isReviewing) return undefined;
+    reviewHeadingRef.current?.focus();
+    const onKey = (e) => {
+      if (e.key === "Escape" && !isSubmitting) setIsReviewing(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isReviewing, isSubmitting]);
   const [submitError, setSubmitError] = useState(null);
   // What /paper/approval actually said. It answers HTTP 200 for a refusal too,
   // with the verdict in approval.status -- so this is read, never assumed.
@@ -260,7 +275,7 @@ export default function TheDesk() {
               autoComplete="off"
               spellCheck={false}
               onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-              className={`${INPUT_CLASS} uppercase tabular-nums`}
+              className={`${INPUT_CLASS} uppercase placeholder:normal-case tabular-nums`}
             />
             <p className="mt-1 text-xs text-[var(--color-muted)]">
               {marketAuthority(ticketMarket)}
@@ -493,8 +508,18 @@ export default function TheDesk() {
       )}
 
       {isReviewing && (
-        <div className="bg-[var(--color-panel-2)] border border-[var(--color-border)] rounded-md shadow-md p-6 max-w-3xl mx-auto space-y-6">
-          <h2 className="text-xl font-serif font-bold text-[var(--color-text)] mb-2">Final Review &amp; Approval</h2>
+        <section
+          aria-labelledby="review-heading"
+          className="bg-[var(--color-panel-2)] border border-[var(--color-border)] rounded-md shadow-md p-6 max-w-3xl mx-auto space-y-6"
+        >
+          <h2
+            id="review-heading"
+            ref={reviewHeadingRef}
+            tabIndex={-1}
+            className="text-xl font-serif font-bold text-[var(--color-text)] mb-2 focus:outline-none"
+          >
+            Final Review &amp; Approval
+          </h2>
 
           {submitError && <ErrorNote what="the approval" error={submitError} />}
 
@@ -600,7 +625,7 @@ export default function TheDesk() {
               </button>
             </div>
           )}
-        </div>
+        </section>
       )}
 
       {/* The record of what this system has already decided about this security,

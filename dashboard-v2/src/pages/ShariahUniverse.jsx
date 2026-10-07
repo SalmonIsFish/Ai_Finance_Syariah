@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Search, ArrowRight } from "lucide-react";
 import { fetchUniverse, fetchPublication, fetchScreenedUS } from "../api";
 import { verdictBadgeClass } from "../verdict";
@@ -177,7 +177,7 @@ function MalaysiaTab() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search ticker or company…"
             aria-label="Search the SC list by ticker or company"
-            className="w-full pl-9 pr-3 py-2 bg-[var(--color-panel-2)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
+            className="w-full pl-9 pr-3 py-2 bg-[var(--color-panel-2)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-sm focus:border-[var(--color-accent)]"
           />
         </div>
         <Segmented
@@ -315,13 +315,31 @@ function UnitedStatesTab() {
   );
 }
 
+const TABS = [
+  ["MY", "Malaysia — SC approved list"],
+  ["US", "United States — screened so far"],
+];
+
 export default function ShariahUniverse() {
-  const [tab, setTab] = useState("MY");
+  // The tab lives in the URL (?tab=US), so a link or a refresh lands on it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get("tab") === "US" ? "US" : "MY";
+  const setTab = (next) => setSearchParams(next === "MY" ? {} : { tab: next }, { replace: true });
+
+  // WAI-ARIA tabs: arrow keys move between tabs, and focus follows selection.
+  const onTabKey = (e) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    e.preventDefault();
+    const i = TABS.findIndex(([key]) => key === tab);
+    const next = TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length][0];
+    setTab(next);
+    document.getElementById(`universe-tab-${next}`)?.focus();
+  };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-serif font-bold text-[var(--color-text)]">
+        <h1 className="text-2xl font-serif text-[var(--color-text)]">
           Shariah Universe
         </h1>
         <p className="text-sm text-[var(--color-muted)] mt-1">
@@ -333,22 +351,28 @@ export default function ShariahUniverse() {
         </p>
       </div>
 
-      <div className="border-b border-[var(--color-border)] flex gap-2">
-        <button
-          onClick={() => setTab("MY")}
-          className={tab === "MY" ? TAB_CLASS_ACTIVE : TAB_CLASS_IDLE}
-        >
-          Malaysia &mdash; SC approved list
-        </button>
-        <button
-          onClick={() => setTab("US")}
-          className={tab === "US" ? TAB_CLASS_ACTIVE : TAB_CLASS_IDLE}
-        >
-          United States &mdash; screened so far
-        </button>
+      <div role="tablist" aria-label="Market" className="border-b border-[var(--color-border)] flex flex-wrap gap-2">
+        {TABS.map(([key, label]) => (
+          <button
+            key={key}
+            id={`universe-tab-${key}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            aria-controls="universe-panel"
+            tabIndex={tab === key ? 0 : -1}
+            onClick={() => setTab(key)}
+            onKeyDown={onTabKey}
+            className={tab === key ? TAB_CLASS_ACTIVE : TAB_CLASS_IDLE}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      {tab === "MY" ? <MalaysiaTab /> : <UnitedStatesTab />}
+      <div id="universe-panel" role="tabpanel" aria-labelledby={`universe-tab-${tab}`}>
+        {tab === "MY" ? <MalaysiaTab /> : <UnitedStatesTab />}
+      </div>
     </div>
   );
 }

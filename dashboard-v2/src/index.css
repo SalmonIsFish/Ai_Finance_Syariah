@@ -111,4 +111,25 @@
   .font-mono {
     font-variant-numeric: tabular-nums;
   }
+
+  /* One visible keyboard focus ring for everything. Inputs used to set
+     focus:outline-none with only a border-colour change, which is close to
+     invisible; a keyboard user could not see where they were. :focus-visible
+     keeps mouse clicks free of rings. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Honour the OS "reduce motion" setting: no pulsing loaders, no slides. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }

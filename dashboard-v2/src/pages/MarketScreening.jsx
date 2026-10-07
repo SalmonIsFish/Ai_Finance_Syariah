@@ -262,7 +262,7 @@ export default function MarketScreening() {
               value={searchSymbol}
               onChange={(e) => setSearchSymbol(e.target.value)}
               placeholder="Enter symbol (e.g. AAPL)"
-              className="bg-[var(--color-bg)] border border-[var(--color-border-strong)] rounded px-4 py-2 text-[var(--color-text)] uppercase w-64 focus:outline-none focus:border-[var(--color-accent)]"
+              className="bg-[var(--color-bg)] border border-[var(--color-border-strong)] rounded px-4 py-2 text-[var(--color-text)] uppercase w-64 focus:border-[var(--color-accent)]"
             />
             <button
               type="submit"
