@@ -6,6 +6,7 @@ it were cleared, the whole "enforces and proves" claim goes with it.
 
 Nothing reaches a network: the quote and the two selectors are seams.
 """
+
 import pytest
 import auth
 from option_permissibility import (
@@ -13,15 +14,20 @@ from option_permissibility import (
     OPTION_POLICY_PERMITTED,
     REASON_NOT_PERMITTED,
 )
+
+
 @pytest.fixture(autouse=True)
 def _owner_auth_fixture():
     try:
         from local_api import app as _my_app, get_owner_actor as _get_owner_actor
     except ImportError:
         import local_api
+
         _my_app = local_api.app
         _get_owner_actor = local_api.get_owner_actor
-    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(username='project_owner', role='admin')
+    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(
+        username="project_owner", role="admin"
+    )
     yield
     _my_app.dependency_overrides.pop(_get_owner_actor, None)
 
@@ -90,7 +96,11 @@ def recording_selectors(strategy: str):
 def test_a_proposal_is_never_presented_as_approved() -> None:
     selectors, _ = recording_selectors("COVERED_CALL")
     result = option_strategy_api.propose_option_strategy(
-        "cvx", account=HOLDER_ACCOUNT, quote=fake_quote, selectors=selectors, determination=PERMITTED_DETERMINATION
+        "cvx",
+        account=HOLDER_ACCOUNT,
+        quote=fake_quote,
+        selectors=selectors,
+        determination=PERMITTED_DETERMINATION,
     )
 
     next_step = result["next_step"]
@@ -110,7 +120,11 @@ def test_a_proposal_is_never_presented_as_approved() -> None:
 def test_the_preview_request_is_postable_as_an_option_order() -> None:
     selectors, _ = recording_selectors("COVERED_CALL")
     result = option_strategy_api.propose_option_strategy(
-        "CVX", account=HOLDER_ACCOUNT, quote=fake_quote, selectors=selectors, determination=PERMITTED_DETERMINATION
+        "CVX",
+        account=HOLDER_ACCOUNT,
+        quote=fake_quote,
+        selectors=selectors,
+        determination=PERMITTED_DETERMINATION,
     )
     body = result["next_step"]["preview_request"]
 
@@ -127,7 +141,12 @@ def test_cash_secured_put_is_sized_from_settled_cash_not_buying_power() -> None:
     selectors, calls = recording_selectors("CASH_SECURED_PUT")
     account = {**CASH_ACCOUNT, "cash_collateral": 25000.0, "buying_power": 100000.0}
     option_strategy_api.propose_option_strategy(
-        "CVX", account=account, strategy="cash_secured_put", quote=fake_quote, selectors=selectors, determination=PERMITTED_DETERMINATION
+        "CVX",
+        account=account,
+        strategy="cash_secured_put",
+        quote=fake_quote,
+        selectors=selectors,
+        determination=PERMITTED_DETERMINATION,
     )
     strategy, symbol, kwargs = calls[0]
     assert strategy == "CASH_SECURED_PUT"
@@ -139,20 +158,32 @@ def test_strategy_defaults_to_the_conservative_one() -> None:
     """With shares on hand, write calls against stock already owned."""
     selectors, calls = recording_selectors("COVERED_CALL")
     option_strategy_api.propose_option_strategy(
-        "CVX", account=HOLDER_ACCOUNT, quote=fake_quote, selectors=selectors, determination=PERMITTED_DETERMINATION
+        "CVX",
+        account=HOLDER_ACCOUNT,
+        quote=fake_quote,
+        selectors=selectors,
+        determination=PERMITTED_DETERMINATION,
     )
     assert calls[0][0] == "COVERED_CALL", calls
 
     selectors, calls = recording_selectors("CASH_SECURED_PUT")
     option_strategy_api.propose_option_strategy(
-        "CVX", account=CASH_ACCOUNT, quote=fake_quote, selectors=selectors, determination=PERMITTED_DETERMINATION
+        "CVX",
+        account=CASH_ACCOUNT,
+        quote=fake_quote,
+        selectors=selectors,
+        determination=PERMITTED_DETERMINATION,
     )
     assert calls[0][0] == "CASH_SECURED_PUT", calls
 
     # 99 shares cannot cover a contract, so it must not pick a covered call.
     selectors, calls = recording_selectors("CASH_SECURED_PUT")
     option_strategy_api.propose_option_strategy(
-        "CVX", account={**CASH_ACCOUNT, "shares_held": 99}, quote=fake_quote, selectors=selectors, determination=PERMITTED_DETERMINATION
+        "CVX",
+        account={**CASH_ACCOUNT, "shares_held": 99},
+        quote=fake_quote,
+        selectors=selectors,
+        determination=PERMITTED_DETERMINATION,
     )
     assert calls[0][0] == "CASH_SECURED_PUT", calls
 
@@ -226,9 +257,10 @@ def test_route_resolves_account_facts_from_the_broker_context() -> None:
 def test_an_unreachable_broker_is_not_reported_as_an_empty_account() -> None:
     """A failed account query must not be restated as a fact about the account."""
     import os
+
     original_adapter = os.environ.get("PAPER_EXECUTION_ADAPTER")
     os.environ["PAPER_EXECUTION_ADAPTER"] = "alpaca"
-    
+
     original_status = local_api.check_alpaca_status
     unreachable = {
         "base_url": "https://paper-api.alpaca.markets",
@@ -273,33 +305,6 @@ def test_an_unreachable_broker_is_not_reported_as_an_empty_account() -> None:
         local_api.check_alpaca_status = original_status
 
 
-def main() -> None:
-    test_an_unreachable_broker_is_not_reported_as_an_empty_account()
-    test_a_proposal_is_never_presented_as_approved()
-    test_the_preview_request_is_postable_as_an_option_order()
-    test_cash_secured_put_is_sized_from_settled_cash_not_buying_power()
-    test_strategy_defaults_to_the_conservative_one()
-    test_multi_leg_and_unknown_strategies_are_refused()
-    test_no_selection_yields_no_preview_request()
-    test_route_resolves_account_facts_from_the_broker_context()
-    print("PASS: the strategy endpoint proposes contracts and never claims approval.")
-
-
-if __name__ == "__main__":
-    import auth
-    try:
-        from local_api import app as _my_app, get_owner_actor as _get_owner_actor
-    except ImportError:
-        import local_api
-        _my_app = local_api.app
-        _get_owner_actor = local_api.get_owner_actor
-    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(username='project_owner', role='admin')
-    try:
-        main()
-    finally:
-        _my_app.dependency_overrides.pop(_get_owner_actor, None)
-
-
 def test_the_endpoint_refuses_under_the_shipped_determination() -> None:
     """The default the system actually ships: no contract is proposed at all.
 
@@ -326,7 +331,38 @@ def test_the_refusal_costs_no_option_chain_request() -> None:
         calls.append(symbol)
         return QUOTE
 
-    option_strategy_api.propose_option_strategy(
-        "CVX", account=HOLDER_ACCOUNT, quote=counting_quote
-    )
+    option_strategy_api.propose_option_strategy("CVX", account=HOLDER_ACCOUNT, quote=counting_quote)
     assert calls == [], "the permissibility check must short-circuit before any market data"
+
+
+def main() -> None:
+    test_an_unreachable_broker_is_not_reported_as_an_empty_account()
+    test_a_proposal_is_never_presented_as_approved()
+    test_the_preview_request_is_postable_as_an_option_order()
+    test_cash_secured_put_is_sized_from_settled_cash_not_buying_power()
+    test_strategy_defaults_to_the_conservative_one()
+    test_multi_leg_and_unknown_strategies_are_refused()
+    test_no_selection_yields_no_preview_request()
+    test_route_resolves_account_facts_from_the_broker_context()
+    test_the_endpoint_refuses_under_the_shipped_determination()
+    test_the_refusal_costs_no_option_chain_request()
+    print("PASS: the strategy endpoint proposes contracts and never claims approval.")
+
+
+if __name__ == "__main__":
+    import auth
+
+    try:
+        from local_api import app as _my_app, get_owner_actor as _get_owner_actor
+    except ImportError:
+        import local_api
+
+        _my_app = local_api.app
+        _get_owner_actor = local_api.get_owner_actor
+    _my_app.dependency_overrides[_get_owner_actor] = lambda: auth.Actor(
+        username="project_owner", role="admin"
+    )
+    try:
+        main()
+    finally:
+        _my_app.dependency_overrides.pop(_get_owner_actor, None)
