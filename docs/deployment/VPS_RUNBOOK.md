@@ -131,7 +131,8 @@ loads with `setdefault`, so **edit in place, never append** a second line for a 
 | `GET /paper/status` | seven keys | plus `execution_markets` |
 | `POST /paper/execute` on a Bursa order | `UNSUPPORTED_MARKET` (Alpaca's words) | `ADAPTER_NOT_CONFIGURED_FOR_MARKET` (the system's) |
 
-Options are blocked pending a scholarly ruling -- see
+Options are not permitted, covered calls and cash-secured puts included (owner
+determination 2026-10-05, `backend/option_permissibility.py`) -- see
 `docs/shariah-policy/option-contracts-determination.md`. The dashboard already renders
 `blocker_messages` and never reads `/system/mode.broker_submission` for a badge, so no UI
 breaks.

@@ -129,7 +129,8 @@ the two disagree.
 - **`/paper/approval` and `/paper/execute`.** Tap 1 and tap 2 are human actions carried out
   by the relay. If a bot could queue an order, the two-tap flow would be one tap with extra
   steps.
-- **Option contracts.** Blocked system-wide pending a scholarly ruling; see
+- **Option contracts.** Not permitted, covered calls and cash-secured puts included (owner
+  determination 2026-10-05, `backend/option_permissibility.py`); blocked system-wide. See
   `docs/shariah-policy/option-contracts-determination.md`.
 
 ## Narration is filtered (Phase 2)

@@ -1373,7 +1373,7 @@
                   <option value="equity">Equity</option>
                   <!-- Presentation only: the backend refuses option orders itself
                        (option_permissibility.py). Re-enable when that determination changes. -->
-                  <option value="option" disabled>Option (not permitted, pending ruling)</option>
+                  <option value="option" disabled>Option (not permitted)</option>
                 </select>
               </label>
               <label>Side
@@ -2060,6 +2060,14 @@
     // endpoint. Once GET /stock/{symbol}/explain exists, its response replaces this
     // entirely -- see hackathon/alpaca-2026/EXPLAIN_ENDPOINT_CONTRACT.md.
     const STRUCTURE_CITATIONS = {
+      // shariah_trace.py emits the raw reason code here (it has no rationale entry), so this
+      // is keyed on the code. Without it the lookup fell through to the "collateral not met"
+      // fallback -- telling the owner to add collateral to an order no collateral can make
+      // permissible.
+      "option_contracts_not_permitted": {
+        fiqh_basis: "Option contracts are not permitted, including covered calls and cash-secured puts: gharar (whether the option is exercised is unknown when the contract is made), maysir (each party bets against the other), and the premium, a promise not being a valid subject of sale. No collateral or sizing changes this.",
+        citation: "option_permissibility.py -- grounds reported for the OIC Islamic Fiqh Academy and Mufti Taqi Usmani (IslamicFinanceGuru); adopted by the owner 2026-10-05",
+      },
       "asset-backed; ownership precedes the sale of a right": {
         fiqh_basis: "Ownership precedes the sale of a right, satisfying the possession requirement (covered call).",
         citation: "Usmani, Introduction to Islamic Finance -- Equity, stock ownership.md, via SHARIAH_GATE_NOTES.md",

@@ -156,8 +156,8 @@ def evaluate_candidate(
     if option_structure_result is not None and option_structure_result["status"] != "PASS":
         # Distinguish "this contract is not permissible at all" from "this structure or
         # its collateral failed". They are different refusals with different remedies:
-        # the second can be fixed by sizing, the first cannot be fixed at all until an
-        # authority rules. Collapsing them would tell the owner to add collateral for an
+        # the second can be fixed by sizing, the first cannot be fixed at all under the
+        # determination in force. Collapsing them would tell the owner to add collateral for an
         # order that no collateral can make permissible.
         if option_structure_result.get("reason") == REASON_OPTION_NOT_PERMITTED:
             if REASON_OPTION_NOT_PERMITTED not in blockers:
