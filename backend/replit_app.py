@@ -1,62 +1,29 @@
-"""Replit deploy entrypoint: one process, one public port, serving both the
-FastAPI API (local_api.app) and the static dashboard together.
+"""Production entrypoint (`uvicorn replit_app:app`): local_api.app, with GET /
+redirected to the dashboard.
 
-Owned by Terminal 1 (frontend/hosting), not local_api.py, per CLAUDE.md's
-boundary -- Terminal 2 owns that file exclusively. This module only imports
-the existing `app` object, mounts a StaticFiles directory onto it, and
-replaces the root route with a redirect to the dashboard; it adds no routes
-that could collide with anything local_api.py defines, and it makes no gate,
-screening, or execution decisions of its own.
+The name is historical -- this began as a Replit deploy shim and the VPS service
+still starts it by this name (docs/deployment/VPS_RUNBOOK.md), so it is kept.
 
-Replit's free tier exposes exactly one public port, which is why the API and
-the dashboard -- normally two separate local processes (see CLAUDE.md
-"Running it") -- need to be combined here. Local development is unaffected:
-`backend/run_local.ps1` / the uvicorn command in CLAUDE.md still start the API
-alone, and the dashboard is still opened as a plain file or via its own static
-server, exactly as before.
+The dashboard itself is the React app in dashboard-v2/dist, served by
+local_api.py's own owner-authenticated /dashboard router. This module used to
+register a second /dashboard router for the legacy single-file
+dashboard/index.html. It was dead code: local_api registers its router first,
+and Starlette answers with the first matching route, so the legacy page could
+not be reached. That page has been retired.
 
-The dashboard's own apiBase default already special-cases this: when
-dashboard/index.html is not opened on localhost/127.0.0.1, it defaults the API
-base field to same-origin (window.location.origin), so visiting the deployed
-URL needs no manual configuration.
-
-Root redirect: local_api.py's own GET / stays exactly as it is (a judge or a
-human should still be able to see the JSON route listing by asking for it
-explicitly, and test_local_api_smoke.py exercises local_api.app directly,
-never this module) -- but a judge pasting the bare Replit domain should land
-on the dashboard, not that JSON. Since `app` here is the same object as
-local_api.app, not a copy, this module removes local_api's root route and
-adds a redirect in its place. That mutation only ever runs when this module
-is actually imported as the deploy entrypoint (`uvicorn replit_app:app`);
-local dev and the test suite never import replit_app, so local_api.app's own
-GET / is untouched in both of those contexts.
+Root redirect: local_api.py's own GET / (the JSON route listing) is untouched in
+local dev and in the test suite, which use local_api.app directly and never
+import this module. Since `app` here is the same object as local_api.app, not a
+copy, importing this module removes that root route and adds a redirect in its
+place -- so a visitor to the bare domain lands on the dashboard, not on JSON.
 """
 
-from pathlib import Path
-from fastapi import APIRouter, Depends
-from fastapi.responses import RedirectResponse, FileResponse
-import auth
+from fastapi.responses import RedirectResponse
 
-from local_api import app, get_owner_actor
-
-DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard"
-
-dashboard_router = APIRouter(dependencies=[Depends(get_owner_actor)])
-
-@dashboard_router.get("/dashboard/")
-def get_dashboard_index():
-    return FileResponse(DASHBOARD_DIR / "index.html")
-
-@dashboard_router.get("/dashboard/{path:path}")
-def get_dashboard_file(path: str):
-    file_path = DASHBOARD_DIR / path
-    if file_path.is_file():
-        return FileResponse(file_path)
-    return FileResponse(DASHBOARD_DIR / "index.html")
-
-app.include_router(dashboard_router)
+from local_api import app
 
 app.router.routes = [route for route in app.router.routes if getattr(route, "path", None) != "/"]
+
 
 @app.get("/")
 def root_redirects_to_dashboard() -> RedirectResponse:

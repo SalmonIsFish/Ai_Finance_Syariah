@@ -235,7 +235,11 @@ From the repo root:
 .\.venv\Scripts\python.exe -m uvicorn local_api:app --app-dir backend --host 127.0.0.1 --port 8000
 ```
 
-or `backend\run_local.ps1`. Dashboard: open `dashboard\index.html`.
+or `backend\run_local.ps1`. Dashboard: http://127.0.0.1:8000/dashboard/ — the React app in
+`dashboard-v2/`. Its `dist/` is gitignored, so build it first (`cd dashboard-v2; npm ci;
+npm run build`), or run `npm run dev` for the Vite dev server, which proxies the API. The
+legacy single-file `dashboard\index.html` was retired on 2026-10-07: production could no
+longer reach it, and it rendered UNKNOWN in REJECT red.
 
 Config check (prints booleans, never values):
 

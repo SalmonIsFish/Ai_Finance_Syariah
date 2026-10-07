@@ -50,8 +50,10 @@ WantedBy=multi-user.target
 Three things about that unit are load-bearing and easy to break:
 
 - **The entrypoint is `replit_app:app`, not `local_api:app`.** Despite the name, `replit_app.py`
-  imports the same `local_api.app` object and mounts `/dashboard` onto it, so it serves the whole
-  API *plus* the static dashboard. `backend/replit_start.sh` is **not** used and binds
+  imports the same `local_api.app` object and redirects `/` to `/dashboard/`. The dashboard itself
+  (`dashboard-v2/dist`) is served by `local_api`'s own router; the legacy `dashboard/index.html`
+  router that `replit_app.py` used to add was unreachable and was retired on 2026-10-07.
+  `backend/replit_start.sh` is **not** used and binds
   `0.0.0.0:8080`, which is wrong for this host — ignore it.
 - **The bind is `127.0.0.1`.** uvicorn is not reachable except through nginx. Confirmed against
   `ss -tlnp`: nothing but 22, 80 and 443 listen on a public interface.

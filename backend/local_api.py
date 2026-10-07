@@ -1523,17 +1523,16 @@ def quote_snapshot_for_preview(evaluation: dict, request: PaperPreviewRequest) -
 
 
 def mounted_dashboard_url() -> str | None:
-    """The dashboard's URL when something has mounted it onto this app.
+    """The dashboard's URL, when its router and its build are both present.
 
-    backend/replit_app.py mounts dashboard/ at /dashboard for the combined
-    deployment; running local_api alone does not. Reported only when the mount
-    is actually present, so this never advertises a path that would 404.
+    The router above serves dashboard-v2/dist at /dashboard/. It looked for a
+    route at "/dashboard" -- which nothing registers -- so it always returned
+    None. dist/ is gitignored and built on the host, so the build is checked
+    too: this never advertises a path that would 404.
     """
-    return (
-        "/dashboard/"
-        if any(getattr(route, "path", None) == "/dashboard" for route in app.routes)
-        else None
-    )
+    routed = any(getattr(route, "path", None) == "/dashboard/" for route in app.routes)
+    built = (DASHBOARD_V2_DIR / "index.html").is_file()
+    return "/dashboard/" if routed and built else None
 
 
 @app.get("/")

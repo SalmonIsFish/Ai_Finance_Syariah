@@ -71,8 +71,9 @@ class Settings:
 # Origins the API answers cross-origin requests from. The deployed instance serves
 # the dashboard from its own origin, so it needs none of these -- it sets
 # ALLOWED_ORIGINS to just itself. The default is the local-development set: "null"
-# is what a browser sends for a dashboard/index.html opened straight off disk via
-# file://, and the rest are the usual local static servers.
+# is what a browser sends for a page opened straight off disk via file:// (the
+# dashboard/screening/ pages; the legacy dashboard/index.html it was added for has
+# been retired), and the rest are the usual local static servers.
 DEFAULT_ALLOWED_ORIGINS = (
     "null,http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500"
 )
