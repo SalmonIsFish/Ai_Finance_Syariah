@@ -2,6 +2,7 @@ import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { Moon, Sun, Briefcase, Activity, BarChart2, BookOpen, ListChecks } from "lucide-react";
 import { useState, useEffect } from "react";
 import ErrorBoundary from "../ErrorBoundary";
+import StatusBar from "../StatusBar";
 
 export default function Shell() {
   const location = useLocation();
@@ -55,12 +56,16 @@ export default function Shell() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header */}
-        <header className="h-16 flex items-center justify-between px-8 border-b border-[var(--color-border)] bg-[var(--color-bg)]">
-          <h2 className="font-sans font-medium text-lg">System Status</h2>
-          <div className="flex items-center gap-4">
+        {/* Was a static "System Status" title with no status behind it. Now the
+            live answer to "paper or live, is the broker up, is the market open,
+            and how fresh is this?" -- visible on every page. */}
+        <header className="min-h-16 py-2 flex items-center justify-between gap-4 px-8 border-b border-[var(--color-border)] bg-[var(--color-bg)]">
+          <StatusBar />
+          <div className="flex items-center gap-4 shrink-0">
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-md text-[var(--color-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-panel)]"
+              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              className="p-2 rounded-md text-[var(--color-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-panel)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
             >
               {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>

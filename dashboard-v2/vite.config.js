@@ -12,6 +12,7 @@ export default defineConfig({
       '/system/mode': 'http://127.0.0.1:8000',
       '/paper/status': 'http://127.0.0.1:8000',
       '/paper/account': 'http://127.0.0.1:8000',
+      '/market/clock': 'http://127.0.0.1:8000',
       '/paper/positions/live': 'http://127.0.0.1:8000',
       '/approvals': 'http://127.0.0.1:8000',
       '/watchlist': 'http://127.0.0.1:8000',

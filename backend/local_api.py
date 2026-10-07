@@ -30,6 +30,7 @@ from alpaca_paper_adapter import (
     ALPACA_ADAPTERS,
     alpaca_credentials,
     check_alpaca_status,
+    check_market_clock,
     fetch_broker_positions,
 )
 from approval_queue import ensure_approval_queue, get_approval, list_approvals, record_approval
@@ -1623,6 +1624,18 @@ def paper_account(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     static PAPER_ACCOUNT_EQUITY baseline (provision_cash_account.py), not this.
     """
     return check_alpaca_status()
+
+
+@app.get("/market/clock")
+def market_clock(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
+    """Is the US market open right now? Alpaca's clock, read-only; display only.
+
+    For the dashboard's status bar, so a quote can be seen to be stale. is_open is
+    None -- never False -- when the clock cannot be read: "unknown" and "closed"
+    are different claims. There is no Bursa equivalent; Malaysian hours are not
+    reported rather than guessed.
+    """
+    return check_market_clock()
 
 
 @app.get("/paper/positions/live")

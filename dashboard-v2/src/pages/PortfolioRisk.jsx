@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { fetchPortfolio, fetchLivePositions, fetchAccount, fetchPortfolioHistoryLive, fetchPortfolioHistory, fetchCompliance } from "../api";
 import { verdictBadgeClass, verdictTextClass } from "../verdict";
-import { fmtMoney, fmtPct, fmtNum, fmtQty, fmtDate, isPresent } from "../format";
+import { fmtMoney, fmtPct, fmtNum, fmtQty, fmtDate, fmtTime, isPresent } from "../format";
+import useResource from "../useResource";
 import ErrorNote from "../components/ErrorNote";
 
 /**
@@ -187,8 +188,29 @@ function SimpleLineChart({ data }) {
   );
 }
 
+/** "as of 15:24:19 MYT", turning amber and saying so when refreshes have been failing. */
+function AsOf({ resource }) {
+  if (!resource.asOf) return null;
+  return (
+    <span
+      className={`text-xs font-normal ml-3 ${resource.stale || resource.error ? "text-[var(--color-warn)]" : "text-[var(--color-muted)]"}`}
+      title={resource.error ? `Last refresh failed: ${resource.error.message}` : undefined}
+    >
+      {resource.stale || resource.error ? "stale · " : ""}as of {fmtTime(resource.asOf)}
+    </span>
+  );
+}
+
+const LIVE_POLL_MS = 30_000;
+
 export default function PortfolioRisk() {
-  const [data, setData] = useState({ portfolio: null, positions: null, account: null, compliance: null });
+  // The broker-backed figures refresh themselves and carry their own time. They
+  // used to be fetched once on mount, so a balance loaded at 09:00 still looked
+  // current at 15:00.
+  const accountRes = useResource(fetchAccount, { intervalMs: LIVE_POLL_MS });
+  const positionsRes = useResource(fetchLivePositions, { intervalMs: LIVE_POLL_MS });
+
+  const [data, setData] = useState({ portfolio: null, compliance: null });
   const [errors, setErrors] = useState({});
   const [historyData, setHistoryData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -197,10 +219,8 @@ export default function PortfolioRisk() {
   useEffect(() => {
     async function load() {
       try {
-        const [portfolioResult, positionsResult, accountResult, complianceResult] = await Promise.allSettled([
+        const [portfolioResult, complianceResult] = await Promise.allSettled([
           fetchPortfolio(),
-          fetchLivePositions(),
-          fetchAccount(),
           fetchCompliance()
         ]);
 
@@ -210,8 +230,6 @@ export default function PortfolioRisk() {
         const value = (r) => (r.status === "fulfilled" ? r.value : null);
         const failure = (r) => (r.status === "rejected" ? r.reason : null);
         const portfolio = value(portfolioResult);
-        const positions = value(positionsResult);
-        const account = value(accountResult);
         const compliance = value(complianceResult);
 
         let hist = null;
@@ -228,11 +246,9 @@ export default function PortfolioRisk() {
           }
         }
 
-        setData({ portfolio, positions, account, compliance });
+        setData({ portfolio, compliance });
         setErrors({
           portfolio: failure(portfolioResult),
-          positions: failure(positionsResult),
-          account: failure(accountResult),
           compliance: failure(complianceResult),
           history: histError,
         });
@@ -249,11 +265,17 @@ export default function PortfolioRisk() {
   if (loading) return <div className="text-[var(--color-muted)] animate-pulse">Loading Portfolio &amp; Risk…</div>;
   if (error) return <div className="text-[var(--color-bad)] p-4 bg-[var(--color-bad-bg)] rounded">{error}</div>;
 
-  const { portfolio, positions, account, compliance } = data;
+  const { portfolio, compliance } = data;
+  const account = accountRes.data;
+  const positions = positionsRes.data;
+  // A refresh that fails keeps the last good figures on screen (with a stale
+  // "as of"); only with nothing good to show is the failure the whole story.
+  const accountError = account ? null : accountRes.error;
+  const positionsError = positions ? null : positionsRes.error;
   const limits = portfolio?.risk_limits || {};
   // /paper/account answers 200 with a status and no figures when the broker is
   // unreachable, so a missing equity is a failure too, not just a rejected fetch.
-  const accountUnavailable = errors.account || !isPresent(account?.equity);
+  const accountUnavailable = !accountRes.loading && (accountError || !isPresent(account?.equity));
   // Alpaca is the only broker behind these balances, so they are US dollars.
   const usd = (v) => fmtMoney(v, "US");
 
@@ -264,12 +286,12 @@ export default function PortfolioRisk() {
       </div>
 
       <section>
-        <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Account Balances</h2>
+        <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Account Balances<AsOf resource={accountRes} /></h2>
         {accountUnavailable && (
           <div className="mb-4">
             <ErrorNote
               what="the broker account"
-              error={errors.account || (account?.status ? `broker reported ${account.status}` : null)}
+              error={accountError || (account?.status ? `broker reported ${account.status}` : null)}
             />
           </div>
         )}
@@ -352,7 +374,7 @@ export default function PortfolioRisk() {
       </section>
 
       <section>
-        <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Live Broker Positions</h2>
+        <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Live Broker Positions<AsOf resource={positionsRes} /></h2>
         <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-[var(--color-panel-2)] border-b border-[var(--color-border)] text-[var(--color-subtle)] text-xs uppercase tracking-wider">
@@ -369,12 +391,16 @@ export default function PortfolioRisk() {
                   status "unreachable" and an EMPTY list, which rendered as "No
                   live positions found" -- an outage presented as an empty account.
                   Only status "ok" means the list is the broker's answer. */}
-              {errors.positions || positions?.status !== "ok" || !Array.isArray(positions?.positions) ? (
+              {positionsRes.loading && !positions ? (
+                <tr>
+                  <td colSpan="4" className="px-4 py-4 text-center text-[var(--color-muted)]">Loading live positions…</td>
+                </tr>
+              ) : positionsError || positions?.status !== "ok" || !Array.isArray(positions?.positions) ? (
                 <tr>
                   <td colSpan="4" className="px-4 py-4">
                     <ErrorNote
                       what="live broker positions"
-                      error={errors.positions || (positions?.status ? `broker reported ${positions.status}${positions.reason ? ` (${positions.reason})` : ""}` : null)}
+                      error={positionsError || (positions?.status ? `broker reported ${positions.status}${positions.reason ? ` (${positions.reason})` : ""}` : null)}
                     />
                   </td>
                 </tr>

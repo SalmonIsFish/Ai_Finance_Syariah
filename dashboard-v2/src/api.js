@@ -76,6 +76,8 @@ export const fetchRiskSnapshot = () => fetchGet("/paper/risk-snapshot");
 /** What this instance will actually execute, and through which adapter, per market.
  *  The backend is the authority on this -- the UI must not restate it. */
 export const fetchPaperStatus = () => fetchGet("/paper/status");
+/** Alpaca's US market clock. is_open is null -- not false -- when it cannot be read. */
+export const fetchMarketClock = () => fetchGet("/market/clock");
 export const fetchPortfolioHistoryLive = (period = "1M") => fetchGet(`/portfolio/history/live?period=${period}`);
 export const fetchPortfolioHistory = (period = "1M") => fetchGet(`/portfolio/history?period=${period}`);
 export const fetchMarketOverview = () => fetchGet("/market-overview");
