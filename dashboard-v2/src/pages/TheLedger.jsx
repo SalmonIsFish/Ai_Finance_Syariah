@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { fetchApprovals, fetchExecutionAudit, fetchAuditEvents } from "../api";
 import ErrorNote from "../components/ErrorNote";
+import { fmtDateTime } from "../format";
 
 export default function TheLedger() {
   const [data, setData] = useState({ approvals: null, execution: null, auditEvents: null });
@@ -81,7 +82,7 @@ export default function TheLedger() {
                 approvals.slice(0, 20).map((app, idx) => (
                   <tr key={app.id ?? idx} className="hover:bg-[var(--color-bg-soft)] transition-colors">
                     <td className="px-4 py-3 font-mono tabular-nums text-xs">{app.id ?? '—'}</td>
-                    <td className="px-4 py-3 font-mono tabular-nums text-xs text-[var(--color-muted)]">{new Date(app.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-3 font-mono tabular-nums text-xs text-[var(--color-muted)]">{fmtDateTime(app.created_at)}</td>
                     <td className="px-4 py-3 font-bold">{app.symbol}</td>
                     <td className={`px-4 py-3 font-bold ${app.side === 'BUY' ? 'text-[var(--color-ok)]' : 'text-[var(--color-warn)]'}`}>{app.side}</td>
                     <td className="px-4 py-3 font-mono">{app.approval_status}</td>
@@ -118,7 +119,7 @@ export default function TheLedger() {
               ) : (
                 execution.recent_execution_events.map((evt, idx) => (
                   <tr key={idx} className="hover:bg-[var(--color-bg-soft)] transition-colors">
-                    <td className="px-4 py-3 font-mono tabular-nums text-xs text-[var(--color-muted)]">{new Date(evt.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-3 font-mono tabular-nums text-xs text-[var(--color-muted)]">{fmtDateTime(evt.created_at)}</td>
                     <td className="px-4 py-3 font-mono">{evt.event_type}</td>
                     <td className="px-4 py-3 font-mono tabular-nums">{evt.queue_id || '-'}</td>
                     <td className="px-4 py-3 text-xs truncate max-w-xs">{evt.status || evt.message || '-'}</td>
@@ -152,7 +153,7 @@ export default function TheLedger() {
               ) : (
                 auditEvents.slice(0, 50).map((evt, idx) => (
                   <tr key={idx} className="hover:bg-[var(--color-bg-soft)] transition-colors">
-                    <td className="px-4 py-3 font-mono tabular-nums text-xs text-[var(--color-muted)]">{new Date(evt.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-3 font-mono tabular-nums text-xs text-[var(--color-muted)]">{fmtDateTime(evt.created_at)}</td>
                     <td className="px-4 py-3 font-mono text-[var(--color-accent)]">{evt.event_type}</td>
                   </tr>
                 ))

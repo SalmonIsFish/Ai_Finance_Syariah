@@ -5,7 +5,7 @@ import EvidenceTrail from "../components/EvidenceTrail";
 import ErrorNote from "../components/ErrorNote";
 import { fetchPreview, submitApproval, fetchRiskSnapshot, fetchPaperStatus } from "../api";
 import { verdictTextClass } from "../verdict";
-import { detectMarket, marketLabel, marketBadgeClass, marketAuthority, formatPrice } from "../market";
+import { detectMarket, marketLabel, marketBadgeClass, marketAuthority } from "../market";
 import { fmtMoney, fmtPct, isPresent, MISSING } from "../format";
 
 const INPUT_CLASS =
@@ -371,7 +371,7 @@ export default function TheDesk() {
 
             <OfficerCard
               role="Quant Manager"
-              title={`Signal for ${preview.symbol} • ${preview.side} ${preview.quantity} @ ${formatPrice(preview.price, ticketMarket)}`}
+              title={`Signal for ${preview.symbol} • ${preview.side} ${preview.quantity} @ ${fmtMoney(preview.price, ticketMarket)}`}
               verdict={quantVerdict(preview.agent_summary?.quant?.signal)}
               verdictLabel={preview.agent_summary?.quant?.signal || 'N/A'}
               details={[
@@ -406,7 +406,7 @@ export default function TheDesk() {
 
             <OfficerCard
               role="Risk Manager"
-              title={`Check on ${preview.symbol} • ${preview.side} ${preview.quantity} @ ${formatPrice(preview.price, ticketMarket)}`}
+              title={`Check on ${preview.symbol} • ${preview.side} ${preview.quantity} @ ${fmtMoney(preview.price, ticketMarket)}`}
               verdict={preview.agent_summary?.risk?.status || 'UNKNOWN'}
               details={[
                 { label: "Notional", value: fmtMoney(preview.notional, ticketMarket) },
@@ -486,7 +486,7 @@ export default function TheDesk() {
                 <div className="border border-[var(--color-border)] rounded p-4 bg-[var(--color-bg)]">
                   <span className="block text-[var(--color-subtle)] uppercase tracking-wider text-xs font-bold mb-1">Order Details</span>
                   <div className="font-mono text-[var(--color-text)] tabular-nums">
-                    {reviewPreview.symbol} • {reviewPreview.side} • {reviewPreview.quantity} share(s) @ {formatPrice(reviewPreview.price, ticketMarket)}
+                    {reviewPreview.symbol} • {reviewPreview.side} • {reviewPreview.quantity} share(s) @ {fmtMoney(reviewPreview.price, ticketMarket)}
                   </div>
                   <div className="font-mono text-[var(--color-muted)] tabular-nums text-xs mt-1">
                     notional {fmtMoney(reviewPreview.notional, ticketMarket)}

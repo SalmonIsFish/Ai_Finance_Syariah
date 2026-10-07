@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { fetchPortfolio, fetchLivePositions, fetchAccount, fetchPortfolioHistoryLive, fetchPortfolioHistory, fetchCompliance } from "../api";
 import { verdictBadgeClass, verdictTextClass } from "../verdict";
-import { fmtMoney, fmtPct, fmtNum, isPresent } from "../format";
+import { fmtMoney, fmtPct, fmtNum, fmtQty, fmtDate, isPresent } from "../format";
 import ErrorNote from "../components/ErrorNote";
 
 /**
@@ -164,9 +164,10 @@ function SimpleLineChart({ data }) {
   return (
     <div className="w-full">
       <div className="flex justify-between items-end mb-2">
-        <div className="text-2xl font-mono tabular-nums">${lastVal.toFixed(2)}</div>
+        <div className="text-2xl font-mono tabular-nums">{fmtMoney(lastVal, "US")}</div>
         <div className={`font-mono text-sm tabular-nums ${isPositive ? 'text-[var(--color-ok)]' : 'text-[var(--color-bad)]'}`}>
-          {isPositive ? '+' : ''}{((lastVal - firstVal) / firstVal * 100).toFixed(2)}%
+          {/* A zero first value would divide to Infinity; fmtPct renders that as "—". */}
+          {fmtPct(((lastVal - firstVal) / firstVal) * 100, 2, { signed: true })}
         </div>
       </div>
       <svg viewBox={`0 -10 ${width} ${height + 20}`} className="w-full h-32 overflow-visible" preserveAspectRatio="none">
@@ -179,8 +180,8 @@ function SimpleLineChart({ data }) {
         />
       </svg>
       <div className="flex justify-between mt-2 text-[var(--color-muted)] text-xs">
-        <span>{new Date(data[0].date).toLocaleDateString()}</span>
-        <span>{new Date(data[data.length - 1].date).toLocaleDateString()}</span>
+        <span>{fmtDate(data[0].date)}</span>
+        <span>{fmtDate(data[data.length - 1].date)}</span>
       </div>
     </div>
   );
@@ -389,10 +390,10 @@ export default function PortfolioRisk() {
                 positions.positions.map(pos => (
                   <tr key={pos.symbol} className="hover:bg-[var(--color-bg-soft)] transition-colors">
                     <td className="px-4 py-3 font-bold">{pos.symbol}</td>
-                    <td className="px-4 py-3 font-mono tabular-nums">{fmtNum(pos.quantity)}</td>
+                    <td className="px-4 py-3 font-mono tabular-nums">{fmtQty(pos.quantity)}</td>
                     <td className="px-4 py-3 font-mono tabular-nums">{usd(pos.market_value)}</td>
                     <td className={`px-4 py-3 font-mono tabular-nums ${!isPresent(pos.unrealized_pnl) ? '' : Number(pos.unrealized_pnl) >= 0 ? 'text-[var(--color-ok)]' : 'text-[var(--color-bad)]'}`}>
-                      {usd(pos.unrealized_pnl)}
+                      {fmtMoney(pos.unrealized_pnl, "US", { signed: true })}
                     </td>
                   </tr>
                 ))

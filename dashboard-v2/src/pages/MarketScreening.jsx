@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { fetchMarketOverview, fetchNews, fetchStockProfile } from "../api";
 import { verdictTextClass } from "../verdict";
-import { formatPrice, marketLabel, marketBadgeClass, detectMarket } from "../market";
-import { fmtPct, MISSING, isPresent } from "../format";
+import { marketLabel, marketBadgeClass, detectMarket } from "../market";
+import { fmtMoney, fmtPct, fmtDate, MISSING, isPresent } from "../format";
 import ErrorNote from "../components/ErrorNote";
 
 /**
@@ -194,7 +194,7 @@ export default function MarketScreening() {
                         {marketLabel(cand.market)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-mono tabular-nums">{formatPrice(cand.price, cand.market)}</td>
+                    <td className="px-4 py-3 font-mono tabular-nums">{fmtMoney(cand.price, cand.market)}</td>
                     <td className="px-4 py-3 font-bold text-[var(--color-ok)]">{cand.quant_signal}</td>
                     <td className={`px-4 py-3 font-bold ${verdictTextClass(cand.shariah_status)}`}>{cand.shariah_status}</td>
                     <td className={`px-4 py-3 font-bold ${verdictTextClass(cand.risk_status)}`}>{cand.risk_status}</td>
@@ -287,7 +287,7 @@ export default function MarketScreening() {
               <div className="border border-[var(--color-border)] rounded p-4 bg-[var(--color-panel-2)]">
                 <span className="block text-[var(--color-subtle)] uppercase tracking-wider text-xs font-bold mb-1">Market Data</span>
                 <div className="text-lg font-mono tabular-nums text-[var(--color-text)]">
-                  {formatPrice(profileData.market_data?.latest_close, profileMarket)}
+                  {fmtMoney(profileData.market_data?.latest_close, profileMarket)}
                 </div>
                 <div className="text-xs text-[var(--color-muted)] mt-1">{profileData.market_data?.bars || 0} bars • {profileData.market_data?.source || 'N/A'}</div>
               </div>
@@ -297,7 +297,7 @@ export default function MarketScreening() {
                 <div className="text-lg font-bold text-[var(--color-text)]">
                   {profileData.latest_opportunity?.watch_status || 'NONE'}
                 </div>
-                <div className="text-xs text-[var(--color-muted)] mt-1 font-mono tabular-nums">Trigger: {formatPrice(profileData.latest_opportunity?.trigger_price, profileMarket)}</div>
+                <div className="text-xs text-[var(--color-muted)] mt-1 font-mono tabular-nums">Trigger: {fmtMoney(profileData.latest_opportunity?.trigger_price, profileMarket)}</div>
               </div>
 
               <div className="border border-[var(--color-border)] rounded p-4 bg-[var(--color-panel-2)]">
@@ -324,7 +324,7 @@ export default function MarketScreening() {
               <a key={idx} href={item.url} target="_blank" rel="noopener noreferrer" className="block bg-[var(--color-panel)] border border-[var(--color-border)] rounded p-4 hover:border-[var(--color-accent)] transition-colors">
                 <div className="flex justify-between items-start mb-2">
                   <span className="font-bold text-[var(--color-text)]">{item.symbols?.join(", ")}</span>
-                  <span className="text-xs text-[var(--color-muted)]">{new Date(item.created_at).toLocaleDateString()}</span>
+                  <span className="text-xs text-[var(--color-muted)]">{fmtDate(item.created_at)}</span>
                 </div>
                 <h3 className="text-sm font-bold text-[var(--color-text)] mb-2 line-clamp-2">{item.headline}</h3>
                 {item.summary && <p className="text-xs text-[var(--color-subtle)] line-clamp-3">{item.summary}</p>}

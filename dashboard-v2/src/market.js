@@ -77,17 +77,11 @@ export function marketBadgeClass() {
 }
 
 /**
- * Money, in the currency of the market it was quoted in.
+ * The currency symbol a market is quoted in -- "" for an unknown market.
  *
  * An unknown market gets no symbol at all rather than a guessed "$". Printing
  * RM 6.50 as $6.50 misstates a price by roughly 4x, and a bare number is
- * honest where a wrong symbol is not.
+ * honest where a wrong symbol is not. Formatting itself lives in format.js
+ * (fmtMoney); this only answers "which currency".
  */
-export function formatPrice(value, marketCode) {
-  const numeric = Number(value);
-  if (value === null || value === undefined || Number.isNaN(numeric)) return "—";
-  const amount = numeric.toFixed(2);
-  const symbol = market(marketCode).currency;
-  if (!symbol) return amount;
-  return symbol === "RM" ? `RM ${amount}` : `${symbol}${amount}`;
-}
+export const marketCurrency = (code) => market(code).currency;

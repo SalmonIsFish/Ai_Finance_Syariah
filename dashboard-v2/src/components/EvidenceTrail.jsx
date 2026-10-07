@@ -22,6 +22,7 @@
 import { useEffect, useState } from "react";
 import { fetchEvidence } from "../api";
 import { verdictBadgeClass } from "../verdict";
+import { fmtDateTime, fmtMoney, fmtDate } from "../format";
 
 /** A decision outcome is not a Shariah verdict -- map it deliberately rather
  *  than passing it to verdictStyle, which would silently render every
@@ -75,7 +76,7 @@ function DecisionCard({ record }) {
           </span>
         </div>
         <span className="text-xs text-[var(--color-muted)] font-mono">
-          {record.timestamp ? record.timestamp.replace("T", " ").slice(0, 19) : "—"}
+          {fmtDateTime(record.timestamp)}
         </span>
       </div>
 
@@ -89,9 +90,9 @@ function DecisionCard({ record }) {
         <Field label="Authority" value={shariah.provider} />
         <Field label="Publication" value={shariah.publication_id} />
         <Field label="Quant" value={quant.signal} />
-        <Field label="Price" value={market.price ?? quant.price} />
+        <Field label="Price" value={fmtMoney(market.price ?? quant.price, shariah.market)} />
         <Field label="Feed" value={market.price_source || quant.price_source} />
-        <Field label="Data as of" value={market.as_of_date || quant.as_of_date} />
+        <Field label="Data as of" value={(market.as_of_date || quant.as_of_date) ? fmtDate(market.as_of_date || quant.as_of_date) : null} />
         <Field label="Freshness" value={market.data_freshness} />
         <Field label="Bars" value={quant.bars} />
       </div>

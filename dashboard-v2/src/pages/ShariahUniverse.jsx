@@ -24,6 +24,7 @@ import { Search, ArrowRight } from "lucide-react";
 import { fetchUniverse, fetchPublication, fetchScreenedUS } from "../api";
 import { verdictBadgeClass } from "../verdict";
 import { normalizeVerdict, verdictLabel } from "../shariah";
+import { fmtPct, fmtDate } from "../format";
 
 /** Rendering every row of a long list costs paint for no benefit: nobody reads
  *  887 rows. Search narrows; this only caps what is drawn. The counts shown to
@@ -341,18 +342,14 @@ function UnitedStatesTab() {
                     <VerdictChip status={row.status} />
                   </td>
                   <td className="px-4 py-3 font-mono tabular-nums text-[var(--color-muted)]">
-                    {row.debt_ratio_pct === null || row.debt_ratio_pct === undefined
-                      ? "—"
-                      : `${Number(row.debt_ratio_pct).toFixed(1)}%`}
+                    {fmtPct(row.debt_ratio_pct, 1)}
                   </td>
                   <td className="px-4 py-3 font-mono tabular-nums text-[var(--color-muted)]">
-                    {row.cash_ratio_pct === null || row.cash_ratio_pct === undefined
-                      ? "—"
-                      : `${Number(row.cash_ratio_pct).toFixed(1)}%`}
+                    {fmtPct(row.cash_ratio_pct, 1)}
                   </td>
-                  <td className="px-4 py-3 text-[var(--color-muted)]">{row.report_date || "—"}</td>
+                  <td className="px-4 py-3 text-[var(--color-muted)]">{fmtDate(row.report_date)}</td>
                   <td className="px-4 py-3 text-[var(--color-muted)]">
-                    {row.screened_at ? row.screened_at.slice(0, 10) : "—"}
+                    {fmtDate(row.screened_at)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link
