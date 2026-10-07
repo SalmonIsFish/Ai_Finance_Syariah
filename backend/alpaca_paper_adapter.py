@@ -972,24 +972,43 @@ def paper_account_from_payload(payload) -> dict | None:
         "options_trading_level": options_level(payload),
         # Settled cash only. buying_power is inflated by margin, so it can never
         # stand as collateral evidence for a cash-secured put.
-        "cash": _float_or_zero(payload.get("cash")),
+        "cash": _float_or_none(payload.get("cash")),
         # Mark-to-market fields, for display only -- never used as gate/collateral
         # evidence. equity/portfolio_value move with live prices; last_equity is
         # the prior trading day's close, which is what a daily-change figure is
         # measured against.
-        "equity": _float_or_zero(payload.get("equity")),
-        "last_equity": _float_or_zero(payload.get("last_equity")),
-        "buying_power": _float_or_zero(payload.get("buying_power")),
-        "portfolio_value": _float_or_zero(payload.get("portfolio_value")),
+        "equity": _float_or_none(payload.get("equity")),
+        "last_equity": _float_or_none(payload.get("last_equity")),
+        "buying_power": _float_or_none(payload.get("buying_power")),
+        "portfolio_value": _float_or_none(payload.get("portfolio_value")),
         "raw_account": payload,
     }
 
 
-def _float_or_zero(value) -> float:
+def _float_or_none(value) -> float | None:
+    """A broker figure as a finite float, or None when it is missing or unusable.
+
+    This was _float_or_zero, which turned a field Alpaca did not send -- or sent as
+    "" or "nan" -- into 0.0. A missing equity became "$0.00" on the dashboard and a
+    daily change equal to losing the whole account; a missing average cost became a
+    $0.00 cost basis. Zero is a claim about the account; None says "not reported".
+
+    These values are reporting only. The one that reaches a gate -- settled cash as
+    collateral -- is read in local_api.broker_account_context as
+    ``float(status.get("cash") or 0.0)``, so a missing cash still counts as no
+    collateral there: the gate keeps failing closed.
+    """
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError):
-        return 0.0
+        return None
+    return number if is_finite_number(number) else None
+
+
+def _percent_or_none(fraction) -> float | None:
+    """Alpaca reports P&L % as a fraction (-0.0083); the dashboard shows percent (-0.83)."""
+    number = _float_or_none(fraction)
+    return round(number * 100, 6) if number is not None else None
 
 
 def account_type_from_multiplier(multiplier) -> str:
@@ -1289,9 +1308,15 @@ def check_alpaca_status() -> dict:
             "account_status": account["account_status"],
         }
 
-    daily_change = round(account["equity"] - account["last_equity"], 2)
+    # Only from two reported figures: a missing equity is not a loss of the account.
+    equity, last_equity = account["equity"], account["last_equity"]
+    daily_change = (
+        round(equity - last_equity, 2) if equity is not None and last_equity is not None else None
+    )
     daily_change_pct = (
-        round(daily_change / account["last_equity"] * 100, 4) if account["last_equity"] else None
+        round(daily_change / last_equity * 100, 4)
+        if daily_change is not None and last_equity
+        else None
     )
     return {
         **base,
@@ -1346,12 +1371,12 @@ def fetch_broker_positions() -> dict:
                 "symbol": entry.get("symbol"),
                 "asset_class": entry.get("asset_class"),
                 "side": entry.get("side"),
-                "quantity": _float_or_zero(entry.get("qty")),
-                "average_entry_price": _float_or_zero(entry.get("avg_entry_price")),
-                "current_price": _float_or_zero(entry.get("current_price")),
-                "market_value": _float_or_zero(entry.get("market_value")),
-                "unrealized_pnl": _float_or_zero(entry.get("unrealized_pl")),
-                "unrealized_pnl_pct": _float_or_zero(entry.get("unrealized_plpc")) * 100,
+                "quantity": _float_or_none(entry.get("qty")),
+                "average_entry_price": _float_or_none(entry.get("avg_entry_price")),
+                "current_price": _float_or_none(entry.get("current_price")),
+                "market_value": _float_or_none(entry.get("market_value")),
+                "unrealized_pnl": _float_or_none(entry.get("unrealized_pl")),
+                "unrealized_pnl_pct": _percent_or_none(entry.get("unrealized_plpc")),
             }
         )
     return {"status": "ok", "positions": positions}

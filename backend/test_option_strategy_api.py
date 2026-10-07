@@ -301,6 +301,19 @@ def test_an_unreachable_broker_is_not_reported_as_an_empty_account() -> None:
             connection.close()
         assert good["broker_status"] == "paper_account_ready", good
         assert good["cash_collateral"] == 50.0, good
+
+        # The adapter now reports an unreported cash figure as None, not 0.0. At
+        # the gate that must still mean NO collateral -- fail closed -- never an
+        # error, and never anything a cash-secured put could be sized against.
+        connection = local_api.db()
+        try:
+            local_api.check_alpaca_status = lambda: {**healthy, "cash": None}
+            unreported = local_api.broker_account_context(
+                connection, {"symbol": "CVX", "asset_class": "option"}
+            )
+        finally:
+            connection.close()
+        assert unreported["cash_collateral"] == 0.0, unreported
     finally:
         local_api.check_alpaca_status = original_status
 

@@ -763,6 +763,24 @@ def check_status_probe() -> None:
     zero_baseline = alpaca_paper_adapter.check_alpaca_status()
     assert zero_baseline["daily_change_pct"] is None, zero_baseline
 
+    # A field the broker did not send is unknown, not zero. _float_or_zero turned a
+    # missing equity into 0.0, so the dashboard showed "$0.00" -- a confident, wrong
+    # figure -- and the daily change became a fake loss of the whole account. NaN,
+    # which float() accepts, is unknown too.
+    sparse = {
+        key: value for key, value in PAPER_ACCOUNT.items() if key not in {"equity", "buying_power"}
+    }
+    alpaca_paper_adapter.alpaca_request = FakeRest(
+        account={**sparse, "cash": "nan", "portfolio_value": ""}
+    )
+    unknown = alpaca_paper_adapter.check_alpaca_status()
+    assert unknown["status"] == "paper_account_ready", unknown
+    for field in ("equity", "buying_power", "cash", "portfolio_value"):
+        assert unknown[field] is None, (field, unknown[field])
+    assert unknown["last_equity"] == 10000.0, unknown
+    assert unknown["daily_change"] is None, unknown
+    assert unknown["daily_change_pct"] is None, unknown
+
     alpaca_paper_adapter.alpaca_request = FakeRest(
         account={**PAPER_ACCOUNT, "account_blocked": True}
     )
@@ -819,6 +837,31 @@ def check_broker_positions_probe() -> None:
     option_position = result["positions"][1]
     assert option_position["asset_class"] == "us_option", option_position
     assert option_position["quantity"] == -1.0, option_position
+    assert equity_position["unrealized_pnl_pct"] == -0.83, equity_position
+
+    # A position row with fields missing or non-finite reports them as unknown,
+    # not as zero: a $0.00 average cost or a 0% P&L is a statement about the
+    # position that the broker never made.
+    fake = FakeRest(
+        positions=[
+            {
+                "symbol": "MSFT",
+                "side": "long",
+                "qty": "3",
+                "avg_entry_price": None,
+                "current_price": "inf",
+                "market_value": "1200.00",
+                "unrealized_pl": "",
+                "unrealized_plpc": None,
+            },
+        ]
+    )
+    alpaca_paper_adapter.alpaca_request = fake
+    sparse = alpaca_paper_adapter.fetch_broker_positions()["positions"][0]
+    assert sparse["quantity"] == 3.0, sparse
+    assert sparse["market_value"] == 1200.0, sparse
+    for field in ("average_entry_price", "current_price", "unrealized_pnl", "unrealized_pnl_pct"):
+        assert sparse[field] is None, (field, sparse[field])
 
     def failing_positions(method, path, *, credentials, body=None):
         assert path == "/v2/positions", path

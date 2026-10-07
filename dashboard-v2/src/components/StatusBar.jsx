@@ -65,7 +65,11 @@ export default function StatusBar() {
   ) : isPresent(account.data.equity) ? (
     <Chip tone="ok" label="Broker connected" title={account.data.account_suffix ? `Account …${account.data.account_suffix}` : undefined} />
   ) : (
-    <Chip tone="bad" label={`Broker: ${account.data.status || "no data"}`} />
+    // Ready but without figures: the broker answered and left the balance out.
+    <Chip
+      tone="bad"
+      label={account.data.status === "paper_account_ready" ? "Broker: no balance reported" : `Broker: ${account.data.status || "no data"}`}
+    />
   );
 
   // US market: Alpaca's clock. Bursa hours are not reported rather than guessed.

@@ -334,7 +334,14 @@ export default function PortfolioRisk() {
           <div className="mb-4">
             <ErrorNote
               what="the broker account"
-              error={accountError || (account?.status ? `broker reported ${account.status}` : null)}
+              error={
+                accountError ||
+                (account?.status === "paper_account_ready"
+                  ? "the broker answered but reported no equity figure"
+                  : account?.status
+                    ? `broker reported ${account.status}`
+                    : null)
+              }
             />
           </div>
         )}
