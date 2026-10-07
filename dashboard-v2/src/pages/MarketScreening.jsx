@@ -6,6 +6,7 @@ import { verdictTextClass } from "../verdict";
 import { marketLabel, marketBadgeClass, detectMarket } from "../market";
 import { fmtMoney, fmtPct, fmtDate, MISSING, isPresent } from "../format";
 import ErrorNote from "../components/ErrorNote";
+import DataTable from "../components/DataTable";
 
 /**
  * `/news` returns ai_summary as an OBJECT -- {text, model, shariah_status,
@@ -22,6 +23,73 @@ function aiSummaryText(summary) {
   if (typeof summary === "string") return summary;
   return typeof summary.text === "string" ? summary.text : null;
 }
+
+/**
+ * Opens a pre-filled ticket on The Desk. It does not buy anything -- the order
+ * still has to clear every gate at /paper/preview, be approved, and then be
+ * executed with the confirmation phrase. A Link rather than an onClick so
+ * middle-click and open-in-new-tab behave normally.
+ *
+ * Green only when the compliance gate actually passed. A row whose Shariah
+ * verdict is REJECT or UNKNOWN still gets a link -- inspecting it on The Desk is
+ * reasonable, and the gates re-run there anyway -- but it must not wear an
+ * affirmative "go" colour. The UI should never look keener on a trade than the
+ * gate is.
+ */
+function TicketLink({ cand }) {
+  const pass = cand.shariah_status === "PASS";
+  return (
+    <Link
+      to={`/?symbol=${encodeURIComponent(cand.symbol)}&price=${encodeURIComponent(cand.price)}`}
+      title={
+        pass
+          ? `Open a pre-filled ticket for ${cand.symbol} on The Desk. This does not place an order.`
+          : `${cand.symbol} is ${cand.shariah_status} on the Shariah gate. Opens a ticket for review; the gate will refuse it.`
+      }
+      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition hover:brightness-125 focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] ${
+        pass
+          ? "bg-[var(--color-ok-bg)] text-[var(--color-ok)] border border-[var(--color-ok)]"
+          : "bg-transparent text-[var(--color-muted)] border border-[var(--color-border-strong)]"
+      }`}
+    >
+      {pass ? "Buy" : "Review"}
+      <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+    </Link>
+  );
+}
+
+const OPPORTUNITY_COLUMNS = [
+  { key: "symbol", label: "Symbol", className: "font-bold" },
+  {
+    key: "market",
+    label: "Market",
+    render: (cand) => (
+      <span className={`px-2 py-0.5 rounded text-xs font-bold ${marketBadgeClass()}`}>{marketLabel(cand.market)}</span>
+    ),
+  },
+  { key: "price", label: "Price", numeric: true, render: (cand) => fmtMoney(cand.price, cand.market) },
+  {
+    key: "quant_signal",
+    label: "Signal",
+    // Green only for BUY. This column used to be green whatever the signal said.
+    render: (cand) => (
+      <span className={`font-bold ${cand.quant_signal === "BUY" ? "text-[var(--color-ok)]" : "text-[var(--color-muted)]"}`}>
+        {cand.quant_signal || "—"}
+      </span>
+    ),
+  },
+  {
+    key: "shariah_status",
+    label: "Shariah",
+    render: (cand) => <span className={`font-bold ${verdictTextClass(cand.shariah_status)}`}>{cand.shariah_status || "—"}</span>,
+  },
+  {
+    key: "risk_status",
+    label: "Risk",
+    render: (cand) => <span className={`font-bold ${verdictTextClass(cand.risk_status)}`}>{cand.risk_status || "—"}</span>,
+  },
+  { key: "action", label: "Action", sortable: false, align: "right", render: (cand) => <TicketLink cand={cand} /> },
+];
 
 export default function MarketScreening() {
   const [data, setData] = useState(null);
@@ -159,79 +227,22 @@ export default function MarketScreening() {
             ))}
           </div>
         </div>
-        <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-[var(--color-panel-2)] border-b border-[var(--color-border)] text-[var(--color-subtle)] text-xs uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-3 font-bold">Symbol</th>
-                <th className="px-4 py-3 font-bold">Market</th>
-                <th className="px-4 py-3 font-bold">Price</th>
-                <th className="px-4 py-3 font-bold">Signal</th>
-                <th className="px-4 py-3 font-bold">Shariah</th>
-                <th className="px-4 py-3 font-bold">Risk</th>
-                <th className="px-4 py-3 font-bold text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
-              {!visibleCandidates.length ? (
-                <tr>
-                  <td colSpan="7" className="px-4 py-4 text-center text-[var(--color-muted)]">
-                    {/* A Malaysia filter that finds nothing is almost always a
-                        watchlist fact, not a market fact -- the scanner's
-                        default universe is entirely US. Saying "no ready
-                        opportunities" there would read as a broken feature. */}
-                    {marketFilter === "MY" && !(readyByMarket.MY ?? 0)
-                      ? "No Malaysian symbols are in the current watchlist, so none were scanned."
-                      : "No ready opportunities right now."}
-                  </td>
-                </tr>
-              ) : (
-                visibleCandidates.map(cand => (
-                  <tr key={cand.symbol} className="hover:bg-[var(--color-bg-soft)] transition-colors">
-                    <td className="px-4 py-3 font-bold">{cand.symbol}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${marketBadgeClass()}`}>
-                        {marketLabel(cand.market)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-mono tabular-nums">{fmtMoney(cand.price, cand.market)}</td>
-                    <td className="px-4 py-3 font-bold text-[var(--color-ok)]">{cand.quant_signal}</td>
-                    <td className={`px-4 py-3 font-bold ${verdictTextClass(cand.shariah_status)}`}>{cand.shariah_status}</td>
-                    <td className={`px-4 py-3 font-bold ${verdictTextClass(cand.risk_status)}`}>{cand.risk_status}</td>
-                    <td className="px-4 py-3 text-right">
-                      {/* Opens a pre-filled ticket on The Desk. It does not buy
-                          anything -- the order still has to clear every gate at
-                          /paper/preview, be approved, and then be executed with
-                          the confirmation phrase. A Link rather than an onClick
-                          so middle-click and open-in-new-tab behave normally. */}
-                      {/* Green only when the compliance gate actually passed.
-                          A row whose Shariah verdict is REJECT or UNKNOWN still
-                          gets a link -- inspecting it on The Desk is reasonable,
-                          and the gates re-run there anyway -- but it must not
-                          wear an affirmative "go" colour. The UI should never
-                          look keener on a trade than the gate is. */}
-                      <Link
-                        to={`/?symbol=${encodeURIComponent(cand.symbol)}&price=${encodeURIComponent(cand.price)}`}
-                        title={
-                          cand.shariah_status === "PASS"
-                            ? `Open a pre-filled ticket for ${cand.symbol} on The Desk. This does not place an order.`
-                            : `${cand.symbol} is ${cand.shariah_status} on the Shariah gate. Opens a ticket for review; the gate will refuse it.`
-                        }
-                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition hover:brightness-125 ${
-                          cand.shariah_status === "PASS"
-                            ? "bg-[var(--color-ok-bg)] text-[var(--color-ok)] border border-[var(--color-ok)]"
-                            : "bg-transparent text-[var(--color-muted)] border border-[var(--color-border-strong)]"
-                        }`}
-                      >
-                        {cand.shariah_status === "PASS" ? "Buy" : "Review"}
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm">
+          <DataTable
+            caption="Ready opportunities"
+            rows={visibleCandidates}
+            rowKey={(cand) => cand.symbol}
+            columns={OPPORTUNITY_COLUMNS}
+            empty={
+              /* A Malaysia filter that finds nothing is almost always a
+                 watchlist fact, not a market fact -- the scanner's default
+                 universe is entirely US. Saying "no ready opportunities" there
+                 would read as a broken feature. */
+              marketFilter === "MY" && !(readyByMarket.MY ?? 0)
+                ? "No Malaysian symbols are in the current watchlist, so none were scanned."
+                : "No ready opportunities right now."
+            }
+          />
         </div>
         <p className="mt-2 text-xs text-[var(--color-muted)]">
           Showing {visibleCandidates.length} of {readyTotal} ready candidates

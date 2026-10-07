@@ -4,6 +4,7 @@ import { verdictBadgeClass, verdictTextClass } from "../verdict";
 import { fmtMoney, fmtPct, fmtNum, fmtQty, fmtDate, fmtTime, isPresent } from "../format";
 import useResource from "../useResource";
 import ErrorNote from "../components/ErrorNote";
+import DataTable from "../components/DataTable";
 
 /**
  * Re-screens what is actually held against the current Shariah authority.
@@ -203,6 +204,48 @@ function AsOf({ resource }) {
 
 const LIVE_POLL_MS = 30_000;
 
+/** P&L in the ok/bad colour, with an explicit sign -- never colour alone. */
+function Pnl({ value, children }) {
+  const tone = !isPresent(value) ? "" : Number(value) >= 0 ? "text-[var(--color-ok)]" : "text-[var(--color-bad)]";
+  return <span className={tone}>{children}</span>;
+}
+
+// Field names as fetch_broker_positions emits them (quantity, unrealized_pnl,
+// average_entry_price, ...). The table once read Alpaca's raw names (qty,
+// unrealized_pl), so every row showed a blank quantity and "$NaN" P&L.
+const POSITION_COLUMNS = [
+  { key: "symbol", label: "Symbol", className: "font-bold" },
+  { key: "side", label: "Side", render: (p) => (p.side ? String(p.side).toUpperCase() : "—") },
+  { key: "quantity", label: "Qty", numeric: true, render: (p) => fmtQty(p.quantity) },
+  { key: "average_entry_price", label: "Avg Cost", numeric: true, render: (p) => fmtMoney(p.average_entry_price, "US") },
+  { key: "current_price", label: "Last", numeric: true, render: (p) => fmtMoney(p.current_price, "US") },
+  { key: "market_value", label: "Market Value", numeric: true, render: (p) => fmtMoney(p.market_value, "US") },
+  {
+    key: "unrealized_pnl",
+    label: "Unrealized P&L",
+    numeric: true,
+    render: (p) => <Pnl value={p.unrealized_pnl}>{fmtMoney(p.unrealized_pnl, "US", { signed: true })}</Pnl>,
+  },
+  {
+    key: "unrealized_pnl_pct",
+    label: "P&L %",
+    numeric: true,
+    render: (p) => <Pnl value={p.unrealized_pnl_pct}>{fmtPct(p.unrealized_pnl_pct, 2, { signed: true })}</Pnl>,
+  },
+];
+
+/** Totals for the money columns. A total over a missing value is unknown, not partial. */
+function positionTotals(rows) {
+  const sum = (key) => (rows.every((r) => isPresent(r[key])) ? rows.reduce((t, r) => t + Number(r[key]), 0) : null);
+  const value = sum("market_value");
+  const pnl = sum("unrealized_pnl");
+  return {
+    symbol: `Total (${rows.length})`,
+    market_value: fmtMoney(value, "US"),
+    unrealized_pnl: <Pnl value={pnl}>{fmtMoney(pnl, "US", { signed: true })}</Pnl>,
+  };
+}
+
 export default function PortfolioRisk() {
   // The broker-backed figures refresh themselves and carry their own time. They
   // used to be fetched once on mount, so a balance loaded at 09:00 still looked
@@ -375,57 +418,32 @@ export default function PortfolioRisk() {
 
       <section>
         <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Live Broker Positions<AsOf resource={positionsRes} /></h2>
-        <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-[var(--color-panel-2)] border-b border-[var(--color-border)] text-[var(--color-subtle)] text-xs uppercase tracking-wider">
-              <tr>
-                <th className="px-4 py-3 font-bold">Symbol</th>
-                <th className="px-4 py-3 font-bold">Qty</th>
-                <th className="px-4 py-3 font-bold">Market Value</th>
-                <th className="px-4 py-3 font-bold">Unrealized P&L</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
-              {/* A failed fetch used to fall through both branches and render no
-                  rows at all. Worse, an unreachable broker answers 200 with
-                  status "unreachable" and an EMPTY list, which rendered as "No
-                  live positions found" -- an outage presented as an empty account.
-                  Only status "ok" means the list is the broker's answer. */}
-              {positionsRes.loading && !positions ? (
-                <tr>
-                  <td colSpan="4" className="px-4 py-4 text-center text-[var(--color-muted)]">Loading live positions…</td>
-                </tr>
-              ) : positionsError || positions?.status !== "ok" || !Array.isArray(positions?.positions) ? (
-                <tr>
-                  <td colSpan="4" className="px-4 py-4">
-                    <ErrorNote
-                      what="live broker positions"
-                      error={positionsError || (positions?.status ? `broker reported ${positions.status}${positions.reason ? ` (${positions.reason})` : ""}` : null)}
-                    />
-                  </td>
-                </tr>
-              ) : positions.positions.length === 0 ? (
-                <tr>
-                  <td colSpan="4" className="px-4 py-4 text-center text-[var(--color-muted)]">No live positions found.</td>
-                </tr>
-              ) : (
-                // Field names as fetch_broker_positions emits them: `quantity` and
-                // `unrealized_pnl`. This read `qty` and `unrealized_pl` (Alpaca's raw
-                // names, which the backend renames), so every row showed a blank
-                // quantity and "$NaN" P&L.
-                positions.positions.map(pos => (
-                  <tr key={pos.symbol} className="hover:bg-[var(--color-bg-soft)] transition-colors">
-                    <td className="px-4 py-3 font-bold">{pos.symbol}</td>
-                    <td className="px-4 py-3 font-mono tabular-nums">{fmtQty(pos.quantity)}</td>
-                    <td className="px-4 py-3 font-mono tabular-nums">{usd(pos.market_value)}</td>
-                    <td className={`px-4 py-3 font-mono tabular-nums ${!isPresent(pos.unrealized_pnl) ? '' : Number(pos.unrealized_pnl) >= 0 ? 'text-[var(--color-ok)]' : 'text-[var(--color-bad)]'}`}>
-                      {fmtMoney(pos.unrealized_pnl, "US", { signed: true })}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm">
+          {/* A failed fetch used to fall through both branches and render no
+              rows at all. Worse, an unreachable broker answers 200 with status
+              "unreachable" and an EMPTY list, which rendered as "No live
+              positions found" -- an outage presented as an empty account. Only
+              status "ok" means the list is the broker's answer. */}
+          {positionsRes.loading && !positions ? (
+            <div className="px-4 py-4 text-center text-sm text-[var(--color-muted)]">Loading live positions…</div>
+          ) : positionsError || positions?.status !== "ok" || !Array.isArray(positions?.positions) ? (
+            <div className="p-4">
+              <ErrorNote
+                what="live broker positions"
+                error={positionsError || (positions?.status ? `broker reported ${positions.status}${positions.reason ? ` (${positions.reason})` : ""}` : null)}
+              />
+            </div>
+          ) : (
+            <DataTable
+              caption="Live broker positions"
+              rows={positions.positions}
+              rowKey={(pos) => pos.symbol}
+              defaultSort={{ key: "market_value", dir: "desc" }}
+              empty="No live positions found."
+              columns={POSITION_COLUMNS}
+              footer={positionTotals(positions.positions)}
+            />
+          )}
         </div>
       </section>
     </div>
