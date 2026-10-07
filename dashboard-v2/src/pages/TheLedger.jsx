@@ -124,8 +124,8 @@ const APPROVAL_COLUMNS = [
   { key: "symbol", label: "Symbol", className: "font-bold" },
   { key: "side", label: "Side", className: "font-mono" },
   { key: "quantity", label: "Qty", numeric: true, render: (a) => fmtQty(a.quantity) },
-  { key: "price", label: "Price", numeric: true, render: (a) => fmtMoney(a.price, a.shariah_market) },
-  { key: "notional", label: "Notional", numeric: true, render: (a) => fmtMoney(a.notional, a.shariah_market) },
+  { key: "price", label: "Price", numeric: true, group: (a) => a.shariah_market, render: (a) => fmtMoney(a.price, a.shariah_market) },
+  { key: "notional", label: "Notional", numeric: true, group: (a) => a.shariah_market, render: (a) => fmtMoney(a.notional, a.shariah_market) },
   {
     key: "approval_status",
     label: "Approval",

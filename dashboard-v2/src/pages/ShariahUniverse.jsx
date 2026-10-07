@@ -24,13 +24,13 @@ import { Search, ArrowRight } from "lucide-react";
 import { fetchUniverse, fetchPublication, fetchScreenedUS } from "../api";
 import { verdictBadgeClass } from "../verdict";
 import { normalizeVerdict, verdictLabel } from "../shariah";
-import { fmtPct, fmtDate } from "../format";
+import { fmtPct, fmtDate, fmtDateTime } from "../format";
+import DataTable from "../components/DataTable";
 
-/** Rendering every row of a long list costs paint for no benefit: nobody reads
- *  887 rows. Search narrows; this only caps what is drawn. The counts shown to
- *  the user are always computed over the full filtered set, never this slice,
- *  so the cap can never read as "that is all there is". */
-const RENDER_CAP = 100;
+/** The SC list is ~900 rows; nobody reads them all. Search narrows, paging
+ *  bounds what is drawn, and the pager always states the full filtered count,
+ *  so a page can never read as "that is all there is". */
+const PAGE_SIZE = 50;
 
 const TAB_CLASS_ACTIVE =
   "px-4 py-2 text-sm font-bold border-b-2 border-[var(--color-accent)] text-[var(--color-text)]";
@@ -46,6 +46,39 @@ function VerdictChip({ status }) {
   );
 }
 
+/** Opens a pre-filled ticket. It buys nothing: the order still has to clear
+ *  every gate at /paper/preview, be approved, and be executed with the
+ *  confirmation phrase. */
+function TicketLink({ symbol }) {
+  return (
+    <Link
+      to={`/?symbol=${encodeURIComponent(symbol)}`}
+      className="inline-flex items-center gap-1 text-xs font-bold text-[var(--color-accent)] hover:underline focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] rounded"
+    >
+      Open <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+    </Link>
+  );
+}
+
+const MY_COLUMNS = [
+  { key: "ticker", label: "Ticker", className: "font-mono font-bold" },
+  { key: "issuer_name", label: "Company" },
+  { key: "board", label: "Board", className: "text-[var(--color-muted)]" },
+  { key: "sector", label: "Sector", className: "text-[var(--color-muted)]" },
+  { key: "verdict", label: "Status", value: (s) => normalizeVerdict(s.verdict), render: (s) => <VerdictChip status={s.verdict} /> },
+  { key: "ticket", label: "Ticket", sortable: false, align: "right", render: (s) => <TicketLink symbol={s.ticker} /> },
+];
+
+const US_COLUMNS = [
+  { key: "symbol", label: "Symbol", className: "font-mono font-bold" },
+  { key: "status", label: "Status", value: (r) => normalizeVerdict(r.status), render: (r) => <VerdictChip status={r.status} /> },
+  { key: "debt_ratio_pct", label: "Debt", numeric: true, title: "Debt / total assets; limit 33%", render: (r) => fmtPct(r.debt_ratio_pct, 1) },
+  { key: "cash_ratio_pct", label: "Cash", numeric: true, title: "Interest-bearing cash / total assets; limit 33%", render: (r) => fmtPct(r.cash_ratio_pct, 1) },
+  { key: "report_date", label: "Filing", render: (r) => <span className="text-[var(--color-muted)]">{fmtDate(r.report_date)}</span> },
+  { key: "screened_at", label: "Screened", render: (r) => <span className="text-[var(--color-muted)]">{fmtDate(r.screened_at)}</span> },
+  { key: "ticket", label: "Ticket", sortable: false, align: "right", render: (r) => <TicketLink symbol={r.symbol} /> },
+];
+
 function MalaysiaTab() {
   const [universe, setUniverse] = useState(null);
   const [publication, setPublication] = useState(null);
@@ -53,7 +86,6 @@ function MalaysiaTab() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,7 +144,7 @@ function MalaysiaTab() {
   }, [securities]);
 
   if (loading) {
-    return <div className="text-[var(--color-muted)] animate-pulse">Loading the SC list...</div>;
+    return <div className="text-[var(--color-muted)] animate-pulse">Loading the SC list…</div>;
   }
   if (error) {
     return <div className="text-[var(--color-bad)] p-4 bg-[var(--color-bad-bg)] rounded">{error}</div>;
@@ -133,8 +165,6 @@ function MalaysiaTab() {
     );
   }
 
-  const visible = showAll ? filtered : filtered.slice(0, RENDER_CAP);
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -144,7 +174,8 @@ function MalaysiaTab() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search ticker or company"
+            placeholder="Search ticker or company…"
+            aria-label="Search the SC list by ticker or company"
             className="w-full pl-9 pr-3 py-2 bg-[var(--color-panel-2)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
           />
         </div>
@@ -167,67 +198,23 @@ function MalaysiaTab() {
         </div>
       </div>
 
-      <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm overflow-x-auto">
-        <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-[var(--color-panel-2)] border-b border-[var(--color-border)] text-[var(--color-subtle)] text-xs uppercase tracking-wider">
-            <tr>
-              <th className="px-4 py-3 font-bold">Ticker</th>
-              <th className="px-4 py-3 font-bold">Company</th>
-              <th className="px-4 py-3 font-bold">Board</th>
-              <th className="px-4 py-3 font-bold">Sector</th>
-              <th className="px-4 py-3 font-bold">Status</th>
-              <th className="px-4 py-3 font-bold text-right">Ticket</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
-            {!visible.length ? (
-              <tr>
-                <td colSpan="6" className="px-4 py-4 text-center text-[var(--color-muted)]">
-                  No security matches that search.
-                </td>
-              </tr>
-            ) : (
-              visible.map((s) => (
-                <tr key={s.id} className="hover:bg-[var(--color-bg-soft)] transition-colors">
-                  <td className="px-4 py-3 font-mono font-bold">{s.ticker}</td>
-                  <td className="px-4 py-3">{s.issuer_name || "—"}</td>
-                  <td className="px-4 py-3 text-[var(--color-muted)]">{s.board || "—"}</td>
-                  <td className="px-4 py-3 text-[var(--color-muted)]">{s.sector || "—"}</td>
-                  <td className="px-4 py-3">
-                    <VerdictChip status={s.verdict} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {/* Opens a pre-filled ticket. It buys nothing: the order
-                        still has to clear every gate at /paper/preview, be
-                        approved, and be executed with the confirmation phrase. */}
-                    <Link
-                      to={`/?symbol=${encodeURIComponent(s.ticker)}`}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-[var(--color-accent)] hover:underline"
-                    >
-                      Open <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm">
+        <DataTable
+          caption="SC Malaysia Shariah list"
+          rows={filtered}
+          rowKey={(row) => row.id}
+          columns={MY_COLUMNS}
+          defaultSort={{ key: "ticker", dir: "asc" }}
+          pageSize={PAGE_SIZE}
+          empty="No security matches that search."
+        />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--color-muted)]">
-        <span>
-          Showing {visible.length} of {filtered.length}
-          {filtered.length !== securities.length ? ` (filtered from ${securities.length})` : null}
-        </span>
-        {filtered.length > visible.length ? (
-          <button
-            onClick={() => setShowAll(true)}
-            className="font-bold text-[var(--color-accent)] hover:underline"
-          >
-            Show all {filtered.length}
-          </button>
-        ) : null}
-      </div>
+      {filtered.length !== securities.length ? (
+        <p className="text-xs text-[var(--color-muted)]">
+          {filtered.length} of {securities.length} securities match.
+        </p>
+      ) : null}
 
       {publication ? (
         <div className="p-4 rounded border border-[var(--color-border)] bg-[var(--color-panel-2)] text-xs text-[var(--color-muted)] space-y-1">
@@ -236,12 +223,12 @@ function MalaysiaTab() {
           </p>
           <p>
             {publication.publication?.id} &middot; published{" "}
-            {publication.publication?.publication_date} &middot; {publication.compliant_count}{" "}
+            {fmtDate(publication.publication?.publication_date)} &middot; {publication.compliant_count}{" "}
             compliant, {publication.non_compliant_count} not compliant
           </p>
           <p>
             Approved by {publication.publication?.approved_by}, activated by{" "}
-            {publication.publication?.activated_by} at {publication.publication?.activated_at}
+            {publication.publication?.activated_by} at {fmtDateTime(publication.publication?.activated_at)}
           </p>
           {/* The hash is the point: it is what ties a verdict to the exact SC
               document it came from, rather than to our say-so. */}
@@ -282,7 +269,7 @@ function UnitedStatesTab() {
   }, []);
 
   if (loading) {
-    return <div className="text-[var(--color-muted)] animate-pulse">Loading screened symbols...</div>;
+    return <div className="text-[var(--color-muted)] animate-pulse">Loading screened symbols…</div>;
   }
   if (error) {
     return <div className="text-[var(--color-bad)] p-4 bg-[var(--color-bad-bg)] rounded">{error}</div>;
@@ -314,56 +301,15 @@ function UnitedStatesTab() {
         </p>
       </div>
 
-      <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm overflow-x-auto">
-        <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-[var(--color-panel-2)] border-b border-[var(--color-border)] text-[var(--color-subtle)] text-xs uppercase tracking-wider">
-            <tr>
-              <th className="px-4 py-3 font-bold">Symbol</th>
-              <th className="px-4 py-3 font-bold">Status</th>
-              <th className="px-4 py-3 font-bold">Debt</th>
-              <th className="px-4 py-3 font-bold">Cash</th>
-              <th className="px-4 py-3 font-bold">Filing</th>
-              <th className="px-4 py-3 font-bold">Screened</th>
-              <th className="px-4 py-3 font-bold text-right">Ticket</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
-            {!rows.length ? (
-              <tr>
-                <td colSpan="7" className="px-4 py-4 text-center text-[var(--color-muted)]">
-                  Nothing has been screened yet.
-                </td>
-              </tr>
-            ) : (
-              rows.map((row) => (
-                <tr key={row.symbol} className="hover:bg-[var(--color-bg-soft)] transition-colors">
-                  <td className="px-4 py-3 font-mono font-bold">{row.symbol}</td>
-                  <td className="px-4 py-3">
-                    <VerdictChip status={row.status} />
-                  </td>
-                  <td className="px-4 py-3 font-mono tabular-nums text-[var(--color-muted)]">
-                    {fmtPct(row.debt_ratio_pct, 1)}
-                  </td>
-                  <td className="px-4 py-3 font-mono tabular-nums text-[var(--color-muted)]">
-                    {fmtPct(row.cash_ratio_pct, 1)}
-                  </td>
-                  <td className="px-4 py-3 text-[var(--color-muted)]">{fmtDate(row.report_date)}</td>
-                  <td className="px-4 py-3 text-[var(--color-muted)]">
-                    {fmtDate(row.screened_at)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      to={`/?symbol=${encodeURIComponent(row.symbol)}`}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-[var(--color-accent)] hover:underline"
-                    >
-                      Open <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm">
+        <DataTable
+          caption="US securities screened so far"
+          rows={rows}
+          rowKey={(row) => row.symbol}
+          columns={US_COLUMNS}
+          defaultSort={{ key: "symbol", dir: "asc" }}
+          empty="Nothing has been screened yet."
+        />
       </div>
 
       <p className="text-xs text-[var(--color-muted)]">

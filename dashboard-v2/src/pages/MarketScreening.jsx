@@ -67,7 +67,7 @@ const OPPORTUNITY_COLUMNS = [
       <span className={`px-2 py-0.5 rounded text-xs font-bold ${marketBadgeClass()}`}>{marketLabel(cand.market)}</span>
     ),
   },
-  { key: "price", label: "Price", numeric: true, render: (cand) => fmtMoney(cand.price, cand.market) },
+  { key: "price", label: "Price", numeric: true, group: (cand) => cand.market, render: (cand) => fmtMoney(cand.price, cand.market) },
   {
     key: "quant_signal",
     label: "Signal",

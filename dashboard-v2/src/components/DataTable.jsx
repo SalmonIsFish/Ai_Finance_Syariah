@@ -12,6 +12,7 @@ import { ChevronDown, ChevronRight, ChevronUp, ChevronsUpDown } from "lucide-rea
  * columns: [{ key, label, numeric?, value?(row), render?(row), title?, sortable?, align? }]
  *   sortable: false -> a plain header (e.g. an action column)
  *   align: "right"  -> right-align a non-numeric column
+ *   group?(row)     -> sort within groups first (money columns: the currency)
  *   value  -> what to sort on (defaults to row[key]); missing values sort last
  *   render -> what to show (defaults to the value)
  * footer:  optional { [key]: node } rendered as a totals row
@@ -46,6 +47,13 @@ export default function DataTable({
       if (missing(va) && missing(vb)) return 0;
       if (missing(va)) return 1;
       if (missing(vb)) return -1;
+      // Group first (e.g. by currency) so RM 195 and $2,110 are never ranked as
+      // if they were the same unit; the group order itself stays ascending.
+      if (col.group) {
+        const ga = String(col.group(a) ?? "");
+        const gb = String(col.group(b) ?? "");
+        if (ga !== gb) return ga.localeCompare(gb);
+      }
       if (col.numeric) return (Number(va) - Number(vb)) * dir;
       return String(va).localeCompare(String(vb), undefined, { numeric: true }) * dir;
     });
