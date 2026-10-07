@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { fetchPortfolio, fetchLivePositions, fetchAccount, fetchPortfolioHistoryLive, fetchPortfolioHistory, fetchCompliance } from "../api";
 import { verdictBadgeClass, verdictTextClass } from "../verdict";
+import { fmtMoney, fmtPct, fmtNum, isPresent } from "../format";
+import ErrorNote from "../components/ErrorNote";
 
 /**
  * Re-screens what is actually held against the current Shariah authority.
@@ -58,7 +60,7 @@ function CompliancePanel({ compliance }) {
                   <span className="font-mono tabular-nums">{h.quantity}</span>
                 </div>
                 <div className="text-xs mt-1 opacity-90">
-                  cost {h.cost_basis} · per {h.publication_id || "active publication"}
+                  cost {fmtNum(h.cost_basis, 2)} · per {h.publication_id || "active publication"}
                 </div>
                 {/* The month, as a date rather than a sentence. Until the clock
                     was persisted, a holding flagged a year ago looked exactly
@@ -114,7 +116,7 @@ function CompliancePanel({ compliance }) {
           <div className="flex justify-between text-sm">
             <span className="text-[var(--color-muted)]">Purification owed (estimate)</span>
             <span className="font-mono tabular-nums font-bold text-[var(--color-text)]">
-              {purification.total_purification_due}
+              {fmtNum(purification.total_purification_due, 2)}
             </span>
           </div>
           {!purification.complete && (
@@ -186,6 +188,7 @@ function SimpleLineChart({ data }) {
 
 export default function PortfolioRisk() {
   const [data, setData] = useState({ portfolio: null, positions: null, account: null, compliance: null });
+  const [errors, setErrors] = useState({});
   const [historyData, setHistoryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -199,32 +202,39 @@ export default function PortfolioRisk() {
           fetchAccount(),
           fetchCompliance()
         ]);
-        
-        let portfolio = portfolioResult.status === "fulfilled" ? portfolioResult.value : null;
-        if (portfolioResult.status === "rejected") console.error("fetchPortfolio failed:", portfolioResult.reason);
 
-        let positions = positionsResult.status === "fulfilled" ? positionsResult.value : null;
-        if (positionsResult.status === "rejected") console.error("fetchLivePositions failed:", positionsResult.reason);
+        // Each section keeps its own failure, and shows it. These used to go to
+        // console.error only, so a failed broker call rendered as $0.00 equity
+        // and an empty positions table -- quiet, plausible and false.
+        const value = (r) => (r.status === "fulfilled" ? r.value : null);
+        const failure = (r) => (r.status === "rejected" ? r.reason : null);
+        const portfolio = value(portfolioResult);
+        const positions = value(positionsResult);
+        const account = value(accountResult);
+        const compliance = value(complianceResult);
 
-        let account = accountResult.status === "fulfilled" ? accountResult.value : null;
-        if (accountResult.status === "rejected") console.error("fetchAccount failed:", accountResult.reason);
-
-        let compliance = complianceResult.status === "fulfilled" ? complianceResult.value : null;
-        if (complianceResult.status === "rejected") console.error("fetchCompliance failed:", complianceResult.reason);
-        
         let hist = null;
+        let histError = null;
         try {
           hist = await fetchPortfolioHistoryLive();
           if (hist.status !== "ok") throw new Error(`Live history failed: ${hist.status}`);
-        } catch (e) {
+        } catch {
           try {
             hist = await fetchPortfolioHistory();
           } catch (e2) {
-            console.error("fetchPortfolioHistory failed:", e2);
+            hist = null;
+            histError = e2;
           }
         }
-        
+
         setData({ portfolio, positions, account, compliance });
+        setErrors({
+          portfolio: failure(portfolioResult),
+          positions: failure(positionsResult),
+          account: failure(accountResult),
+          compliance: failure(complianceResult),
+          history: histError,
+        });
         setHistoryData(hist);
       } catch (err) {
         setError(err.message);
@@ -235,11 +245,16 @@ export default function PortfolioRisk() {
     load();
   }, []);
 
-  if (loading) return <div className="text-[var(--color-muted)] animate-pulse">Loading Portfolio & Risk...</div>;
+  if (loading) return <div className="text-[var(--color-muted)] animate-pulse">Loading Portfolio &amp; Risk…</div>;
   if (error) return <div className="text-[var(--color-bad)] p-4 bg-[var(--color-bad-bg)] rounded">{error}</div>;
 
   const { portfolio, positions, account, compliance } = data;
   const limits = portfolio?.risk_limits || {};
+  // /paper/account answers 200 with a status and no figures when the broker is
+  // unreachable, so a missing equity is a failure too, not just a rejected fetch.
+  const accountUnavailable = errors.account || !isPresent(account?.equity);
+  // Alpaca is the only broker behind these balances, so they are US dollars.
+  const usd = (v) => fmtMoney(v, "US");
 
   return (
     <div className="space-y-8">
@@ -249,17 +264,26 @@ export default function PortfolioRisk() {
 
       <section>
         <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Account Balances</h2>
+        {accountUnavailable && (
+          <div className="mb-4">
+            <ErrorNote
+              what="the broker account"
+              error={errors.account || (account?.status ? `broker reported ${account.status}` : null)}
+            />
+          </div>
+        )}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard label="Equity" value={`$${Number(account?.equity || 0).toFixed(2)}`} />
-          <StatCard label="Cash" value={`$${Number(account?.cash || 0).toFixed(2)}`} />
-          <StatCard label="Buying Power" value={`$${Number(account?.buying_power || 0).toFixed(2)}`} />
-          <StatCard label="Total Exposure" value={`$${Number(portfolio?.total_exposure || 0).toFixed(2)}`} />
+          <StatCard label="Equity" value={usd(account?.equity)} />
+          <StatCard label="Cash" value={usd(account?.cash)} />
+          <StatCard label="Buying Power" value={usd(account?.buying_power)} />
+          <StatCard label="Total Exposure" value={usd(portfolio?.total_exposure)} />
         </div>
       </section>
 
       <section>
         <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Portfolio Value History (1M)</h2>
         <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm p-6">
+          {errors.history && <ErrorNote what="portfolio history" error={errors.history} />}
           {historyData && (() => {
             let chartData = [];
             if (historyData.timestamps && historyData.equity) {
@@ -282,13 +306,15 @@ export default function PortfolioRisk() {
         <div>
           <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Current Allocation</h2>
           <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm p-4 space-y-3">
-            {portfolio?.positions?.length === 0 ? (
+            {errors.portfolio ? (
+              <ErrorNote what="the portfolio" error={errors.portfolio} />
+            ) : portfolio?.positions?.length === 0 ? (
               <div className="text-[var(--color-muted)] text-sm">No open positions.</div>
             ) : (
               portfolio?.positions?.map(pos => (
                 <div key={pos.symbol} className="flex justify-between items-center text-sm border-b border-[var(--color-border)] pb-2 last:border-0 last:pb-0">
                   <span className="font-bold text-[var(--color-text)]">{pos.symbol}</span>
-                  <span className="font-mono text-[var(--color-muted)] tabular-nums">{pos.account_exposure_pct?.toFixed(2)}%</span>
+                  <span className="font-mono text-[var(--color-muted)] tabular-nums">{fmtPct(pos.account_exposure_pct)}</span>
                 </div>
               ))
             )}
@@ -298,31 +324,28 @@ export default function PortfolioRisk() {
         <div>
           <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Shariah Compliance of Holdings</h2>
           <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm p-4 mb-6">
-            <CompliancePanel compliance={compliance} />
+            {errors.compliance ? (
+              <ErrorNote what="holdings compliance" error={errors.compliance} />
+            ) : (
+              <CompliancePanel compliance={compliance} />
+            )}
           </div>
 
           <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Risk Policy</h2>
           <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm p-4 space-y-3">
-             <div className="flex justify-between text-sm border-b border-[var(--color-border)] pb-2">
-               <span className="text-[var(--color-muted)]">Max Position Size</span>
-               <span className="font-mono text-[var(--color-text)] tabular-nums">{limits.max_position_pct}%</span>
-             </div>
-             <div className="flex justify-between text-sm border-b border-[var(--color-border)] pb-2">
-               <span className="text-[var(--color-muted)]">Max Total Exposure</span>
-               <span className="font-mono text-[var(--color-text)] tabular-nums">{limits.max_total_exposure_pct}%</span>
-             </div>
-             <div className="flex justify-between text-sm border-b border-[var(--color-border)] pb-2">
-               <span className="text-[var(--color-muted)]">Max Loss Per Trade</span>
-               <span className="font-mono text-[var(--color-text)] tabular-nums">{limits.max_loss_per_trade_pct}%</span>
-             </div>
-             <div className="flex justify-between text-sm border-b border-[var(--color-border)] pb-2">
-               <span className="text-[var(--color-muted)]">Max Daily Loss</span>
-               <span className="font-mono text-[var(--color-text)] tabular-nums">{limits.max_daily_loss_pct}%</span>
-             </div>
-             <div className="flex justify-between text-sm">
-               <span className="text-[var(--color-muted)]">Max Sector Exposure</span>
-               <span className="font-mono text-[var(--color-text)] tabular-nums">{limits.max_sector_exposure_pct}%</span>
-             </div>
+             {errors.portfolio && <ErrorNote what="the risk limits" error={errors.portfolio} />}
+             {[
+               ["Max Position Size", limits.max_position_pct],
+               ["Max Total Exposure", limits.max_total_exposure_pct],
+               ["Max Loss Per Trade", limits.max_loss_per_trade_pct],
+               ["Max Daily Loss", limits.max_daily_loss_pct],
+               ["Max Sector Exposure", limits.max_sector_exposure_pct],
+             ].map(([label, value]) => (
+               <div key={label} className="flex justify-between text-sm border-b border-[var(--color-border)] pb-2 last:border-0 last:pb-0">
+                 <span className="text-[var(--color-muted)]">{label}</span>
+                 <span className="font-mono text-[var(--color-text)] tabular-nums">{fmtPct(value)}</span>
+               </div>
+             ))}
           </div>
         </div>
       </section>
@@ -340,18 +363,36 @@ export default function PortfolioRisk() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
-              {positions?.positions?.length === 0 ? (
+              {/* A failed fetch used to fall through both branches and render no
+                  rows at all. Worse, an unreachable broker answers 200 with
+                  status "unreachable" and an EMPTY list, which rendered as "No
+                  live positions found" -- an outage presented as an empty account.
+                  Only status "ok" means the list is the broker's answer. */}
+              {errors.positions || positions?.status !== "ok" || !Array.isArray(positions?.positions) ? (
+                <tr>
+                  <td colSpan="4" className="px-4 py-4">
+                    <ErrorNote
+                      what="live broker positions"
+                      error={errors.positions || (positions?.status ? `broker reported ${positions.status}${positions.reason ? ` (${positions.reason})` : ""}` : null)}
+                    />
+                  </td>
+                </tr>
+              ) : positions.positions.length === 0 ? (
                 <tr>
                   <td colSpan="4" className="px-4 py-4 text-center text-[var(--color-muted)]">No live positions found.</td>
                 </tr>
               ) : (
-                positions?.positions?.map(pos => (
+                // Field names as fetch_broker_positions emits them: `quantity` and
+                // `unrealized_pnl`. This read `qty` and `unrealized_pl` (Alpaca's raw
+                // names, which the backend renames), so every row showed a blank
+                // quantity and "$NaN" P&L.
+                positions.positions.map(pos => (
                   <tr key={pos.symbol} className="hover:bg-[var(--color-bg-soft)] transition-colors">
                     <td className="px-4 py-3 font-bold">{pos.symbol}</td>
-                    <td className="px-4 py-3 font-mono tabular-nums">{pos.qty}</td>
-                    <td className="px-4 py-3 font-mono tabular-nums">${Number(pos.market_value).toFixed(2)}</td>
-                    <td className={`px-4 py-3 font-mono tabular-nums ${Number(pos.unrealized_pl) >= 0 ? 'text-[var(--color-ok)]' : 'text-[var(--color-bad)]'}`}>
-                      ${Number(pos.unrealized_pl).toFixed(2)}
+                    <td className="px-4 py-3 font-mono tabular-nums">{fmtNum(pos.quantity)}</td>
+                    <td className="px-4 py-3 font-mono tabular-nums">{usd(pos.market_value)}</td>
+                    <td className={`px-4 py-3 font-mono tabular-nums ${!isPresent(pos.unrealized_pnl) ? '' : Number(pos.unrealized_pnl) >= 0 ? 'text-[var(--color-ok)]' : 'text-[var(--color-bad)]'}`}>
+                      {usd(pos.unrealized_pnl)}
                     </td>
                   </tr>
                 ))

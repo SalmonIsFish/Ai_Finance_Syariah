@@ -19,7 +19,8 @@ export default function OfficerCard({
   details, 
   confidence, 
   confidenceTitle,
-  confidenceReason 
+  confidenceReason,
+  sealText,
 }) {
   const styles = verdictStyle(verdict);
   const VerdictIcon = VERDICT_ICONS[verdict] ?? HelpCircle;
@@ -82,11 +83,15 @@ export default function OfficerCard({
           </span>
         </div>
 
+        {/* Says what passed, not who "approved". "Stamped & Approved by Shariah
+            Compliance Officer" read as approval of the trade, which the Shariah
+            screen never gives -- it classifies the security. Approval is a
+            separate, human step. */}
         {verdict === 'PASS' && (
           <div className="px-4 pb-4 pt-3 bg-[var(--color-panel)] rounded-b-md">
             <div className="flex items-center gap-2 text-[11px] font-serif text-[var(--color-accent)] border border-[var(--color-accent-muted)] bg-[var(--color-bg-soft)] px-3 py-2 rounded leading-snug">
-              <span className="text-base shrink-0">⚖</span>
-              <span>Stamped &amp; Approved by {role}</span>
+              <span className="text-base shrink-0" aria-hidden="true">⚖</span>
+              <span>{sealText || `Passed: ${role}`}</span>
             </div>
           </div>
         )}

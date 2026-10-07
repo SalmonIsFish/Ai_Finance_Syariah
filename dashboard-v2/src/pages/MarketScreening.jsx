@@ -4,6 +4,8 @@ import { ArrowRight } from "lucide-react";
 import { fetchMarketOverview, fetchNews, fetchStockProfile } from "../api";
 import { verdictTextClass } from "../verdict";
 import { formatPrice, marketLabel, marketBadgeClass, detectMarket } from "../market";
+import { fmtPct, MISSING, isPresent } from "../format";
+import ErrorNote from "../components/ErrorNote";
 
 /**
  * `/news` returns ai_summary as an OBJECT -- {text, model, shariah_status,
@@ -26,6 +28,10 @@ export default function MarketScreening() {
   const [news, setNews] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Per-section failures, shown where the section would be. They used to go to
+  // console.error only, leaving zero-filled tiles that looked like a quiet market.
+  const [overviewError, setOverviewError] = useState(null);
+  const [newsError, setNewsError] = useState(null);
 
   const [marketFilter, setMarketFilter] = useState("ALL");
 
@@ -60,13 +66,13 @@ export default function MarketScreening() {
         if (overviewResult.status === "fulfilled") {
           setData(overviewResult.value);
         } else {
-          console.error("Market overview failed:", overviewResult.reason);
+          setOverviewError(overviewResult.reason);
         }
-        
+
         if (newsResult.status === "fulfilled") {
           setNews(newsResult.value);
         } else {
-          console.error("News failed:", newsResult.reason);
+          setNewsError(newsResult.reason);
         }
       } catch (err) {
         setError(err.message);
@@ -103,28 +109,32 @@ export default function MarketScreening() {
    *  over the local guess, which is only a fallback for an older payload. */
   const profileMarket = profileData?.market ?? detectMarket(searchSymbol);
 
-  if (loading) return <div className="text-[var(--color-muted)] animate-pulse">Loading Market & Screening...</div>;
+  if (loading) return <div className="text-[var(--color-muted)] animate-pulse">Loading Market &amp; Screening…</div>;
   if (error) return <div className="text-[var(--color-bad)] p-4 bg-[var(--color-bad-bg)] rounded">{error}</div>;
+
+  const count = (v) => (isPresent(v) ? v : MISSING);
 
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-serif text-[var(--color-text)]">Market & Screening</h1>
+        <h1 className="text-2xl font-serif text-[var(--color-text)]">Market &amp; Screening</h1>
       </div>
+
+      {overviewError && <ErrorNote what="the market overview" error={overviewError} />}
 
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-[var(--color-panel-2)] border border-[var(--color-border)] rounded p-4">
           <div className="text-sm font-bold text-[var(--color-subtle)] uppercase tracking-wider mb-2">Watchlist Coverage</div>
-          <div className="text-xl font-mono text-[var(--color-text)] tabular-nums">{data?.latest_scan?.coverage_pct?.toFixed(1) || 0}%</div>
-          <div className="text-xs text-[var(--color-muted)] mt-1">{data?.watchlist?.count} symbols tracked</div>
+          <div className="text-xl font-mono text-[var(--color-text)] tabular-nums">{fmtPct(data?.latest_scan?.coverage_pct, 1)}</div>
+          <div className="text-xs text-[var(--color-muted)] mt-1">{count(data?.watchlist?.count)} symbols tracked</div>
         </div>
         <div className="bg-[var(--color-panel-2)] border border-[var(--color-border)] rounded p-4">
           <div className="text-sm font-bold text-[var(--color-subtle)] uppercase tracking-wider mb-2">Ready Candidates</div>
-          <div className="text-xl font-mono text-[var(--color-text)] tabular-nums">{data?.counts?.ready || 0}</div>
+          <div className="text-xl font-mono text-[var(--color-text)] tabular-nums">{count(data?.counts?.ready)}</div>
         </div>
         <div className="bg-[var(--color-panel-2)] border border-[var(--color-border)] rounded p-4">
           <div className="text-sm font-bold text-[var(--color-subtle)] uppercase tracking-wider mb-2">Active Alerts</div>
-          <div className="text-xl font-mono text-[var(--color-text)] tabular-nums">{data?.counts?.alerts || 0}</div>
+          <div className="text-xl font-mono text-[var(--color-text)] tabular-nums">{count(data?.counts?.alerts)}</div>
         </div>
       </section>
 
@@ -254,7 +264,7 @@ export default function MarketScreening() {
               disabled={profileLoading || !searchSymbol.trim()}
               className="bg-[var(--color-accent)] text-[var(--color-button-text)] px-6 py-2 rounded font-medium hover:bg-[var(--color-accent-2)] transition-colors disabled:opacity-50"
             >
-              {profileLoading ? "Loading..." : "Search"}
+              {profileLoading ? "Loading…" : "Search"}
             </button>
           </form>
 
@@ -293,9 +303,9 @@ export default function MarketScreening() {
               <div className="border border-[var(--color-border)] rounded p-4 bg-[var(--color-panel-2)]">
                 <span className="block text-[var(--color-subtle)] uppercase tracking-wider text-xs font-bold mb-1">Portfolio Exposure</span>
                 <div className="text-lg font-mono tabular-nums text-[var(--color-text)]">
-                  {profileData.portfolio?.account_exposure_pct?.toFixed(2) || '0.00'}%
+                  {fmtPct(profileData.portfolio?.account_exposure_pct)}
                 </div>
-                <div className="text-xs text-[var(--color-muted)] mt-1 font-mono tabular-nums">{profileData.portfolio?.quantity || 0} shares</div>
+                <div className="text-xs text-[var(--color-muted)] mt-1 font-mono tabular-nums">{count(profileData.portfolio?.quantity)} shares</div>
               </div>
             </div>
           )}
@@ -305,7 +315,9 @@ export default function MarketScreening() {
       <section>
         <h2 className="text-lg font-bold text-[var(--color-text)] mb-4">Latest News</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {!news?.news?.length ? (
+          {newsError ? (
+            <div className="col-span-2"><ErrorNote what="news" error={newsError} /></div>
+          ) : !news?.news?.length ? (
             <div className="text-[var(--color-muted)] text-sm col-span-2">No recent news found.</div>
           ) : (
             news.news.slice(0, 6).map((item, idx) => (

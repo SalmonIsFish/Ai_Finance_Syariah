@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { fetchApprovals, fetchExecutionAudit, fetchAuditEvents } from "../api";
+import ErrorNote from "../components/ErrorNote";
 
 export default function TheLedger() {
   const [data, setData] = useState({ approvals: null, execution: null, auditEvents: null });
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -14,17 +16,22 @@ export default function TheLedger() {
           fetchExecutionAudit(),
           fetchAuditEvents()
         ]);
-        
-        let approvals = approvalsResult.status === "fulfilled" ? approvalsResult.value : null;
-        if (approvalsResult.status === "rejected") console.error("fetchApprovals failed:", approvalsResult.reason);
 
-        let execution = executionResult.status === "fulfilled" ? executionResult.value : null;
-        if (executionResult.status === "rejected") console.error("fetchExecutionAudit failed:", executionResult.reason);
-
-        let auditEvents = auditEventsResult.status === "fulfilled" ? auditEventsResult.value : null;
-        if (auditEventsResult.status === "rejected") console.error("fetchAuditEvents failed:", auditEventsResult.reason);
-
-        setData({ approvals, execution, auditEvents });
+        // A table that failed to load says so. These used to go to console.error
+        // only, and an empty table reads as "nothing has happened" -- the one
+        // claim an audit ledger must never make by accident.
+        const value = (r) => (r.status === "fulfilled" ? r.value : null);
+        const failure = (r) => (r.status === "rejected" ? r.reason : null);
+        setData({
+          approvals: value(approvalsResult),
+          execution: value(executionResult),
+          auditEvents: value(auditEventsResult),
+        });
+        setErrors({
+          approvals: failure(approvalsResult),
+          execution: failure(executionResult),
+          auditEvents: failure(auditEventsResult),
+        });
       } catch (err) {
         setError(err.message);
       } finally {
@@ -34,7 +41,7 @@ export default function TheLedger() {
     load();
   }, []);
 
-  if (loading) return <div className="text-[var(--color-muted)] animate-pulse">Loading The Ledger...</div>;
+  if (loading) return <div className="text-[var(--color-muted)] animate-pulse">Loading The Ledger…</div>;
   if (error) return <div className="text-[var(--color-bad)] p-4 bg-[var(--color-bad-bg)] rounded">{error}</div>;
 
   const { approvals, execution, auditEvents } = data;
@@ -51,6 +58,7 @@ export default function TheLedger() {
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-[var(--color-panel-2)] border-b border-[var(--color-border)] text-[var(--color-subtle)] text-xs uppercase tracking-wider sticky top-0">
               <tr>
+                <th className="px-4 py-3 font-bold">#</th>
                 <th className="px-4 py-3 font-bold">Time</th>
                 <th className="px-4 py-3 font-bold">Symbol</th>
                 <th className="px-4 py-3 font-bold">Side</th>
@@ -59,13 +67,20 @@ export default function TheLedger() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
-              {!approvals?.length ? (
+              {errors.approvals ? (
                 <tr>
-                  <td colSpan="5" className="px-4 py-4 text-center text-[var(--color-muted)]">No approval history found.</td>
+                  <td colSpan="6" className="px-4 py-4"><ErrorNote what="the approval queue" error={errors.approvals} /></td>
+                </tr>
+              ) : !approvals?.length ? (
+                <tr>
+                  <td colSpan="6" className="px-4 py-4 text-center text-[var(--color-muted)]">No approval history found.</td>
                 </tr>
               ) : (
+                // The queue id is what The Desk reports after an approval and what
+                // execution is addressed by, so it is the row's identity here too.
                 approvals.slice(0, 20).map((app, idx) => (
-                  <tr key={idx} className="hover:bg-[var(--color-bg-soft)] transition-colors">
+                  <tr key={app.id ?? idx} className="hover:bg-[var(--color-bg-soft)] transition-colors">
+                    <td className="px-4 py-3 font-mono tabular-nums text-xs">{app.id ?? '—'}</td>
                     <td className="px-4 py-3 font-mono tabular-nums text-xs text-[var(--color-muted)]">{new Date(app.created_at).toLocaleString()}</td>
                     <td className="px-4 py-3 font-bold">{app.symbol}</td>
                     <td className={`px-4 py-3 font-bold ${app.side === 'BUY' ? 'text-[var(--color-ok)]' : 'text-[var(--color-warn)]'}`}>{app.side}</td>
@@ -92,7 +107,11 @@ export default function TheLedger() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
-              {!execution?.recent_execution_events?.length ? (
+              {errors.execution ? (
+                <tr>
+                  <td colSpan="4" className="px-4 py-4"><ErrorNote what="the execution audit" error={errors.execution} /></td>
+                </tr>
+              ) : !execution?.recent_execution_events?.length ? (
                 <tr>
                   <td colSpan="4" className="px-4 py-4 text-center text-[var(--color-muted)]">No execution audit events found.</td>
                 </tr>
@@ -122,7 +141,11 @@ export default function TheLedger() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
-              {!auditEvents?.length ? (
+              {errors.auditEvents ? (
+                <tr>
+                  <td colSpan="2" className="px-4 py-4"><ErrorNote what="the audit history" error={errors.auditEvents} /></td>
+                </tr>
+              ) : !auditEvents?.length ? (
                 <tr>
                   <td colSpan="2" className="px-4 py-4 text-center text-[var(--color-muted)]">No audit events found.</td>
                 </tr>

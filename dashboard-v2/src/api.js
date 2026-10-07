@@ -18,6 +18,24 @@ export async function fetchPreview(order) {
   return await res.json();
 }
 
+/** FastAPI puts the reason in `detail`; show that rather than a raw JSON blob. */
+async function errorText(res, fallback) {
+  const text = await res.text();
+  try {
+    const detail = JSON.parse(text)?.detail;
+    if (detail) return typeof detail === "string" ? detail : JSON.stringify(detail);
+  } catch {
+    // not JSON -- fall through to the raw text
+  }
+  return text || fallback;
+}
+
+/**
+ * Records an approval decision in the queue. It does NOT send anything to the
+ * broker: /paper/approval always returns broker_submission: false, and the
+ * verdict -- which can be REJECT -- is in `approval.status`, under HTTP 200.
+ * Callers must read it rather than treat a 200 as success.
+ */
 export async function submitApproval(preview, approved) {
   const res = await fetch("/paper/approval", {
     method: "POST",
@@ -28,8 +46,10 @@ export async function submitApproval(preview, approved) {
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(err || "Failed to submit approval");
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("Unauthorized - Please refresh and sign in.");
+    }
+    throw new Error(await errorText(res, "Failed to submit approval"));
   }
 
   return await res.json();
@@ -53,6 +73,9 @@ export const fetchPortfolio = () => fetchGet("/portfolio");
 export const fetchLivePositions = () => fetchGet("/paper/positions/live");
 export const fetchAccount = () => fetchGet("/paper/account");
 export const fetchRiskSnapshot = () => fetchGet("/paper/risk-snapshot");
+/** What this instance will actually execute, and through which adapter, per market.
+ *  The backend is the authority on this -- the UI must not restate it. */
+export const fetchPaperStatus = () => fetchGet("/paper/status");
 export const fetchPortfolioHistoryLive = (period = "1M") => fetchGet(`/portfolio/history/live?period=${period}`);
 export const fetchPortfolioHistory = (period = "1M") => fetchGet(`/portfolio/history?period=${period}`);
 export const fetchMarketOverview = () => fetchGet("/market-overview");
