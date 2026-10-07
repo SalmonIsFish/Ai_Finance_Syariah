@@ -119,6 +119,7 @@ def check_the_shipped_determination_refuses_a_covered_call() -> None:
     approval = approve(covered_call_preview())["approval"]
     assert approval["status"] == "REJECT", approval
     assert approval["option_structure"]["reason"] == REASON_NOT_PERMITTED, approval
+    assert approval["reason"] == REASON_NOT_PERMITTED, approval
     # The trace must name the refusal, not merely record a REJECT.
     assert REASON_NOT_PERMITTED in approval["shariah_trace"], approval["shariah_trace"]
 

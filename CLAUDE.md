@@ -75,7 +75,11 @@ Mechanics:
 - The blocker code is `option_contracts_not_permitted`, kept distinct from
   `option_structure_rejected`. The second can be fixed by sizing; the first cannot be fixed
   at all. Collapsing them would tell the owner to add collateral for an order no collateral
-  can make permissible.
+  can make permissible. *(Until 2026-10-07 approval did collapse them:
+  `approval_workflow` returned `option_structure_rejected` at the top level and kept the
+  real code only in the nested `option_structure.reason`. It now returns the distinct code,
+  and `test_shariah_candidate`'s "0 shares" case turned out to have been passing on the
+  determination rather than on the shares.)*
 - **No option code was deleted or commented out.** Every line stays live, and
   `check_option_permissibility(determination=...)` is a test-only seam that keeps the
   covered-call, cash-secured-put, margin and naked-structure arithmetic exercised under a

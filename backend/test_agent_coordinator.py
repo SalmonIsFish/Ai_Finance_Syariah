@@ -2,7 +2,11 @@
 disturbing the existing equity-only candidate path."""
 
 from agent_coordinator import evaluate_candidate
-from option_permissibility import OPTION_DETERMINATION, OPTION_POLICY_PERMITTED
+from option_permissibility import (
+    OPTION_DETERMINATION,
+    OPTION_POLICY_PERMITTED,
+    REASON_NOT_PERMITTED,
+)
 
 # The shipped determination refuses every option contract (option_permissibility.py).
 # These assertions are about the structure/collateral rules, which must stay exercised,
@@ -150,7 +154,12 @@ def main() -> None:
         orders_today=0,
         shariah_override=SHARIAH_PASS,
         quant_override=QUANT_BUY,
-        option_structure={"determination": PERMITTED, "structure": "covered_call", "shares_held": 100, "contracts": 1},
+        option_structure={
+            "determination": PERMITTED,
+            "structure": "covered_call",
+            "shares_held": 100,
+            "contracts": 1,
+        },
     )
     assert covered_call_ready["decision"] == "READY_FOR_APPROVAL"
     assert covered_call_ready["agent_summary"]["option_structure"]["status"] == "PASS"
@@ -175,6 +184,29 @@ def main() -> None:
     assert "option_structure_rejected" in naked_call_blocked["blockers"]
     assert naked_call_blocked["agent_summary"]["option_structure"]["status"] == "REJECT"
 
+    # Under the shipped determination the structure gate refuses as not permitted, and
+    # that must surface as its own blocker -- not as option_structure_rejected, whose
+    # remedy (more collateral, different sizing) cannot fix it. No asset_class is passed,
+    # so the preview-level permissibility check stays out of it and only the
+    # structure-result branch can produce the blocker.
+    not_permitted = evaluate_candidate(
+        symbol="AAPL",
+        side="BUY",
+        quantity=1,
+        price=None,
+        position_pct=1.0,
+        total_exposure_pct=1.0,
+        loss_per_trade_pct=0.1,
+        daily_loss_pct=0.1,
+        orders_today=0,
+        shariah_override=SHARIAH_PASS,
+        quant_override=QUANT_BUY,
+        option_structure={"structure": "covered_call", "shares_held": 100, "contracts": 1},
+    )
+    assert not_permitted["decision"] == "BLOCKED"
+    assert REASON_NOT_PERMITTED in not_permitted["blockers"], not_permitted["blockers"]
+    assert "option_structure_rejected" not in not_permitted["blockers"], not_permitted["blockers"]
+
     # A covered call is written by SELLING to open -- the coordinator must not
     # apply the equity-only "BUY side only" restriction to option orders.
     covered_call_sell = evaluate_candidate(
@@ -190,7 +222,12 @@ def main() -> None:
         shariah_override=SHARIAH_PASS,
         quant_override=QUANT_BUY,
         asset_class="option",
-        option_structure={"determination": PERMITTED, "structure": "covered_call", "shares_held": 100, "contracts": 1},
+        option_structure={
+            "determination": PERMITTED,
+            "structure": "covered_call",
+            "shares_held": 100,
+            "contracts": 1,
+        },
     )
     assert "only_buy_side_supported" not in covered_call_sell["blockers"]
     assert covered_call_sell["decision"] == "READY_FOR_APPROVAL"

@@ -15,7 +15,12 @@ PERMITTED = dict(OPTION_DETERMINATION, status=OPTION_POLICY_PERMITTED)
 
 
 SHARIAH_PASS = {"agent": "shariah", "status": "PASS", "provider": "ZOYA", "reason": "COMPLIANT"}
-SHARIAH_REJECT = {"agent": "shariah", "status": "REJECT", "provider": "ZOYA", "reason": "NON_COMPLIANT"}
+SHARIAH_REJECT = {
+    "agent": "shariah",
+    "status": "REJECT",
+    "provider": "ZOYA",
+    "reason": "NON_COMPLIANT",
+}
 
 
 def main() -> None:
@@ -117,9 +122,14 @@ def main() -> None:
         shares_held=0,
         shariah_override=SHARIAH_PASS,
     )
+    # Permissive determination, as above. Without it the shipped determination refuses
+    # first, and this case passed for that reason while claiming to test the shares --
+    # hidden until approval stopped collapsing both refusals into one code.
+    uncovered["option_structure"]["determination"] = PERMITTED
     blocked = approve_candidate(uncovered, approved_by_user=True)
     assert blocked["status"] == "REJECT"
     assert blocked["reason"] == "option_structure_rejected"
+    assert blocked["option_structure"]["reason"] == "insufficient_underlying_shares", blocked
 
     # Same covered call, fully backed, but on a margin account -- the account
     # gate must block it even though the structure itself is fine.

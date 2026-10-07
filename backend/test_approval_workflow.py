@@ -33,6 +33,9 @@ covered_call_candidate = {
 covered_call_result = approve_candidate(covered_call_candidate, approved_by_user=True)
 assert covered_call_result["status"] == "REJECT"
 assert covered_call_result["option_structure"]["reason"] == REASON_NOT_PERMITTED
+# And at the top level, not collapsed into option_structure_rejected, whose remedy
+# (collateral, sizing) cannot fix a contract that is not permitted at all.
+assert covered_call_result["reason"] == REASON_NOT_PERMITTED, covered_call_result
 
 # With a permissive determination supplied through the test-only seam, the same
 # candidate approves -- proving the refusal above comes from the permissibility gate and
