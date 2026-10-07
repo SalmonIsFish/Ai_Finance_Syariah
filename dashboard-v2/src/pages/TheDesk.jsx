@@ -6,7 +6,9 @@ import ErrorNote from "../components/ErrorNote";
 import { fetchPreview, submitApproval, fetchRiskSnapshot, fetchPaperStatus } from "../api";
 import { verdictTextClass } from "../verdict";
 import { detectMarket, marketLabel, marketBadgeClass, marketAuthority } from "../market";
-import { fmtMoney, fmtPct, isPresent, MISSING } from "../format";
+import { fmtMoney, fmtPct, fmtQty, isPresent, MISSING } from "../format";
+import Segmented from "../components/Segmented";
+import Panel from "../components/Panel";
 
 const INPUT_CLASS =
   "w-full bg-[var(--color-bg)] border border-[var(--color-border-strong)] rounded px-3 py-2 text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]";
@@ -226,7 +228,7 @@ export default function TheDesk() {
         <h1 className="text-2xl font-serif text-[var(--color-text)]">The Desk</h1>
       </div>
 
-      <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm p-6">
+      <Panel>
         <h2 className="text-sm font-medium text-[var(--color-subtle)] uppercase tracking-wider mb-4">Ticket Entry</h2>
 
         {/* Four columns only from xl. At md this was ~180px per card, which is
@@ -265,16 +267,22 @@ export default function TheDesk() {
             </p>
           </div>
           <div>
-            <label htmlFor="ticket-side" className="block text-sm text-[var(--color-muted)] mb-1">Side</label>
-            <select
-              id="ticket-side"
+            <span id="ticket-side-label" className="block text-sm text-[var(--color-muted)] mb-1">Side</span>
+            {/* Both sides visible at once, so the side is never a hidden dropdown
+                value. Neutral styling on purpose: green/red here would borrow
+                the verdict palette, which means permitted/refused. */}
+            <Segmented
+              label="Side"
+              size="md"
               value={side}
-              onChange={(e) => setSide(e.target.value)}
-              className={INPUT_CLASS}
-            >
-              <option value="BUY">BUY</option>
-              <option value="SELL">SELL</option>
-            </select>
+              onChange={setSide}
+              options={[["BUY", "BUY"], ["SELL", "SELL"]]}
+            />
+            <p className="mt-1 text-xs text-[var(--color-muted)]">
+              {side === "SELL"
+                ? "Reduces an existing position only — equity sells are reduce-only."
+                : "Opens or adds to a long position."}
+            </p>
           </div>
           <div>
             <label htmlFor="ticket-qty" className="block text-sm text-[var(--color-muted)] mb-1">Quantity (shares)</label>
@@ -305,19 +313,35 @@ export default function TheDesk() {
           </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-end gap-4">
-          {!ticketValid && (
-            <span className="text-xs text-[var(--color-muted)]">
-              Enter a symbol, a whole-share quantity and a positive limit price.
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+          {/* An estimate from the ticket's own numbers, before anything is sent.
+              The preview's notional replaces it once the server has priced it. */}
+          <div className="text-sm text-[var(--color-muted)]">
+            Est. notional{" "}
+            <span className="font-mono tabular-nums text-[var(--color-text)]">
+              {ticketValid ? fmtMoney(qtyNumber * priceNumber, ticketMarket) : MISSING}
             </span>
-          )}
-          <button
-            onClick={handleEvaluate}
-            disabled={loading || !ticketValid}
-            className="bg-[var(--color-accent)] text-[var(--color-button-text)] px-6 py-2 rounded font-medium hover:bg-[var(--color-accent-2)] transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
-          >
-            {loading ? "Evaluating…" : "Evaluate Trade"}
-          </button>
+          </div>
+          <div className="flex items-center gap-4">
+            {!ticketValid && (
+              <span className="text-xs text-[var(--color-muted)]">
+                Enter a symbol, a whole-share quantity and a positive limit price.
+              </span>
+            )}
+            {/* The button names the order it will evaluate, so the side and size
+                are confirmed at the moment of the click, not remembered. */}
+            <button
+              onClick={handleEvaluate}
+              disabled={loading || !ticketValid}
+              className="bg-[var(--color-accent)] text-[var(--color-button-text)] px-6 py-2 rounded font-medium hover:bg-[var(--color-accent-2)] transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
+            >
+              {loading
+                ? "Evaluating…"
+                : ticketValid
+                  ? `Evaluate ${side} ${fmtQty(qtyNumber)} ${symbol.trim().toUpperCase()}`
+                  : "Evaluate Trade"}
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -363,7 +387,7 @@ export default function TheDesk() {
             </div>
           )}
         </div>
-      </div>
+      </Panel>
 
       {preview && !isReviewing && (
         <div className="space-y-6">
@@ -584,7 +608,7 @@ export default function TheDesk() {
           empty ticket: before evaluating, the symbol in the box is a guess, and
           fetching a trail for every keystroke would be noise. */}
       {preview ? (
-        <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm p-6">
+        <Panel>
           <h2 className="text-sm font-medium text-[var(--color-subtle)] uppercase tracking-wider mb-1">
             Decision Trail
           </h2>
@@ -593,7 +617,7 @@ export default function TheDesk() {
             which prices &mdash; so a verdict can be checked rather than taken on trust.
           </p>
           <EvidenceTrail ticker={(preview.symbol || symbol).toUpperCase()} />
-        </div>
+        </Panel>
       ) : null}
     </div>
   );

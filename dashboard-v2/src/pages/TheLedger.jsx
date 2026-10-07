@@ -3,6 +3,7 @@ import { Search } from "lucide-react";
 import { fetchApprovals, fetchExecutionAudit, fetchAuditEvents } from "../api";
 import ErrorNote from "../components/ErrorNote";
 import DataTable from "../components/DataTable";
+import Segmented from "../components/Segmented";
 import useResource from "../useResource";
 import { verdictBadgeClass } from "../verdict";
 import { fmtDateTime, fmtMoney, fmtQty, fmtTime } from "../format";
@@ -51,28 +52,6 @@ function StatusChip({ verdict, label }) {
   if (!label) return <span className="text-[var(--color-muted)]">—</span>;
   return (
     <span className={`px-2 py-0.5 rounded text-[11px] font-bold font-mono ${verdictBadgeClass(verdict)}`}>{label}</span>
-  );
-}
-
-function Segmented({ options, value, onChange, label }) {
-  return (
-    <div role="group" aria-label={label} className="inline-flex rounded border border-[var(--color-border)] overflow-hidden">
-      {options.map(([key, text]) => (
-        <button
-          key={key}
-          type="button"
-          aria-pressed={value === key}
-          onClick={() => onChange(key)}
-          className={`px-3 py-1.5 text-xs font-medium focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] ${
-            value === key
-              ? "bg-[var(--color-panel-3)] text-[var(--color-text)]"
-              : "text-[var(--color-muted)] hover:text-[var(--color-text)]"
-          }`}
-        >
-          {text}
-        </button>
-      ))}
-    </div>
   );
 }
 

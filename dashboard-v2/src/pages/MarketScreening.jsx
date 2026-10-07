@@ -7,6 +7,7 @@ import { marketLabel, marketBadgeClass, detectMarket } from "../market";
 import { fmtMoney, fmtPct, fmtDate, MISSING, isPresent } from "../format";
 import ErrorNote from "../components/ErrorNote";
 import DataTable from "../components/DataTable";
+import Segmented from "../components/Segmented";
 
 /**
  * `/news` returns ai_summary as an OBJECT -- {text, model, shariah_status,
@@ -209,23 +210,16 @@ export default function MarketScreening() {
       <section>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 className="text-lg font-bold text-[var(--color-text)]">Opportunities (Ready)</h2>
-          <div className="flex gap-1">
-            {["ALL", "MY", "US"].map((value) => (
-              <button
-                key={value}
-                onClick={() => setMarketFilter(value)}
-                className={
-                  marketFilter === value
-                    ? "px-3 py-1.5 text-xs font-bold rounded bg-[var(--color-accent)] text-[var(--color-bg)]"
-                    : "px-3 py-1.5 text-xs font-bold rounded bg-[var(--color-panel-2)] text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors"
-                }
-              >
-                {value === "ALL" ? "All markets" : null}
-                {value === "MY" ? `Malaysia ${readyByMarket.MY ?? 0}` : null}
-                {value === "US" ? `US ${readyByMarket.US ?? 0}` : null}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label="Filter opportunities by market"
+            value={marketFilter}
+            onChange={setMarketFilter}
+            options={[
+              ["ALL", "All markets"],
+              ["MY", `Malaysia ${readyByMarket.MY ?? 0}`],
+              ["US", `US ${readyByMarket.US ?? 0}`],
+            ]}
+          />
         </div>
         <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm">
           <DataTable

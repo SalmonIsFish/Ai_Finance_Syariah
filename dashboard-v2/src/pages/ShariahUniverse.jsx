@@ -26,6 +26,7 @@ import { verdictBadgeClass } from "../verdict";
 import { normalizeVerdict, verdictLabel } from "../shariah";
 import { fmtPct, fmtDate, fmtDateTime } from "../format";
 import DataTable from "../components/DataTable";
+import Segmented from "../components/Segmented";
 
 /** The SC list is ~900 rows; nobody reads them all. Search narrows, paging
  *  bounds what is drawn, and the pager always states the full filtered count,
@@ -179,23 +180,16 @@ function MalaysiaTab() {
             className="w-full pl-9 pr-3 py-2 bg-[var(--color-panel-2)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-sm focus:outline-none focus:border-[var(--color-accent)]"
           />
         </div>
-        <div className="flex gap-1">
-          {["ALL", "PASS", "REJECT"].map((value) => (
-            <button
-              key={value}
-              onClick={() => setStatusFilter(value)}
-              className={
-                statusFilter === value
-                  ? "px-3 py-2 text-xs font-bold rounded bg-[var(--color-accent)] text-[var(--color-bg)]"
-                  : "px-3 py-2 text-xs font-bold rounded bg-[var(--color-panel-2)] text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors"
-              }
-            >
-              {value === "ALL" ? `All ${securities.length}` : null}
-              {value === "PASS" ? `Compliant ${counts.pass}` : null}
-              {value === "REJECT" ? `Not compliant ${counts.reject}` : null}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="Filter by classification"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            ["ALL", `All ${securities.length}`],
+            ["PASS", `Compliant ${counts.pass}`],
+            ["REJECT", `Not compliant ${counts.reject}`],
+          ]}
+        />
       </div>
 
       <div className="bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md shadow-sm">
