@@ -272,6 +272,42 @@ def render_compliance(facts: dict) -> str:
     return "\n".join(lines)
 
 
+_LIGHT_MARK = {"GREEN": "GREEN", "YELLOW": "YELLOW (under review)", "RED": "RED"}
+
+
+def render_monitor(facts: dict) -> str:
+    """Render the colour changes from GET /monitor, one block per holding.
+
+    The message text itself is composed by the backend (holdings_monitor), so the
+    advice a holder reads on Telegram and on the dashboard is the same sentence.
+    """
+    transitions = facts.get("transitions") or []
+    counts = facts.get("counts") or {}
+    lines = [
+        "[Shariah monitor]",
+        _line(
+            "Holdings",
+            ", ".join(
+                f"{_number(counts.get(light), places=0)} {light.lower()}"
+                for light in ("GREEN", "YELLOW", "RED")
+            ),
+        ),
+    ]
+    for change in transitions:
+        lines.append("")
+        before = _LIGHT_MARK.get(change.get("from"), "new")
+        after = _LIGHT_MARK.get(change.get("to"), str(change.get("to") or "?"))
+        lines.append(f"  {change.get('symbol') or '?'}: {before} -> {after}")
+        message = str(change.get("message") or "")
+        if message:
+            lines.append(f"    {message}")
+    basis = facts.get("basis")
+    if basis:
+        lines.append("")
+        lines.append(str(basis))
+    return "\n".join(lines)
+
+
 def render_shariah_us(facts: dict) -> str:
     """Render the US SEC EDGAR screen from /stock/{symbol}/explain.
 

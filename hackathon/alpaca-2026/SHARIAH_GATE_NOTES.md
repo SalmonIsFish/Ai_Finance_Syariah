@@ -1,5 +1,11 @@
 # Shariah Options-Structure Gate — Design Sketch (not implemented)
 
+> **Superseded (2026-10-05).** The allow-list below predates the determination that option
+> contracts are not permitted, covered calls and cash-secured puts included
+> (`backend/option_permissibility.py`). The dashboard still cites this file for the
+> structure-level arithmetic, which stays exercised under a test-only seam. It is no longer
+> a statement of what is permitted.
+
 This is a first-draft sketch for the hackathon's central differentiator: a gate that decides
 whether a specific *option structure* on a specific *underlying* is allowed, before any Alpaca
 order is placed. It is not implementation-ready code — no backend files have been touched.

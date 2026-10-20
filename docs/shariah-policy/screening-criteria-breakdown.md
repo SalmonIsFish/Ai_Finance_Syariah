@@ -3,9 +3,22 @@
 Source: [[Shariah-compliant-May 2026_final]]
 Last verified: [May 2026]
 
-## 1. Business Activity Exclusions (automatic disqualifiers)
-Regardless of financial ratios, primary business in these activities
-disqualifies a company outright:
+## 1. Business Activity Benchmark
+
+**Single 5% benchmark.** The contribution of all Shariah non-compliant businesses
+or activities to the group's total income must be **less than 5%**. The SAC
+removed the former 20% benchmark (SAC 288th meeting, 24 Feb 2025; 296th meeting,
+13 Nov 2025), effective for listed companies with financial years ending on or
+after 31 December 2025. Sources: sc.com.my, "Resolutions of the Shariah Advisory
+Council of the SC" and "Shariah-compliant securities screening methodology"
+(checked 2026-10-20).
+
+How this repo applies it: the US screen (`sec_edgar_screen.py`) cannot measure a
+percentage. It excludes by SEC industry code (SIC) all or nothing. The
+percentage is read from the annual report by `filing_review.py`, and that reading
+can only make a holding YELLOW (from 4.5%), never decide it.
+
+The activities counted towards it:
 
 - [ ] Conventional banking / interest-based lending
 - [ ] Conventional insurance

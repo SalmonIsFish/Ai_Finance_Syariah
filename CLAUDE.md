@@ -144,11 +144,42 @@ Reconcile        POST /paper/reconcile/{queue_id}
 | Orchestration | `local_api.py`, `paper_execution.py`, `approval_workflow.py`, `agent_coordinator.py` |
 | State | `approval_queue.py`, `portfolio_store.py`, `watchlist_store.py`, `shariah_screen_store.py` |
 | Reporting | `portfolio_metrics.py` — risk-adjusted return from the broker equity curve; reports, never decides |
+| Shariah monitor | `holdings_monitor.py`, `traffic_light.py`, `filing_review.py`, `monitor_api.py` — see "The Shariah monitor" below |
 | Malaysian execution | `moomoo_*.py` — **no longer legacy as of 2026-09-22.** Alpaca has no Bursa access, so Moomoo is the only Malaysian route. See Known limitations 5. |
 
 **`shariah_candidate.build_shariah_candidate()` is the only surface a broker adapter talks to.**
 Adapters never import a gate module directly. If something a gate needs isn't reaching it, fix
 the plumbing on the adapter side rather than changing the gate contract.
+
+## The Shariah monitor (product direction from 2026-10-20)
+
+The product is now a **Shariah compliance monitor for Malaysians investing abroad**
+(US first). Trading and LLM autonomy are parked; the gate chain and execution code
+stay as they are. The monitor works on holdings the owner *reports*: typed in, or a
+broker CSV export. These live in `monitor_*` tables and **never** in
+`paper_positions`, which is broker-fill evidence.
+
+- `traffic_light.py` colours a verdict GREEN / YELLOW / RED without changing its
+  `status`, so the order gate reads exactly what it did before. YELLOW: within 10%
+  of a limit (`NEAR_LIMIT_BAND`), data missing, a mixed SIC block, or just cleared
+  after a failing report. Only caution can be added. A review flag can never
+  produce GREEN, a RED is never softened by history, and the owner's only manual
+  action is escalate-to-RED. No route marks anything green.
+- `holdings_monitor.run_monitor` screens through the one gate path, colours each
+  holding, runs the disposal clock for RED only, and resolves sales made while
+  YELLOW. It records colour changes in `monitor_alerts`. It **writes**, so the
+  bridge calls `GET /monitor` uncached, daily (`monitor_job`).
+- The owner's position on YELLOW: "do not buy or sell until it resolves". The app
+  cannot enforce it, so a sale made anyway is recorded, and if the holding resolves
+  RED, the gain above cost is owed. That is the owner's position, not a ruling.
+- `filing_review.py` has a model read the annual report's business section for the
+  SC's 5% activity benchmark. A quote not found verbatim in the filing is
+  discarded. It can only add a YELLOW flag or a note, and runs only on request.
+- AAOIFI is a monitor-only comparison view (`check_us_symbol(methodology=...)`:
+  debt and cash under 30% of spot market cap). The order gate never passes a
+  methodology, so it always screens on SC SAC.
+- `apply_disposal_clock(scope_prefix=...)` keeps the monitor's flags (`self:` account
+  prefix) and the paper ledger's from clearing each other.
 
 ## Configuration
 
@@ -325,7 +356,7 @@ talked to the real gateway.
   - authenticated reads of the Alpaca paper account;
   - Alpaca market data and Yahoo;
   - OpenD on `127.0.0.1:11111`.
-- Network access goes through seven replaceable module-level seams:
+- Network access goes through eight replaceable module-level seams:
 
   | seam | module |
   |---|---|
@@ -336,6 +367,7 @@ talked to the real gateway.
   | `_fetch_yfinance` | `yahoo_finance` |
   | `_port_reachable` | `moomoo_status` |
   | `sec_request` | `sec_edgar_screen` |
+  | `sec_text_request` | `sec_edgar_screen` (filing text for `filing_review` only) |
 
   `yfinance` fetches through libcurl and never touches Python's `socket`, so the guard hooks
   `curl_cffi` separately. A socket-only guard would have missed every Yahoo call.

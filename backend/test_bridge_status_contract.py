@@ -74,6 +74,10 @@ def test_every_bridge_route_exists_on_the_real_app():
         return re.sub(r"\{[^}]+\}", "{}", path)
 
     served = {shape(route.path) for route in local_api.app.routes if hasattr(route, "path")}
+    # Routes added with include_router (monitor_api) sit inside an included-router
+    # object with no `path` of its own in this FastAPI version; the OpenAPI schema
+    # lists them by their real, prefixed path.
+    served |= {shape(path) for path in local_api.app.openapi()["paths"]}
     missing = [r.path for r in ROUTES.values() if shape(r.path) not in served]
     assert not missing, f"the bridge names routes the app does not serve: {sorted(missing)}"
 

@@ -35,6 +35,7 @@ from datetime import datetime, timedelta, timezone
 from numeric_guards import first_non_finite, is_finite_number
 
 import portfolio_store
+import traffic_light
 
 COMPLIANT = "PASS"
 NON_COMPLIANT = "REJECT"
@@ -70,6 +71,12 @@ def _alert_for(status: str) -> str | None:
 # claim -- one of several date questions in this area the code cannot settle on
 # its own. See the note on the clock's start below, which matters more.
 DISPOSAL_WINDOW_DAYS = 30
+
+# Self-reported holdings (holdings_monitor) share the flags table with the paper
+# ledger under this account prefix. Each disposal clock clears only its own rows:
+# without the scope, a sweep of one would clear every flag of the other as
+# "no longer flagged", silently restarting religious deadlines.
+MONITOR_ACCOUNT_PREFIX = "self:"
 
 
 def ensure_compliance_flag_tables(connection: sqlite3.Connection) -> None:
@@ -120,7 +127,9 @@ def _deadline_from(start_date: str | None) -> tuple[str | None, int | None]:
     return deadline.date().isoformat(), int(remaining // 1)
 
 
-def apply_disposal_clock(connection: sqlite3.Connection, screening: dict) -> dict:
+def apply_disposal_clock(
+    connection: sqlite3.Connection, screening: dict, *, scope_prefix: str | None = None
+) -> dict:
     """Record when each alert was first raised, and annotate the deadline.
 
     Kept out of `screen_holdings` on purpose: that function reads and reports
@@ -144,6 +153,11 @@ def apply_disposal_clock(connection: sqlite3.Connection, screening: dict) -> dic
     ensure_compliance_flag_tables(connection)
     now = _utc_now()
     flagged = screening.get("flagged") or []
+    # `scope_prefix` None is the paper ledger: every row except the monitor's.
+    if scope_prefix is None:
+        scope_sql, scope_args = " AND account_suffix NOT LIKE ?", (MONITOR_ACCOUNT_PREFIX + "%",)
+    else:
+        scope_sql, scope_args = " AND account_suffix LIKE ?", (scope_prefix + "%",)
 
     live_keys = set()
     for holding in flagged:
@@ -185,7 +199,8 @@ def apply_disposal_clock(connection: sqlite3.Connection, screening: dict) -> dic
     # rather than deleted: the trail of having been flagged is worth keeping.
     for row in connection.execute(
         "SELECT symbol, account_suffix, alert FROM holdings_compliance_flags "
-        "WHERE cleared_at IS NULL"
+        "WHERE cleared_at IS NULL" + scope_sql,
+        scope_args,
     ).fetchall():
         key = (row[0], row[1], row[2])
         if key not in live_keys:
@@ -200,7 +215,8 @@ def apply_disposal_clock(connection: sqlite3.Connection, screening: dict) -> dic
         (row[0], row[1], row[2]): {"first_flagged_at": row[3], "publication_date": row[4]}
         for row in connection.execute(
             "SELECT symbol, account_suffix, alert, first_flagged_at, publication_date "
-            "FROM holdings_compliance_flags WHERE cleared_at IS NULL"
+            "FROM holdings_compliance_flags WHERE cleared_at IS NULL" + scope_sql,
+            scope_args,
         ).fetchall()
     }
 
@@ -233,7 +249,12 @@ def apply_disposal_clock(connection: sqlite3.Connection, screening: dict) -> dic
 
 
 def screen_holdings(
-    connection: sqlite3.Connection, *, evaluate=None, market: str | None = None
+    connection: sqlite3.Connection,
+    *,
+    evaluate=None,
+    market: str | None = None,
+    positions: list[dict] | None = None,
+    review_lookup=None,
 ) -> dict:
     """Screen every open position against the current authority.
 
@@ -251,18 +272,29 @@ def screen_holdings(
 
     An unrecognised verdict is treated as UNCONFIRMED rather than trusted, so a
     malformed or future status can never read as compliant.
+
+    `positions` screens a supplied list instead of the paper ledger -- the
+    self-reported holdings in holdings_monitor, which must never be written into
+    `paper_positions` (that table is evidence of broker fills). Each needs
+    symbol, account_suffix, quantity, average_cost and cost_basis.
+
+    `review_lookup(symbol, report_date)` returns ``(flags, escalations)`` for the
+    traffic light. Both can only add caution; see traffic_light.
     """
     evaluate = evaluate or _default_evaluate
     portfolio_store.ensure_portfolio_tables(connection)
 
-    rows = connection.execute(
-        """
-        SELECT symbol, account_suffix, quantity, average_cost, cost_basis
-        FROM paper_positions
-        WHERE quantity != 0
-        ORDER BY symbol, account_suffix
-        """
-    ).fetchall()
+    if positions is not None:
+        rows = list(positions)
+    else:
+        rows = connection.execute(
+            """
+            SELECT symbol, account_suffix, quantity, average_cost, cost_basis
+            FROM paper_positions
+            WHERE quantity != 0
+            ORDER BY symbol, account_suffix
+            """
+        ).fetchall()
 
     if market is not None:
         from agents.shariah_agent import detect_market
@@ -276,6 +308,26 @@ def screen_holdings(
         status = verdict.get("status")
         if status not in (COMPLIANT, NON_COMPLIANT, UNCONFIRMED):
             status = UNCONFIRMED
+
+        # The light is a view for the holder; `status` and `alert` above stay the
+        # source of truth for every gate and for the disposal clock.
+        details = verdict.get("details") if isinstance(verdict.get("details"), dict) else {}
+        flags, escalations = (
+            review_lookup(position["symbol"], details.get("report_date"))
+            if review_lookup
+            else ([], [])
+        )
+        light = traffic_light.classify(
+            verdict,
+            prior_report_status=traffic_light.prior_report_status(
+                connection,
+                position["symbol"],
+                details.get("report_date"),
+                details.get("methodology"),
+            ),
+            flags=flags,
+            escalations=escalations,
+        )
 
         holdings.append(
             {
@@ -291,6 +343,8 @@ def screen_holdings(
                 "publication_id": verdict.get("publication_id"),
                 "publication_date": verdict.get("publication_date"),
                 "alert": _alert_for(status),
+                "report_date": details.get("report_date"),
+                "traffic_light": light,
             }
         )
 

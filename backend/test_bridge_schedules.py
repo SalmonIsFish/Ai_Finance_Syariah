@@ -69,6 +69,11 @@ class FakeClient:
         self.calls.append("portfolio_compliance")
         return {"status": self._status, "route": "portfolio_compliance", "data": self._data}
 
+    def refresh_monitor(self):
+        self.refreshes += 1
+        self.calls.append("monitor_run")
+        return {"status": self._status, "route": "monitor_run", "data": self._data}
+
 
 def collector():
     sent = []
@@ -291,3 +296,59 @@ def test_the_disposal_clock_runs_daily_not_hourly():
     scheduler = schedules.build_default_schedule(FakeClient(), notify)
     job = next(j for j in scheduler.jobs if j.name == "disposal_clock")
     assert job.interval_seconds >= 12 * schedules.HOUR
+
+
+# --- the Shariah monitor ------------------------------------------------------------
+
+MONITOR_CHANGED = {
+    "status": "OK",
+    "counts": {"GREEN": 3, "YELLOW": 1, "RED": 1},
+    "transitions": [
+        {
+            "symbol": "NVDA",
+            "from": "GREEN",
+            "to": "YELLOW",
+            "message": "NVDA: GREEN -> YELLOW. Under review. Do not buy more or sell.",
+        }
+    ],
+    "basis": "Applies the SC Malaysia SAC screening methodology. Not a Shariah ruling.",
+}
+
+
+def test_a_colour_change_is_relayed_with_the_backend_message():
+    client = FakeClient(MONITOR_CHANGED)
+    notify, sent = collector()
+
+    result = schedules.monitor_job(client, notify)
+
+    assert result == {"status": "OK", "changes": 1}
+    assert client.refreshes == 1 and client.calls == ["monitor_run"]
+    [message] = sent
+    assert message["topic"] == "compliance"
+    assert "NVDA: GREEN -> YELLOW (under review)" in message["text"]
+    assert "Do not buy more or sell" in message["text"]
+    assert "Not a Shariah ruling" in message["text"]
+
+
+def test_no_change_is_silent():
+    client = FakeClient({**MONITOR_CHANGED, "transitions": []})
+    notify, sent = collector()
+    assert schedules.monitor_job(client, notify) == {"status": "OK", "changes": 0}
+    assert sent == []
+
+
+def test_an_unavailable_monitor_is_reported_not_treated_as_quiet():
+    notify, sent = collector()
+    result = schedules.monitor_job(FakeClient(status="UNAVAILABLE"), notify)
+    assert result["status"] == "UNAVAILABLE"
+    assert sent == []
+
+
+def test_the_monitor_runs_daily_and_uncached():
+    notify, _ = collector()
+    scheduler = schedules.build_default_schedule(FakeClient(), notify)
+    job = next(j for j in scheduler.jobs if j.name == "monitor")
+    assert job.interval_seconds >= 12 * schedules.HOUR
+    from bridge.routes import ROUTES
+
+    assert ROUTES["monitor_run"].cache_ttl_seconds == 0.0

@@ -1,5 +1,10 @@
 # Compliance Logic: Economic-Equivalence Argument for Covered Calls and Cash-Secured Puts
 
+> **Superseded (2026-10-05).** The owner settled that option contracts are not permitted,
+> covered calls and cash-secured puts included. See `backend/option_permissibility.py` and
+> `docs/shariah-policy/option-contracts-determination.md`. This argument is kept as a record
+> of what was considered, not as the project's position.
+
 **Document Date:** August 20, 2026  
 **Status:** Research / Prepared Defense  
 **Audience:** Scholars, judges, or informed skeptics familiar with Islamic finance  

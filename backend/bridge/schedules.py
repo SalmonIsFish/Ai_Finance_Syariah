@@ -128,6 +128,26 @@ def disposal_clock_job(client, notify) -> dict:
     return {"status": "OK", "overdue": overdue, "urgent": len(urgent)}
 
 
+def monitor_job(client, notify) -> dict:
+    """Relay every GREEN/YELLOW/RED change the monitor recorded on this run.
+
+    The backend decides what changed (holdings_monitor.run_monitor compares each
+    colour with the last run and stores the change in monitor_alerts); this job
+    only carries the message. A run with no change is silent.
+    """
+    result = client.refresh_monitor()
+    if result["status"] != "OK":
+        return {"status": result["status"], "reason": result.get("reason")}
+
+    from bridge.format import render_monitor
+
+    facts = result["data"] or {}
+    transitions = facts.get("transitions") or []
+    if transitions:
+        notify(render_monitor(facts), topic="compliance")
+    return {"status": "OK", "changes": len(transitions)}
+
+
 def publication_watch_job(client, notify, seen: set) -> dict:
     """Alert when a new SC publication appears or a different one becomes active.
 
@@ -184,6 +204,9 @@ def build_default_schedule(client, notify) -> Scheduler:
     scheduler.add(
         Job("disposal_clock", 24 * HOUR, lambda: disposal_clock_job(client, notify), "compliance")
     )
+    # The monitor re-screens every self-reported holding (a live SEC fetch each, for
+    # US holdings), and annual reports change slowly: daily is plenty.
+    scheduler.add(Job("monitor", 24 * HOUR, lambda: monitor_job(client, notify), "compliance"))
     scheduler.add(
         Job(
             "publication_watch",
