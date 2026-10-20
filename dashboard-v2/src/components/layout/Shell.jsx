@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { Moon, Sun, Briefcase, Activity, BarChart2, BookOpen, ListChecks, Menu, X } from "lucide-react";
+import { Moon, Sun, Briefcase, Activity, BarChart2, BookOpen, ListChecks, Menu, X, ShieldCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import ErrorBoundary from "../ErrorBoundary";
 import StatusBar from "../StatusBar";
@@ -16,6 +16,7 @@ function initialTheme() {
 }
 
 const NAV_ITEMS = [
+  { name: "Shariah Monitor", to: "/monitor", icon: ShieldCheck },
   { name: "The Desk", to: "/", icon: Briefcase },
   { name: "Portfolio & Risk", to: "/risk", icon: Activity },
   { name: "Market & Screening", to: "/market", icon: BarChart2 },

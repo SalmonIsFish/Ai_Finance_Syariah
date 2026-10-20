@@ -429,6 +429,34 @@ def test_a_cleared_flag_starts_a_fresh_month_if_it_returns():
     print("PASS: a cleared alert that returns starts a fresh disposal month")
 
 
+def test_every_holding_carries_a_traffic_light():
+    conn = _conn()
+    _seed_position(conn, "AAPL")
+    _seed_position(conn, "NEAR")
+    near = {
+        "status": "PASS",
+        "details": {
+            "report_date": "2025-12-31",
+            "ratios": {
+                "debt_ratio_pct": 31.0,
+                "cash_ratio_pct": 5.0,
+                "limit_pct": 33.0,
+                "debt_concepts_used": ["LongTermDebt"],
+            },
+        },
+    }
+    result = holdings_compliance.screen_holdings(
+        conn,
+        evaluate=_stub({"AAPL": {"status": "REJECT", "reason": "x"}, "NEAR": near}),
+    )
+    lights = {h["symbol"]: h["traffic_light"]["light"] for h in result["holdings"]}
+    assert lights == {"AAPL": "RED", "NEAR": "YELLOW"}
+    # The light is a view: status and alert are untouched by it.
+    near_row = next(h for h in result["holdings"] if h["symbol"] == "NEAR")
+    assert near_row["status"] == "PASS" and near_row["alert"] is None
+    print("PASS: every holding carries a traffic light; status is unchanged")
+
+
 def main():
     test_compliant_holding_raises_no_alert()
     test_non_compliant_holding_is_flagged()
@@ -447,6 +475,7 @@ def main():
     test_the_deadline_counts_from_the_publication_not_our_sweep()
     test_only_a_ruling_starts_a_clock()
     test_a_cleared_flag_starts_a_fresh_month_if_it_returns()
+    test_every_holding_carries_a_traffic_light()
     print()
     print("All holdings-compliance tests passed.")
 

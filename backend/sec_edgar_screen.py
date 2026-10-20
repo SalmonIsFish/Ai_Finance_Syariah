@@ -62,6 +62,18 @@ REQUEST_TIMEOUT_SECONDS = 25
 # SC methodology: each ratio must be *less than* 33%.
 MAX_RATIO_PCT = 33.0
 
+# Methodologies. SC SAC is the default and the only one the order gate uses.
+# AAOIFI (Shariah Standard 21) is offered to the monitor as a comparison view:
+# the same Tier-1 exclusions, but debt and conventional cash are measured
+# against *market capitalisation* and must each be under 30%. AAOIFI practice
+# often averages market cap over 24-36 months; this uses the current price
+# times the shares outstanding on the latest cover page, which is labelled on
+# every verdict as an approximation.
+METHODOLOGY_SC = "SC_MY_SAC"
+METHODOLOGY_AAOIFI = "AAOIFI"
+METHODOLOGIES = (METHODOLOGY_SC, METHODOLOGY_AAOIFI)
+AAOIFI_MAX_RATIO_PCT = 30.0
+
 # Forms whose facts we read at all. Amendments are excluded: an "/A" restates a period
 # we already have from the original and would compete with it on filing date.
 ANNUAL_FORMS = {"10-K", "20-F", "40-F"}
@@ -199,7 +211,7 @@ def reset_ticker_cache() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _screen_us_symbol(symbol: str) -> dict:
+def _screen_us_symbol(symbol: str, *, methodology: str = METHODOLOGY_SC, price_lookup=None) -> dict:
     """Screen one US-listed symbol. Mirrors zoya_compliance.check_us_symbol.
 
     The verdict-producing half, split out from check_us_symbol so that every
@@ -208,6 +220,8 @@ def _screen_us_symbol(symbol: str) -> dict:
     normalized = str(symbol or "").strip().upper()
     if not normalized:
         return {"status": "UNKNOWN", "symbol": normalized, "reason": "symbol_required"}
+    if methodology not in METHODOLOGIES:
+        return {"status": "UNKNOWN", "symbol": normalized, "reason": "unknown_methodology"}
 
     try:
         cik = resolve_cik(normalized)
@@ -229,7 +243,7 @@ def _screen_us_symbol(symbol: str) -> dict:
         "symbol": normalized,
         "exchange": profile.get("exchange"),
         "provider": "SEC_EDGAR",
-        "methodology": "SC_MY_SAC",
+        "methodology": methodology,
         "company": profile.get("name"),
         # Carried on every verdict, and therefore persisted into shariah_screens,
         # purely so the risk overlay can group held positions by industry without
@@ -250,6 +264,10 @@ def _screen_us_symbol(symbol: str) -> dict:
             "status": "NON_COMPLIANT",
             "report_date": None,
             "screen": "business_activity",
+            # Machine-readable twin of the label in `reason`, so traffic_light can tell
+            # a placeholder rejection (a mixed SIC block) from an established one
+            # without parsing prose. Reporting only -- the status above is unchanged.
+            "exclusion_category": exclusion,
             "reason": (
                 f"excluded business activity: {EXCLUSION_LABELS[exclusion]} "
                 f"(SIC {profile.get('sic')} {profile.get('sic_description') or ''})".strip()
@@ -265,15 +283,26 @@ def _screen_us_symbol(symbol: str) -> dict:
     ratios = compute_ratios(facts)
     if isinstance(ratios, str):
         return {**base, "status": "UNKNOWN", "report_date": None, "reason": ratios}
+    if methodology == METHODOLOGY_AAOIFI:
+        try:
+            dei = fetch_company_dei(cik)
+        except SecEdgarError as exc:
+            return {**base, "status": "ERROR", "reason": str(exc)}
+        price = price_lookup(normalized) if price_lookup else None
+        ratios = aaoifi_ratios(ratios, dei, price)
+        if isinstance(ratios, str):
+            return {**base, "status": "UNKNOWN", "report_date": None, "reason": ratios}
+    limit_pct = ratios["limit_pct"]
+    denominator = "market capitalisation" if methodology == METHODOLOGY_AAOIFI else "total assets"
 
     failures = []
-    if ratios["debt_ratio_pct"] >= MAX_RATIO_PCT:
+    if ratios["debt_ratio_pct"] >= limit_pct:
         failures.append(
-            f"interest-bearing debt / total assets {ratios['debt_ratio_pct']:.1f}% >= {MAX_RATIO_PCT:.0f}%"
+            f"interest-bearing debt / {denominator} {ratios['debt_ratio_pct']:.1f}% >= {limit_pct:.0f}%"
         )
-    if ratios["cash_ratio_pct"] >= MAX_RATIO_PCT:
+    if ratios["cash_ratio_pct"] >= limit_pct:
         failures.append(
-            f"conventional cash / total assets {ratios['cash_ratio_pct']:.1f}% >= {MAX_RATIO_PCT:.0f}%"
+            f"conventional cash / {denominator} {ratios['cash_ratio_pct']:.1f}% >= {limit_pct:.0f}%"
         )
 
     return {
@@ -286,7 +315,7 @@ def _screen_us_symbol(symbol: str) -> dict:
         if failures
         else (
             f"debt {ratios['debt_ratio_pct']:.1f}% and cash {ratios['cash_ratio_pct']:.1f}% "
-            f"of total assets, both under {MAX_RATIO_PCT:.0f}%"
+            f"of {denominator}, both under {limit_pct:.0f}%"
         ),
     }
 
@@ -297,7 +326,7 @@ def _record_screen(verdict: dict) -> None:
     record_screen_to_default_db(verdict)
 
 
-def check_us_symbol(symbol: str) -> dict:
+def check_us_symbol(symbol: str, *, methodology: str = METHODOLOGY_SC, price_lookup=None) -> dict:
     """Screen one US-listed symbol, and record the verdict in the audit log.
 
     The log is observability, not a gate: a failed write must never change a
@@ -307,7 +336,7 @@ def check_us_symbol(symbol: str) -> dict:
     bookkeeping. So the write is best-effort and the verdict is returned either
     way.
     """
-    verdict = _screen_us_symbol(symbol)
+    verdict = _screen_us_symbol(symbol, methodology=methodology, price_lookup=price_lookup)
     try:
         _record_screen(verdict)
     except Exception:
@@ -357,12 +386,155 @@ def fetch_company_profile(cik: int) -> dict:
     }
 
 
+def fetch_company_dei(cik: int) -> dict:
+    """The cover-page (dei) facts from the same companyfacts document."""
+    response = sec_request(SEC_FACTS_URL.format(cik=cik))
+    if not response.get("ok"):
+        raise SecEdgarError(f"sec_company_facts_unavailable:{response.get('reason')}")
+    data = response.get("data") or {}
+    return ((data.get("facts") or {}).get("dei")) or {}
+
+
+def latest_shares_outstanding(dei: dict):
+    """Latest EntityCommonStockSharesOutstanding, summed across rows of one filing.
+
+    companyfacts omits dimensional facts, so a multi-class issuer may report no
+    undimensioned figure at all; that returns None and the screen is UNKNOWN.
+    """
+    node = dei.get("EntityCommonStockSharesOutstanding")
+    rows = [
+        row
+        for row in ((node or {}).get("units") or {}).get("shares") or []
+        if isinstance(row, dict) and row.get("end") and is_finite_number(row.get("val"))
+    ]
+    if not rows:
+        return None
+    latest_end = max(str(row["end"]) for row in rows)
+    same_end = [row for row in rows if str(row["end"]) == latest_end]
+    latest_filed = max(str(row.get("filed") or "") for row in same_end)
+    total = sum(
+        float(row["val"]) for row in same_end if str(row.get("filed") or "") == latest_filed
+    )
+    return {"shares": total, "as_of": latest_end} if total > 0 else None
+
+
+def aaoifi_ratios(sc_ratios: dict, dei: dict, price):
+    """Re-base the SC ratio inputs on market capitalisation (AAOIFI Standard 21)."""
+    shares = latest_shares_outstanding(dei)
+    if shares is None:
+        return "shares_outstanding_not_reported"
+    if not is_finite_number(price) or price <= 0:
+        return "price_unavailable_for_market_cap"
+    market_cap = shares["shares"] * float(price)
+    if not is_finite_number(market_cap) or market_cap <= 0:
+        return "market_cap_not_a_finite_number"
+    debt_pct = round(sc_ratios["interest_bearing_debt"] / market_cap * 100, 4)
+    cash_pct = round(sc_ratios["conventional_cash"] / market_cap * 100, 4)
+    unusable = first_non_finite(debt_ratio_pct=debt_pct, cash_ratio_pct=cash_pct)
+    if unusable:
+        return f"{unusable}_not_a_finite_number"
+    return {
+        **sc_ratios,
+        "debt_ratio_pct": debt_pct,
+        "cash_ratio_pct": cash_pct,
+        "limit_pct": AAOIFI_MAX_RATIO_PCT,
+        "denominator": "market_cap",
+        "market_cap": round(market_cap, 2),
+        "shares_outstanding": shares["shares"],
+        "shares_as_of": shares["as_of"],
+        "price": float(price),
+        "approximation": "spot market cap (price x latest cover-page shares), not a 24-36 month average",
+    }
+
+
 def fetch_company_facts(cik: int) -> dict:
     response = sec_request(SEC_FACTS_URL.format(cik=cik))
     if not response.get("ok"):
         raise SecEdgarError(f"sec_company_facts_unavailable:{response.get('reason')}")
     data = response.get("data") or {}
     return ((data.get("facts") or {}).get("us-gaap")) or {}
+
+
+SEC_ARCHIVE_URL = "https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/{document}"
+# An annual report's HTML runs to several MB; nothing past this is read.
+MAX_FILING_BYTES = 12_000_000
+
+
+def sec_text_request(url: str) -> dict:
+    """Seam for fetching a filing document as text (HTML), not JSON.
+
+    Used only by filing_review, on the owner's request, never by a screen. Same
+    contract as sec_request: never raises; {"ok", "status_code", "text", "reason"}.
+    Tests swap this whole function.
+    """
+    headers = {"User-Agent": os.getenv("SEC_EDGAR_USER_AGENT") or DEFAULT_USER_AGENT}
+    try:
+        with urlopen(Request(url, headers=headers), timeout=REQUEST_TIMEOUT_SECONDS) as response:
+            raw = response.read(MAX_FILING_BYTES)
+            return {
+                "ok": True,
+                "status_code": response.status,
+                "text": raw.decode("utf-8", "replace"),
+            }
+    except HTTPError as exc:
+        return {"ok": False, "status_code": exc.code, "text": "", "reason": f"http_{exc.code}"}
+    except Exception as exc:
+        return {"ok": False, "status_code": 0, "text": "", "reason": type(exc).__name__}
+
+
+def latest_annual_filing(symbol: str) -> dict:
+    """Locate the newest 10-K / 20-F / 40-F for a symbol: its URL and report date.
+
+    Reads the same submissions document the screen reads (so a warm cache serves
+    it). Returns {"status": "OK", ...} or {"status": "UNKNOWN"/"ERROR", "reason"}.
+    """
+    normalized = str(symbol or "").strip().upper()
+    try:
+        cik = resolve_cik(normalized)
+    except SecEdgarError as exc:
+        return {"status": "ERROR", "symbol": normalized, "reason": str(exc)}
+    if cik is None:
+        return {
+            "status": "UNKNOWN",
+            "symbol": normalized,
+            "reason": "ticker_not_found_in_sec_registry",
+        }
+    response = sec_request(SEC_SUBMISSIONS_URL.format(cik=cik))
+    if not response.get("ok"):
+        return {
+            "status": "ERROR",
+            "symbol": normalized,
+            "reason": f"sec_submissions_unavailable:{response.get('reason')}",
+        }
+    recent = ((response.get("data") or {}).get("filings") or {}).get("recent") or {}
+    forms = recent.get("form") or []
+    for index, form in enumerate(forms):
+        if form not in ANNUAL_FORMS:
+            continue
+        try:
+            accession = recent["accessionNumber"][index]
+            document = recent["primaryDocument"][index]
+        except (KeyError, IndexError, TypeError):
+            continue
+        if not accession or not document:
+            continue
+        report_dates = recent.get("reportDate") or []
+        return {
+            "status": "OK",
+            "symbol": normalized,
+            "cik": cik,
+            "form": form,
+            "accession": accession,
+            "report_date": report_dates[index] if index < len(report_dates) else None,
+            "url": SEC_ARCHIVE_URL.format(
+                cik=cik, accession=str(accession).replace("-", ""), document=document
+            ),
+        }
+    return {
+        "status": "UNKNOWN",
+        "symbol": normalized,
+        "reason": "no_annual_report_in_recent_filings",
+    }
 
 
 # ---------------------------------------------------------------------------

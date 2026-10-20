@@ -31,6 +31,10 @@ SCREEN_ALLOWED = {
     # Test support, not a screening path: it swaps sec_request so the real screen
     # runs on canned SEC payloads. Listed rather than hidden behind importlib.
     "sec_fixture.py",
+    # Not a screening path: it only locates and fetches the annual-report *text*
+    # (latest_annual_filing, sec_text_request) for a model to read. It produces no
+    # verdict -- at most a YELLOW review flag -- and never calls check_us_symbol.
+    "filing_review.py",
 }
 
 

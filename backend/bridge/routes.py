@@ -132,6 +132,10 @@ _ROUTE_LIST = (
         ZONE_GENERAL,
         cache_ttl_seconds=_TTL_COMPLIANCE,
     ),
+    # The Shariah monitor (self-reported holdings). Never cached: calling it is what
+    # records a colour change and advances the monitor's disposal clock, exactly as
+    # /portfolio/compliance does for the paper ledger. See client.refresh_monitor.
+    Route("monitor_run", "GET", "/monitor", ZONE_GENERAL),
     # --- Audit / evidence ---
     Route("evidence", "GET", "/api/evidence/{ticker}", ZONE_GENERAL, cache_ttl_seconds=_TTL_AUDIT),
     Route("execution_audit", "GET", "/execution-audit", ZONE_GENERAL, cache_ttl_seconds=_TTL_AUDIT),

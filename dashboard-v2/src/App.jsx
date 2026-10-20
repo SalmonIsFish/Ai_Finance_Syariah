@@ -5,6 +5,7 @@ import PortfolioRisk from "./pages/PortfolioRisk";
 import MarketScreening from "./pages/MarketScreening";
 import ShariahUniverse from "./pages/ShariahUniverse";
 import TheLedger from "./pages/TheLedger";
+import ShariahMonitor from "./pages/ShariahMonitor";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="market" element={<MarketScreening />} />
           <Route path="securities" element={<ShariahUniverse />} />
           <Route path="ledger" element={<TheLedger />} />
+          <Route path="monitor" element={<ShariahMonitor />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

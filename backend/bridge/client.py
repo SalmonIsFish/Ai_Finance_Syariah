@@ -318,3 +318,8 @@ class AmanahClient:
         a religious deadline from advancing, so this path always goes to the droplet.
         """
         return self.call("portfolio_compliance", bypass_cache=True)
+
+    def refresh_monitor(self) -> dict:
+        """Uncached read, scheduled daily. GET /monitor records colour changes and
+        advances the monitor's disposal clock, so it must really reach the droplet."""
+        return self.call("monitor_run", bypass_cache=True)

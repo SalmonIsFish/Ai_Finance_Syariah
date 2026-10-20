@@ -67,7 +67,9 @@ from shariah_screen_store import (
     list_shariah_screens,
 )
 from shariah_explain import explain_symbol
+import filing_review
 import holdings_compliance
+import monitor_api
 from shariah_trace import describe_approval
 from trading_modes import execution_markets, trading_mode_status
 from watchlist_store import (
@@ -2304,6 +2306,18 @@ def portfolio_compliance(actor: auth.Actor = Depends(get_owner_actor)) -> dict:
     finally:
         connection.close()
     return {"screening": screening, "purification": purification}
+
+
+# The Shariah monitor for self-reported holdings (holdings_monitor). Owner-only;
+# shares this module's database, auth and price lookup.
+app.include_router(
+    monitor_api.build_router(
+        db,
+        get_owner_actor,
+        compliance_price_lookup,
+        filing_reviewer=filing_review.review_symbol,
+    )
+)
 
 
 @app.get("/portfolio")

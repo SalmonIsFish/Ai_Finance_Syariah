@@ -112,3 +112,37 @@ export const fetchScreenedUS = () => fetchGet("/shariah/screens?latest_only=true
  *  records orders actually put through the gate chain, not just screening. */
 export const fetchEvidence = (ticker, limit = 20) =>
   fetchGet(`/api/evidence/${encodeURIComponent(ticker)}?limit=${limit}`);
+
+// --- Shariah monitor (backend monitor_api.py) ---------------------------------
+
+const postJson = async (url, body) => {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body ?? {}),
+  });
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("Unauthorized - Please refresh and sign in.");
+    }
+    throw new Error(await errorText(res, `Failed: ${url}`));
+  }
+  return await res.json();
+};
+
+/** Screens and colours every holding you reported. This call WRITES: it records
+ *  colour changes and advances the disposal clock, and each US holding is a live
+ *  SEC fetch -- so the page calls it on load and on "Re-check", never on a timer. */
+export const runMonitor = () => fetchGet("/monitor");
+export const fetchMonitorAlerts = () => fetchGet("/monitor/alerts?limit=20");
+export const fetchMonitorSettings = () => fetchGet("/monitor/settings");
+export const saveMonitorSettings = (methodology) => postJson("/monitor/settings", { methodology });
+export const addHolding = (holding) => postJson("/monitor/holdings", holding);
+export const removeHolding = (symbol, broker) => postJson("/monitor/holdings/remove", { symbol, broker });
+export const importHoldingsCsv = (broker, csv) => postJson("/monitor/holdings/import", { broker, csv });
+export const recordSale = (sale) => postJson("/monitor/sales", sale);
+/** Owner-only, and RED-only: there is deliberately no call that marks a holding green. */
+export const escalateHolding = (symbol, detail, reportDate) =>
+  postJson("/monitor/escalate", { symbol, detail, report_date: reportDate ?? null });
+/** Asks a model to read the latest annual report. It can only add a YELLOW flag. */
+export const reviewFiling = (symbol) => postJson(`/monitor/review/${encodeURIComponent(symbol)}`);
